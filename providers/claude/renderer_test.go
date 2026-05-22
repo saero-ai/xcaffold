@@ -837,3 +837,10 @@ func TestClaude_ActivationAlways_RulePlusSkill(t *testing.T) {
 }
 
 func intPtr(n int) *int { return &n }
+
+func TestSupportsGlobalScope_Claude(t *testing.T) {
+	r := New()
+	if !r.SupportsGlobalScope() {
+		t.Error("expected Claude renderer to support global scope")
+	}
+}

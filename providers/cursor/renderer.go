@@ -44,6 +44,12 @@ func (r *Renderer) OutputDir() string {
 	return ".cursor"
 }
 
+// SupportsGlobalScope returns true; Cursor supports user-level global scope
+// compilation for agents.
+func (r *Renderer) SupportsGlobalScope() bool {
+	return true
+}
+
 // Capabilities returns the CapabilitySet for the Cursor renderer.
 // Cursor supports agents, skills (with references/scripts/assets subdirs), rules,
 // workflows (via rule-plus-skill lowering), hooks, MCP, and project instructions.

@@ -114,6 +114,10 @@ type globalDocument struct {
 	Hooks     ast.HookConfig                `yaml:"hooks,omitempty"`
 	MCP       map[string]ast.MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]ast.WorkflowConfig `yaml:"workflows,omitempty"`
+	Policies  map[string]ast.PolicyConfig   `yaml:"policies,omitempty"`
+	Contexts  map[string]ast.ContextConfig  `yaml:"contexts,omitempty"`
+	Memory    map[string]ast.MemoryConfig   `yaml:"memory,omitempty"`
+	Templates map[string]ast.TemplateConfig `yaml:"templates,omitempty"`
 }
 
 // policyDocument wraps PolicyConfig with envelope fields for multi-kind parsing.
@@ -331,6 +335,48 @@ func mergeMCPs(config *ast.XcaffoldConfig, mcp map[string]ast.MCPConfig) error {
 			return fmt.Errorf("duplicate mcp ID %q", k)
 		}
 		config.MCP[k] = v
+	}
+	return nil
+}
+
+// mergePolicies adds policies from doc to config, checking for duplicates.
+func mergePolicies(config *ast.XcaffoldConfig, policies map[string]ast.PolicyConfig) error {
+	if config.Policies == nil {
+		config.Policies = make(map[string]ast.PolicyConfig)
+	}
+	for k, v := range policies {
+		if _, exists := config.Policies[k]; exists {
+			return fmt.Errorf("duplicate policy ID %q", k)
+		}
+		config.Policies[k] = v
+	}
+	return nil
+}
+
+// mergeContexts adds contexts from doc to config, checking for duplicates.
+func mergeContexts(config *ast.XcaffoldConfig, contexts map[string]ast.ContextConfig) error {
+	if config.Contexts == nil {
+		config.Contexts = make(map[string]ast.ContextConfig)
+	}
+	for k, v := range contexts {
+		if _, exists := config.Contexts[k]; exists {
+			return fmt.Errorf("duplicate context ID %q", k)
+		}
+		config.Contexts[k] = v
+	}
+	return nil
+}
+
+// mergeMemory adds memory entries from doc to config, checking for duplicates.
+func mergeMemory(config *ast.XcaffoldConfig, memory map[string]ast.MemoryConfig) error {
+	if config.Memory == nil {
+		config.Memory = make(map[string]ast.MemoryConfig)
+	}
+	for k, v := range memory {
+		if _, exists := config.Memory[k]; exists {
+			return fmt.Errorf("duplicate memory ID %q", k)
+		}
+		config.Memory[k] = v
 	}
 	return nil
 }

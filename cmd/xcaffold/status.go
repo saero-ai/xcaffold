@@ -82,7 +82,16 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	var err error
 
 	if statusBlueprintFlag != "" {
-		statePath := state.StateFilePath(dir, statusBlueprintFlag)
+		var statePath string
+		if globalFlag {
+			globalStateDir, err := state.GlobalStateDir()
+			if err != nil {
+				return fmt.Errorf("could not determine global state directory: %w", err)
+			}
+			statePath = filepath.Join(globalStateDir, filepath.Base(statusBlueprintFlag)+".xcaf.state")
+		} else {
+			statePath = state.StateFilePath(dir, statusBlueprintFlag)
+		}
 		manifest, err = state.ReadState(statePath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -98,7 +107,17 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 		detectedBlueprint = statusBlueprintFlag
 	} else {
-		manifest, detectedBlueprint, err = state.FindMostRecentState(state.StateDir(dir))
+		var stateDir string
+		if globalFlag {
+			globalStateDir, err := state.GlobalStateDir()
+			if err != nil {
+				return fmt.Errorf("could not determine global state directory: %w", err)
+			}
+			stateDir = globalStateDir
+		} else {
+			stateDir = state.StateDir(dir)
+		}
+		manifest, detectedBlueprint, err = state.FindMostRecentState(stateDir)
 		if err != nil {
 			return fmt.Errorf("could not read state: %w", err)
 		}
@@ -179,7 +198,9 @@ type statusRow struct {
 
 // resolveStatusOutputDir determines the base and output directories for drift
 // detection. Priority: --output-dir flag > stored output-dir in state > default.
-func resolveStatusOutputDir(dir, target string, ts state.TargetState) (baseDir, outputDir string) {
+// When isGlobal is true, the output dir is resolved relative to the user home dir,
+// not the global config dir (~/.xcaffold/).
+func resolveStatusOutputDir(dir, target string, ts state.TargetState, isGlobal bool) (baseDir, outputDir string) {
 	override := statusOutputDirFlag
 	stored := ts.OutputDir
 
@@ -199,6 +220,10 @@ func resolveStatusOutputDir(dir, target string, ts state.TargetState) (baseDir, 
 		}
 		return base, filepath.Join(base, compiler.OutputDir(target))
 	default:
+		if isGlobal {
+			homeDir := filepath.Dir(dir) // ~/.xcaffold -> ~
+			return homeDir, filepath.Join(homeDir, compiler.OutputDir(target))
+		}
 		return dir, filepath.Join(dir, compiler.OutputDir(target))
 	}
 }
@@ -210,7 +235,7 @@ func buildProviderRows(dir string, manifest *state.StateManifest) ([]statusRow, 
 
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
-		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts)
+		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts, globalFlag)
 		entries := state.CollectDriftedFiles(baseDir, outputDir, ts)
 		drifted := len(entries)
 		rows = append(rows, statusRow{name: name, count: len(ts.Artifacts), drifted: drifted})
@@ -287,7 +312,7 @@ func printDriftBlock(targets map[string]state.TargetState, allDriftedFiles map[s
 func printAllFilesPerProvider(dir string, manifest *state.StateManifest) {
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
-		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts)
+		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts, globalFlag)
 		fmt.Printf("\n  %s\n\n", bold(name))
 		printAllFilesGrouped(baseDir, outputDir, ts)
 	}
@@ -317,7 +342,7 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	}
 
 	projectName := filepath.Base(dir)
-	baseDir, outputDir := resolveStatusOutputDir(dir, target, ts)
+	baseDir, outputDir := resolveStatusOutputDir(dir, target, ts, globalFlag)
 	driftedEntries := state.CollectDriftedFiles(baseDir, outputDir, ts)
 	drifted := len(driftedEntries)
 	synced := len(ts.Artifacts) - drifted

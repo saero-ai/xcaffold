@@ -53,6 +53,9 @@ func (r *Renderer) Target() string { return targetName }
 // OutputDir returns the base output directory for Codex.
 func (r *Renderer) OutputDir() string { return ".codex" }
 
+// SupportsGlobalScope returns false; Codex global scope support is unverified.
+func (r *Renderer) SupportsGlobalScope() bool { return false }
+
 // Capabilities declares the resource kinds the Codex renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{

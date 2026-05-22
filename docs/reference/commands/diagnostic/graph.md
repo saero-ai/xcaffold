@@ -25,7 +25,7 @@ xcaffold graph [file] [flags]
 | `--all` | — | `bool` | `false` | Show global topology and all registered projects. Mutually exclusive with `--project` and `--global`. |
 | `--scan-output` | — | `bool` | `false` | Scan compiled output directories for undeclared artifacts. |
 | `--format` | — | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). Mutually exclusive with `--all`. |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/xcaf/global.xcaf`). Mutually exclusive with `--all`. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 
 ## Behavior

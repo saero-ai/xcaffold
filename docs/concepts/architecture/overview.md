@@ -16,7 +16,7 @@ graph LR
   FAIL["stderr violations"]
 
   subgraph Global Home ["~/.xcaffold/"]
-    GC[global.xcaf]
+    GC["xcaf/global.xcaf"]
   end
 
   subgraph User Codebase
@@ -56,11 +56,16 @@ Each target declared in `project.xcaf` dispatches to a registered `TargetRendere
 
 ## Global Home (`~/.xcaffold/`)
 
-Created automatically on first run by `registry.EnsureGlobalHome()`. Contains one seed file:
+Created automatically on first run by `registry.EnsureGlobalHome()`. Contains:
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| `global.xcaf` | User-wide agent config (uses `kind: global` for global-scope resources and settings) — populated by provider-registered scan functions |
+| `xcaf/global.xcaf` | User-wide agent config (uses `kind: global` for global-scope resources and settings) |
+| `xcaf/agents/` | Global agent definitions |
+| `xcaf/skills/` | Global skill definitions |
+| `xcaf/rules/` | Global rule definitions |
+| `state/` | Compilation state for global scope |
+| `registry.xcaf` | Project registry (tracks all managed projects) |
 
 Each provider registers a `ProviderManifest` (including a `GlobalScanner` function) via `providers.Register()` in its `init()`. Each scanner discovers platform-specific configuration artifacts and writes them into `global.xcaf`.
 
@@ -77,7 +82,7 @@ Every `.xcaf` file carries a `kind:` field as its first key. The parser reads th
 | `project` | Project | `XcaffoldConfig` | Primary. Exactly 1 per project. |
 | `hooks` | Project | `XcaffoldConfig` | Standalone hooks with `events:` wrapper |
 | `settings` | Project | `XcaffoldConfig` | Standalone settings |
-| `global` | Project | `XcaffoldConfig` | Global-scope resources (`~/.xcaffold/global.xcaf`) |
+| `global` | Project | `XcaffoldConfig` | Global-scope resources (`~/.xcaffold/xcaf/global.xcaf`) |
 | `agent` | Resource | `AgentConfig` | Agent definition |
 | `skill` | Resource | `SkillConfig` | Skill with steps and references |
 | `rule` | Resource | `RuleConfig` | Behavioral rule |

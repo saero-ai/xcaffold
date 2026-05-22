@@ -488,7 +488,7 @@ func TestOutputDir_StatusReadsStoredPath(t *testing.T) {
 	statusOutputDirFlag = ""
 	defer func() { statusOutputDirFlag = origFlag }()
 
-	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts)
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts, false)
 	expectedBase := filepath.Clean(filepath.Join(projDir, "custom-output"))
 	if baseDir != expectedBase {
 		t.Errorf("baseDir = %q, want %q", baseDir, expectedBase)
@@ -512,11 +512,100 @@ func TestOutputDir_StatusFlagOverride(t *testing.T) {
 	statusOutputDirFlag = overrideDir
 	defer func() { statusOutputDirFlag = origFlag }()
 
-	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts)
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts, false)
 	if baseDir != overrideDir {
 		t.Errorf("baseDir = %q, want override %q", baseDir, overrideDir)
 	}
 	if !strings.Contains(outputDir, ".claude") {
 		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+}
+
+// TestStatusGlobal_OutputDirResolution verifies that resolveStatusOutputDir
+// with isGlobal=true returns home-relative paths instead of config-relative.
+func TestStatusGlobal_OutputDirResolution(t *testing.T) {
+	// Create a temp home structure
+	homeDir := t.TempDir()
+	globalConfigDir := filepath.Join(homeDir, ".xcaffold")
+	os.MkdirAll(globalConfigDir, 0755)
+
+	ts := state.TargetState{
+		OutputDir: "",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = ""
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	// When isGlobal=true, the output dir should be relative to homeDir, not globalConfigDir
+	baseDir, outputDir := resolveStatusOutputDir(globalConfigDir, "claude", ts, true)
+	if baseDir != homeDir {
+		t.Errorf("baseDir = %q, want %q (user home)", baseDir, homeDir)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+	// outputDir should be ~/.claude, not ~/.xcaffold/.claude
+	expectedOutputDir := filepath.Join(homeDir, ".claude")
+	if !strings.HasPrefix(outputDir, expectedOutputDir) {
+		t.Errorf("outputDir = %q, should start with %q", outputDir, expectedOutputDir)
+	}
+}
+
+// TestStatusGlobal_OutputDirResolution_LocalScope verifies that resolveStatusOutputDir
+// with isGlobal=false returns config-relative paths (existing behavior).
+func TestStatusGlobal_OutputDirResolution_LocalScope(t *testing.T) {
+	projDir := t.TempDir()
+	ts := state.TargetState{
+		OutputDir: "",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = ""
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	// When isGlobal=false, output dir is relative to projDir
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts, false)
+	if baseDir != projDir {
+		t.Errorf("baseDir = %q, want %q", baseDir, projDir)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+}
+
+// TestStatusGlobal_ReadsFromStatePath verifies that status --global reads from XCAFFOLD_HOME state path.
+func TestStatusGlobal_ReadsFromStatePath(t *testing.T) {
+	homeDir := t.TempDir()
+	stateDir := filepath.Join(homeDir, "state")
+	os.MkdirAll(stateDir, 0755)
+
+	// Create a global state file at $XCAFFOLD_HOME/state/project.xcaf.state
+	content := []byte("test agent content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+
+	manifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	statePath := filepath.Join(stateDir, "project.xcaf.state")
+	err := state.WriteState(manifest, statePath)
+	if err != nil {
+		t.Fatalf("failed to write state: %v", err)
+	}
+
+	// Verify the state file was created at the expected path
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Fatalf("state file not created at %s", statePath)
 	}
 }

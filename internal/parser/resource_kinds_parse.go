@@ -418,6 +418,28 @@ func parseGlobalDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, infer
 	if err := mergeMCPs(config, doc.MCP); err != nil {
 		return err
 	}
+	if err := mergePolicies(config, doc.Policies); err != nil {
+		return err
+	}
+	if err := mergeContexts(config, doc.Contexts); err != nil {
+		return err
+	}
+	if err := mergeMemory(config, doc.Memory); err != nil {
+		return err
+	}
+
+	// Templates are schema-only; direct assignment after nil-check
+	if len(doc.Templates) > 0 {
+		if config.Templates == nil {
+			config.Templates = make(map[string]ast.TemplateConfig)
+		}
+		for k, v := range doc.Templates {
+			if _, exists := config.Templates[k]; exists {
+				return fmt.Errorf("duplicate template ID %q", k)
+			}
+			config.Templates[k] = v
+		}
+	}
 
 	return nil
 }

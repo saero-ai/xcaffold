@@ -354,6 +354,215 @@ func TestClearableList_MarshalYAML_WithValues(t *testing.T) {
 	require.Contains(t, string(out), "y")
 }
 
+// --- StripInherited tests ---
+
+func TestStripInherited_Policies(t *testing.T) {
+	cfg := &XcaffoldConfig{
+		ResourceScope: ResourceScope{
+			Policies: map[string]PolicyConfig{
+				"keep-this": {
+					Name:      "keep-this",
+					Inherited: false,
+				},
+				"remove-this": {
+					Name:      "remove-this",
+					Inherited: true,
+				},
+			},
+		},
+	}
+
+	cfg.StripInherited()
+
+	// Non-inherited policy should remain
+	require.Contains(t, cfg.Policies, "keep-this")
+	require.Equal(t, false, cfg.Policies["keep-this"].Inherited)
+
+	// Inherited policy should be removed
+	require.NotContains(t, cfg.Policies, "remove-this")
+	require.Len(t, cfg.Policies, 1)
+}
+
+func TestStripInherited_Memory(t *testing.T) {
+	cfg := &XcaffoldConfig{
+		ResourceScope: ResourceScope{
+			Memory: map[string]MemoryConfig{
+				"keep-this": {
+					Name:      "keep-this",
+					Inherited: false,
+				},
+				"remove-this": {
+					Name:      "remove-this",
+					Inherited: true,
+				},
+			},
+		},
+	}
+
+	cfg.StripInherited()
+
+	// Non-inherited memory should remain
+	require.Contains(t, cfg.Memory, "keep-this")
+	require.Equal(t, false, cfg.Memory["keep-this"].Inherited)
+
+	// Inherited memory should be removed
+	require.NotContains(t, cfg.Memory, "remove-this")
+	require.Len(t, cfg.Memory, 1)
+}
+
+func TestStripInherited_Contexts(t *testing.T) {
+	cfg := &XcaffoldConfig{
+		ResourceScope: ResourceScope{
+			Contexts: map[string]ContextConfig{
+				"keep-this": {
+					Name:      "keep-this",
+					Inherited: false,
+				},
+				"remove-this": {
+					Name:      "remove-this",
+					Inherited: true,
+				},
+			},
+		},
+	}
+
+	cfg.StripInherited()
+
+	// Non-inherited context should remain
+	require.Contains(t, cfg.Contexts, "keep-this")
+	require.Equal(t, false, cfg.Contexts["keep-this"].Inherited)
+
+	// Inherited context should be removed
+	require.NotContains(t, cfg.Contexts, "remove-this")
+	require.Len(t, cfg.Contexts, 1)
+}
+
+func TestStripInherited_Templates(t *testing.T) {
+	cfg := &XcaffoldConfig{
+		ResourceScope: ResourceScope{
+			Templates: map[string]TemplateConfig{
+				"keep-this": {
+					Name:      "keep-this",
+					Inherited: false,
+				},
+				"remove-this": {
+					Name:      "remove-this",
+					Inherited: true,
+				},
+			},
+		},
+	}
+
+	cfg.StripInherited()
+
+	// Non-inherited template should remain
+	require.Contains(t, cfg.Templates, "keep-this")
+	require.Equal(t, false, cfg.Templates["keep-this"].Inherited)
+
+	// Inherited template should be removed
+	require.NotContains(t, cfg.Templates, "remove-this")
+	require.Len(t, cfg.Templates, 1)
+}
+
+func TestStripInherited_All11Types(t *testing.T) {
+	cfg := &XcaffoldConfig{
+		ResourceScope: ResourceScope{
+			Agents: map[string]AgentConfig{
+				"keep-agent": {Name: "keep-agent", Inherited: false},
+				"rm-agent":   {Name: "rm-agent", Inherited: true},
+			},
+			Skills: map[string]SkillConfig{
+				"keep-skill": {Name: "keep-skill", Inherited: false},
+				"rm-skill":   {Name: "rm-skill", Inherited: true},
+			},
+			Rules: map[string]RuleConfig{
+				"keep-rule": {Name: "keep-rule", Inherited: false},
+				"rm-rule":   {Name: "rm-rule", Inherited: true},
+			},
+			MCP: map[string]MCPConfig{
+				"keep-mcp": {Name: "keep-mcp", Inherited: false},
+				"rm-mcp":   {Name: "rm-mcp", Inherited: true},
+			},
+			Workflows: map[string]WorkflowConfig{
+				"keep-workflow": {Name: "keep-workflow", Inherited: false},
+				"rm-workflow":   {Name: "rm-workflow", Inherited: true},
+			},
+			Policies: map[string]PolicyConfig{
+				"keep-policy": {Name: "keep-policy", Inherited: false},
+				"rm-policy":   {Name: "rm-policy", Inherited: true},
+			},
+			Memory: map[string]MemoryConfig{
+				"keep-memory": {Name: "keep-memory", Inherited: false},
+				"rm-memory":   {Name: "rm-memory", Inherited: true},
+			},
+			Contexts: map[string]ContextConfig{
+				"keep-context": {Name: "keep-context", Inherited: false},
+				"rm-context":   {Name: "rm-context", Inherited: true},
+			},
+			Templates: map[string]TemplateConfig{
+				"keep-template": {Name: "keep-template", Inherited: false},
+				"rm-template":   {Name: "rm-template", Inherited: true},
+			},
+		},
+		Hooks: map[string]NamedHookConfig{
+			"keep-hooks": {Name: "keep-hooks", Inherited: false},
+			"rm-hooks":   {Name: "rm-hooks", Inherited: true},
+		},
+		Settings: map[string]SettingsConfig{
+			"keep-settings": {Name: "keep-settings", Inherited: false},
+			"rm-settings":   {Name: "rm-settings", Inherited: true},
+		},
+	}
+
+	cfg.StripInherited()
+
+	// Verify all 11 types: agents, skills, rules, mcp, workflows, hooks,
+	// settings, policies, memory, contexts, templates
+	require.Len(t, cfg.Agents, 1)
+	require.Contains(t, cfg.Agents, "keep-agent")
+	require.NotContains(t, cfg.Agents, "rm-agent")
+
+	require.Len(t, cfg.Skills, 1)
+	require.Contains(t, cfg.Skills, "keep-skill")
+	require.NotContains(t, cfg.Skills, "rm-skill")
+
+	require.Len(t, cfg.Rules, 1)
+	require.Contains(t, cfg.Rules, "keep-rule")
+	require.NotContains(t, cfg.Rules, "rm-rule")
+
+	require.Len(t, cfg.MCP, 1)
+	require.Contains(t, cfg.MCP, "keep-mcp")
+	require.NotContains(t, cfg.MCP, "rm-mcp")
+
+	require.Len(t, cfg.Workflows, 1)
+	require.Contains(t, cfg.Workflows, "keep-workflow")
+	require.NotContains(t, cfg.Workflows, "rm-workflow")
+
+	require.Len(t, cfg.Hooks, 1)
+	require.Contains(t, cfg.Hooks, "keep-hooks")
+	require.NotContains(t, cfg.Hooks, "rm-hooks")
+
+	require.Len(t, cfg.Settings, 1)
+	require.Contains(t, cfg.Settings, "keep-settings")
+	require.NotContains(t, cfg.Settings, "rm-settings")
+
+	require.Len(t, cfg.Policies, 1)
+	require.Contains(t, cfg.Policies, "keep-policy")
+	require.NotContains(t, cfg.Policies, "rm-policy")
+
+	require.Len(t, cfg.Memory, 1)
+	require.Contains(t, cfg.Memory, "keep-memory")
+	require.NotContains(t, cfg.Memory, "rm-memory")
+
+	require.Len(t, cfg.Contexts, 1)
+	require.Contains(t, cfg.Contexts, "keep-context")
+	require.NotContains(t, cfg.Contexts, "rm-context")
+
+	require.Len(t, cfg.Templates, 1)
+	require.Contains(t, cfg.Templates, "keep-template")
+	require.NotContains(t, cfg.Templates, "rm-template")
+}
+
 // Helper function for creating bool pointers in tests
 func boolPtr(b bool) *bool {
 	return &b

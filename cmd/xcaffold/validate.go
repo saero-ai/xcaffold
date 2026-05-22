@@ -50,11 +50,10 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	if globalFlag {
-		return fmt.Errorf("global scope is not yet available")
-	}
-
 	parseRoot := deriveParseRoot(xcafPath)
+	if globalFlag {
+		parseRoot = filepath.Join(globalXcafHome, "xcaf")
+	}
 	printValidateHeader(parseRoot)
 
 	cfg, crossRefIssues, hasErrors, err := validateSyntax(parseRoot, xcafPath)
@@ -107,7 +106,7 @@ func printValidateHeader(parseRoot string) {
 	fmt.Println(formatHeader(headerInfo{
 		project:     projectName,
 		blueprint:   validateBlueprintFlag,
-		isGlobal:    false,
+		isGlobal:    globalFlag,
 		provider:    targetFlag,
 		lastApplied: lastApplied,
 	}))
