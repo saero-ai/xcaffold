@@ -50,7 +50,7 @@ Use `xcaffold registry prune` to remove stale entries. Orphan entries may indica
 The project registry and global scope (`~/.xcaffold/xcaf/global.xcaf`) are independent systems that share the `~/.xcaffold/` home directory:
 
 - The **registry** tracks project locations and metadata.
-- The **global scope** defines shared resources inherited by projects via `extends: global`.
+- The **global scope** defines shared resources inherited implicitly by all projects.
 
 They do not depend on each other. A project can be registered without using global scope, and global scope can exist without any registered projects.
 
