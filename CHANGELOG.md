@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/saero-ai/xcaffold/compare/v0.8.0...v0.9.0) (2026-05-22)
+
+
+### Features
+
+* **cli:** add registry subcommands for project management ([1330a3f](https://github.com/saero-ai/xcaffold/commit/1330a3f5f932d0b6e1d497410207336088f004b3))
+* **cli:** add registry subcommands for project management ([3821001](https://github.com/saero-ai/xcaffold/commit/38210011f89a3310f9be9a3e283141ab648d8250))
+* **cli:** unblock --global, implement init bootstrap, wire global state ([92bc6b9](https://github.com/saero-ai/xcaffold/commit/92bc6b9d241823b146188e35447b0f72e7842727))
+* **compiler:** complete global scope in parser, compiler, and AST ([337ef5b](https://github.com/saero-ai/xcaffold/commit/337ef5b58738a1f4cb9e35fe86b0c088e74db492))
+* complete global scope support ([5be7f31](https://github.com/saero-ai/xcaffold/commit/5be7f3172914b4ffbdf907ca45501ea86651979d))
+* registry CLI and global scope completion ([0400a42](https://github.com/saero-ai/xcaffold/commit/0400a42aa71b9d4dae352ab2f2d09bd5457c678a))
+* **registry:** expand GlobalScanResult with policies and contexts ([1dd16b3](https://github.com/saero-ai/xcaffold/commit/1dd16b3498b085f4fdf707fcebaa71b444d1c949))
+* **renderer:** add SupportsGlobalScope to all providers ([1daa6ca](https://github.com/saero-ai/xcaffold/commit/1daa6ca41dbd69ac63d5af9a0965d6e437b636e5))
+
 ## [0.8.0](https://github.com/saero-ai/xcaffold/compare/v0.7.2...v0.8.0) (2026-05-20)
 
 
