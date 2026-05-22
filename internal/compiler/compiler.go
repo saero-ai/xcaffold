@@ -44,6 +44,9 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 	}
 
 	if config.Project != nil {
+		if err := checkPolicyConflicts(config.ResourceScope.Policies, config.Project.ResourceScope.Policies); err != nil {
+			return nil, nil, err
+		}
 		mergeResourceScope(&config.ResourceScope, &config.Project.ResourceScope)
 	}
 
@@ -139,14 +142,30 @@ func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 }
 
 // mergeResourceScope overlays project-scoped resources onto the root scope.
-// For map-based resources (agents, skills, rules, MCP, workflows), project
-// entries override global entries with the same ID.
+// For all 9 map-based resource kinds, project entries override global entries
+// with the same ID.
 func mergeResourceScope(root, project *ast.ResourceScope) {
 	root.Agents = mergeMap(root.Agents, project.Agents)
 	root.Skills = mergeMap(root.Skills, project.Skills)
 	root.Rules = mergeMap(root.Rules, project.Rules)
 	root.MCP = mergeMap(root.MCP, project.MCP)
 	root.Workflows = mergeMap(root.Workflows, project.Workflows)
+	root.Policies = mergeMap(root.Policies, project.Policies)
+	root.Memory = mergeMap(root.Memory, project.Memory)
+	root.Contexts = mergeMap(root.Contexts, project.Contexts)
+	root.Templates = mergeMap(root.Templates, project.Templates)
+}
+
+// checkPolicyConflicts returns an error if any project policy shares a name with
+// a global policy that is marked Inherited=true. Projects may add new policy names
+// but cannot override inherited global policies.
+func checkPolicyConflicts(global, project map[string]ast.PolicyConfig) error {
+	for name := range project {
+		if existing, exists := global[name]; exists && existing.Inherited {
+			return fmt.Errorf("policy %q: project policy conflicts with inherited global policy — projects can add new policies but cannot override inherited ones", name)
+		}
+	}
+	return nil
 }
 
 // mergeMap copies base entries then overlays child entries (child wins on conflict).
