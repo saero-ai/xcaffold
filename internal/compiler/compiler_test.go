@@ -632,3 +632,277 @@ func TestDiscoverAgentMemory_NoMemoryDir(t *testing.T) {
 	result := DiscoverAgentMemory(dir, nil, nil)
 	assert.Empty(t, result)
 }
+
+// ---- mergeResourceScope tests ----
+
+func TestMergeResourceScope_Policies(t *testing.T) {
+	root := &ast.ResourceScope{
+		Policies: map[string]ast.PolicyConfig{
+			"global-policy": {Description: "global"},
+		},
+	}
+	project := &ast.ResourceScope{
+		Policies: map[string]ast.PolicyConfig{
+			"project-policy": {Description: "project"},
+		},
+	}
+	mergeResourceScope(root, project)
+	assert.Len(t, root.Policies, 2)
+	assert.Contains(t, root.Policies, "global-policy")
+	assert.Contains(t, root.Policies, "project-policy")
+}
+
+func TestMergeResourceScope_Memory(t *testing.T) {
+	root := &ast.ResourceScope{
+		Memory: map[string]ast.MemoryConfig{
+			"global-mem": {Name: "global"},
+		},
+	}
+	project := &ast.ResourceScope{
+		Memory: map[string]ast.MemoryConfig{
+			"project-mem": {Name: "project"},
+		},
+	}
+	mergeResourceScope(root, project)
+	assert.Len(t, root.Memory, 2)
+	assert.Contains(t, root.Memory, "global-mem")
+	assert.Contains(t, root.Memory, "project-mem")
+}
+
+func TestMergeResourceScope_Contexts(t *testing.T) {
+	root := &ast.ResourceScope{
+		Contexts: map[string]ast.ContextConfig{
+			"global-ctx": {Description: "global"},
+		},
+	}
+	project := &ast.ResourceScope{
+		Contexts: map[string]ast.ContextConfig{
+			"project-ctx": {Description: "project"},
+		},
+	}
+	mergeResourceScope(root, project)
+	assert.Len(t, root.Contexts, 2)
+	assert.Contains(t, root.Contexts, "global-ctx")
+	assert.Contains(t, root.Contexts, "project-ctx")
+}
+
+func TestMergeResourceScope_Templates(t *testing.T) {
+	root := &ast.ResourceScope{
+		Templates: map[string]ast.TemplateConfig{
+			"global-tmpl": {Description: "global"},
+		},
+	}
+	project := &ast.ResourceScope{
+		Templates: map[string]ast.TemplateConfig{
+			"project-tmpl": {Description: "project"},
+		},
+	}
+	mergeResourceScope(root, project)
+	assert.Len(t, root.Templates, 2)
+	assert.Contains(t, root.Templates, "global-tmpl")
+	assert.Contains(t, root.Templates, "project-tmpl")
+}
+
+func TestMergeResourceScope_All9Kinds(t *testing.T) {
+	root := &ast.ResourceScope{
+		Agents:    map[string]ast.AgentConfig{"g-agent": {}},
+		Skills:    map[string]ast.SkillConfig{"g-skill": {}},
+		Rules:     map[string]ast.RuleConfig{"g-rule": {}},
+		MCP:       map[string]ast.MCPConfig{"g-mcp": {}},
+		Workflows: map[string]ast.WorkflowConfig{"g-wf": {}},
+		Policies:  map[string]ast.PolicyConfig{"g-policy": {}},
+		Memory:    map[string]ast.MemoryConfig{"g-mem": {}},
+		Contexts:  map[string]ast.ContextConfig{"g-ctx": {}},
+		Templates: map[string]ast.TemplateConfig{"g-tmpl": {}},
+	}
+	project := &ast.ResourceScope{
+		Agents:    map[string]ast.AgentConfig{"p-agent": {}},
+		Skills:    map[string]ast.SkillConfig{"p-skill": {}},
+		Rules:     map[string]ast.RuleConfig{"p-rule": {}},
+		MCP:       map[string]ast.MCPConfig{"p-mcp": {}},
+		Workflows: map[string]ast.WorkflowConfig{"p-wf": {}},
+		Policies:  map[string]ast.PolicyConfig{"p-policy": {}},
+		Memory:    map[string]ast.MemoryConfig{"p-mem": {}},
+		Contexts:  map[string]ast.ContextConfig{"p-ctx": {}},
+		Templates: map[string]ast.TemplateConfig{"p-tmpl": {}},
+	}
+	mergeResourceScope(root, project)
+
+	assert.Len(t, root.Agents, 2)
+	assert.Len(t, root.Skills, 2)
+	assert.Len(t, root.Rules, 2)
+	assert.Len(t, root.MCP, 2)
+	assert.Len(t, root.Workflows, 2)
+	assert.Len(t, root.Policies, 2)
+	assert.Len(t, root.Memory, 2)
+	assert.Len(t, root.Contexts, 2)
+	assert.Len(t, root.Templates, 2)
+}
+
+func TestMergeResourceScope_ProjectOverridesGlobal(t *testing.T) {
+	root := &ast.ResourceScope{
+		Agents:    map[string]ast.AgentConfig{"shared": {Description: "global"}},
+		Policies:  map[string]ast.PolicyConfig{"shared": {Description: "global"}},
+		Memory:    map[string]ast.MemoryConfig{"shared": {Name: "global"}},
+		Contexts:  map[string]ast.ContextConfig{"shared": {Description: "global"}},
+		Templates: map[string]ast.TemplateConfig{"shared": {Description: "global"}},
+	}
+	project := &ast.ResourceScope{
+		Agents:    map[string]ast.AgentConfig{"shared": {Description: "project"}},
+		Policies:  map[string]ast.PolicyConfig{"shared": {Description: "project"}},
+		Memory:    map[string]ast.MemoryConfig{"shared": {Name: "project"}},
+		Contexts:  map[string]ast.ContextConfig{"shared": {Description: "project"}},
+		Templates: map[string]ast.TemplateConfig{"shared": {Description: "project"}},
+	}
+	mergeResourceScope(root, project)
+
+	assert.Equal(t, "project", root.Agents["shared"].Description)
+	assert.Equal(t, "project", root.Policies["shared"].Description)
+	assert.Equal(t, "project", root.Memory["shared"].Name)
+	assert.Equal(t, "project", root.Contexts["shared"].Description)
+	assert.Equal(t, "project", root.Templates["shared"].Description)
+}
+
+// ---- Policy additive-only merge enforcement tests ----
+
+// TestCompile_PolicyConflict_SameName_Errors verifies that a project policy with
+// the same name as an inherited global policy returns an error at compile time.
+func TestCompile_PolicyConflict_SameName_Errors(t *testing.T) {
+	inheritedPolicy := ast.PolicyConfig{
+		Name:        "no-bash",
+		Description: "inherited global",
+		Severity:    "error",
+		Target:      "agent",
+		Inherited:   true,
+	}
+	conflictingPolicy := ast.PolicyConfig{
+		Name:        "no-bash",
+		Description: "project override attempt",
+		Severity:    "warning",
+		Target:      "agent",
+	}
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Policies: map[string]ast.PolicyConfig{
+				"no-bash": inheritedPolicy,
+			},
+		},
+		Project: &ast.ProjectConfig{
+			Name: "test-project",
+			ResourceScope: ast.ResourceScope{
+				Policies: map[string]ast.PolicyConfig{
+					"no-bash": conflictingPolicy,
+				},
+			},
+		},
+	}
+
+	_, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `policy "no-bash"`)
+	assert.Contains(t, err.Error(), "projects can add new policies but cannot override inherited ones")
+}
+
+// TestCompile_PolicyAdditive_NewPolicy_OK verifies that a project can add a new
+// policy that does not exist in global scope without error.
+func TestCompile_PolicyAdditive_NewPolicy_OK(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Policies: map[string]ast.PolicyConfig{
+				"global-policy": {
+					Name:        "global-policy",
+					Description: "inherited global policy",
+					Severity:    "error",
+					Target:      "agent",
+					Inherited:   true,
+				},
+			},
+		},
+		Project: &ast.ProjectConfig{
+			Name: "test-project",
+			ResourceScope: ast.ResourceScope{
+				Policies: map[string]ast.PolicyConfig{
+					"project-policy": {
+						Name:        "project-policy",
+						Description: "new project policy",
+						Severity:    "warning",
+						Target:      "agent",
+					},
+				},
+			},
+		},
+	}
+
+	_, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude"})
+	require.NoError(t, err)
+}
+
+// TestCompile_PolicyInherited_NoConflict verifies that a project policy with the
+// same name as a non-inherited global policy does NOT produce a conflict error.
+// Only policies marked Inherited=true are protected from override.
+func TestCompile_PolicyInherited_NoConflict(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Policies: map[string]ast.PolicyConfig{
+				"local-policy": {
+					Name:        "local-policy",
+					Description: "non-inherited global policy",
+					Severity:    "error",
+					Target:      "agent",
+					Inherited:   false, // explicitly NOT inherited
+				},
+			},
+		},
+		Project: &ast.ProjectConfig{
+			Name: "test-project",
+			ResourceScope: ast.ResourceScope{
+				Policies: map[string]ast.PolicyConfig{
+					"local-policy": {
+						Name:        "local-policy",
+						Description: "project override of non-inherited policy",
+						Severity:    "warning",
+						Target:      "agent",
+					},
+				},
+			},
+		},
+	}
+
+	_, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude"})
+	require.NoError(t, err)
+}
+
+func TestMergeResourceScope_NilMaps(t *testing.T) {
+	// nil global + non-nil project: no panic, project entries present
+	t.Run("nil_root_non_nil_project", func(t *testing.T) {
+		root := &ast.ResourceScope{}
+		project := &ast.ResourceScope{
+			Policies:  map[string]ast.PolicyConfig{"p": {}},
+			Memory:    map[string]ast.MemoryConfig{"p": {}},
+			Contexts:  map[string]ast.ContextConfig{"p": {}},
+			Templates: map[string]ast.TemplateConfig{"p": {}},
+		}
+		require.NotPanics(t, func() { mergeResourceScope(root, project) })
+		assert.Contains(t, root.Policies, "p")
+		assert.Contains(t, root.Memory, "p")
+		assert.Contains(t, root.Contexts, "p")
+		assert.Contains(t, root.Templates, "p")
+	})
+
+	// non-nil global + nil project: no panic, global entries preserved
+	t.Run("non_nil_root_nil_project", func(t *testing.T) {
+		root := &ast.ResourceScope{
+			Policies:  map[string]ast.PolicyConfig{"g": {}},
+			Memory:    map[string]ast.MemoryConfig{"g": {}},
+			Contexts:  map[string]ast.ContextConfig{"g": {}},
+			Templates: map[string]ast.TemplateConfig{"g": {}},
+		}
+		project := &ast.ResourceScope{}
+		require.NotPanics(t, func() { mergeResourceScope(root, project) })
+		assert.Contains(t, root.Policies, "g")
+		assert.Contains(t, root.Memory, "g")
+		assert.Contains(t, root.Contexts, "g")
+		assert.Contains(t, root.Templates, "g")
+	})
+}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"gopkg.in/yaml.v3"
 )
 
@@ -77,6 +78,17 @@ type StateOpts struct {
 // directory. The returned path is always baseDir/.xcaffold.
 func StateDir(baseDir string) string {
 	return filepath.Join(baseDir, ".xcaffold")
+}
+
+// GlobalStateDir returns the global state directory path (~/.xcaffold/state/).
+// It respects the XCAFFOLD_HOME environment variable for test isolation.
+// Returns an error if the home directory cannot be determined.
+func GlobalStateDir() (string, error) {
+	globalHome, err := registry.GlobalHome()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(globalHome, "state"), nil
 }
 
 // StateFilePath returns the full path to the state file for a given blueprint.

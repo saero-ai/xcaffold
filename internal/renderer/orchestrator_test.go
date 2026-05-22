@@ -68,8 +68,9 @@ type mockRenderer struct {
 	capabilities    *renderer.CapabilitySet // nil means default {Agents: true}
 }
 
-func (m *mockRenderer) Target() string    { return "mock" }
-func (m *mockRenderer) OutputDir() string { return ".mock" }
+func (m *mockRenderer) Target() string            { return "mock" }
+func (m *mockRenderer) OutputDir() string         { return ".mock" }
+func (m *mockRenderer) SupportsGlobalScope() bool { return false }
 func (m *mockRenderer) Capabilities() renderer.CapabilitySet {
 	if m.capabilities != nil {
 		return *m.capabilities

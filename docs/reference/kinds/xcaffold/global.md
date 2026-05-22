@@ -5,7 +5,7 @@ description: "Declares shared resource definitions inherited by all projects tha
 
 # `kind: global`
 
-Declares shared resource definitions inherited by all projects via the `extends:` field in `project.xcaf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, settings, hooks, workflow) declared in a global config is available to inheriting projects without re-declaring it.
+Declares shared resource definitions inherited by all projects via the `extends:` field in `project.xcaf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, workflow, policy, context, memory, template, settings, hooks) declared in a global config is available to inheriting projects without re-declaring it.
 
 Global configs produce **no output files** on their own. Output is produced only when a project config compiles with `extends:` pointing to this global.
 
@@ -118,6 +118,7 @@ None. Global configs have no required config fields beyond `kind` and `version`.
 | `memory` | `map[string]MemoryConfig` | Inline memory definitions. Keys are memory IDs. |
 | `contexts` | `map[string]ContextConfig` | Inline context definitions. Keys are context IDs. |
 | `blueprints` | `map[string]BlueprintConfig` | Inline blueprint definitions. Keys are blueprint IDs. |
+| `templates` | `map[string]TemplateConfig` | Inline template definitions. Schema-only — parsed but produces no compilation output. |
 
 Resource fields use **inline map format** — each key in the map is the resource ID, and its value is the full resource config object. This differs from `kind: blueprint`, which uses string ID arrays for selection.
 

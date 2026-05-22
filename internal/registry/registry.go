@@ -98,6 +98,8 @@ type GlobalAgentEntry struct{ InstructionsFile string }
 type GlobalSkillEntry struct{ InstructionsFile string }
 type GlobalRuleEntry struct{ InstructionsFile string }
 type GlobalWorkflowEntry struct{ InstructionsFile string }
+type GlobalPolicyEntry struct{ InstructionsFile string }
+type GlobalContextEntry struct{ InstructionsFile string }
 type GlobalMCPEntry struct {
 	Command string // command-type server (e.g. "npx @modelcontextprotocol/…")
 	URL     string // http/sse-type server URL
@@ -113,6 +115,8 @@ type GlobalScanResult struct {
 	Rules     map[string]GlobalRuleEntry
 	Workflows map[string]GlobalWorkflowEntry
 	MCP       map[string]GlobalMCPEntry
+	Policies  map[string]GlobalPolicyEntry
+	Contexts  map[string]GlobalContextEntry
 	// MemoryFile tracks the first global "memory" instructions file discovered
 	// (informational, used for display purposes only).
 	MemoryFile string
@@ -125,6 +129,8 @@ func NewScanResult() GlobalScanResult {
 		Rules:     make(map[string]GlobalRuleEntry),
 		Workflows: make(map[string]GlobalWorkflowEntry),
 		MCP:       make(map[string]GlobalMCPEntry),
+		Policies:  make(map[string]GlobalPolicyEntry),
+		Contexts:  make(map[string]GlobalContextEntry),
 	}
 }
 
@@ -150,7 +156,8 @@ func buildGlobalXCAF() []byte {
 
 	// Nothing found — emit the empty starter template.
 	if len(r.Agents) == 0 && len(r.Skills) == 0 &&
-		len(r.Rules) == 0 && len(r.MCP) == 0 {
+		len(r.Rules) == 0 && len(r.MCP) == 0 &&
+		len(r.Policies) == 0 && len(r.Contexts) == 0 {
 		return []byte(DefaultGlobalXCAFContent)
 	}
 
@@ -343,6 +350,20 @@ func marshalGlobalXCAF(r *GlobalScanResult) []byte {
 		for id, w := range r.Workflows {
 			buf.WriteString("  " + id + ":\n")
 			buf.WriteString("    instructions-file: \"" + w.InstructionsFile + "\"\n")
+		}
+	}
+	if len(r.Policies) > 0 {
+		buf.WriteString("\npolicies:\n")
+		for id, p := range r.Policies {
+			buf.WriteString("  " + id + ":\n")
+			buf.WriteString("    instructions-file: \"" + p.InstructionsFile + "\"\n")
+		}
+	}
+	if len(r.Contexts) > 0 {
+		buf.WriteString("\ncontexts:\n")
+		for id, c := range r.Contexts {
+			buf.WriteString("  " + id + ":\n")
+			buf.WriteString("    instructions-file: \"" + c.InstructionsFile + "\"\n")
 		}
 	}
 	writeMCPSection(&buf, r.MCP)

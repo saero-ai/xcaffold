@@ -48,6 +48,12 @@ func (r *Renderer) OutputDir() string {
 	return ".github"
 }
 
+// SupportsGlobalScope returns true; GitHub Copilot supports user-level global scope
+// compilation for agents.
+func (r *Renderer) SupportsGlobalScope() bool {
+	return true
+}
+
 // Capabilities declares the resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{

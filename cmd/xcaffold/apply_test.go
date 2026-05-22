@@ -217,24 +217,32 @@ func TestRunApply_ScopeProject(t *testing.T) {
 }
 
 func TestRunApply_ScopeGlobal(t *testing.T) {
-	dir := t.TempDir()
-	xcaf := filepath.Join(dir, "global.xcaf")
+	homeDir := t.TempDir()
+	xcafDir := filepath.Join(homeDir, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
+
+	xcaf := filepath.Join(xcafDir, "global.xcaf")
 	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	// Set XCAFFOLD_HOME to use a temp directory for test isolation
+	t.Setenv("XCAFFOLD_HOME", xcafDir)
 
 	// globalXcafHome is the source directory containing global.xcaf (~/.xcaffold/).
 	// Output goes one level up from globalXcafHome into the home dir's .claude/.
 	globalXcafPath = xcaf
-	globalXcafHome = dir
+	globalXcafHome = xcafDir
 	globalFlag = true
-	defer func() { globalFlag = false }()
+	targetFlag = testTarget
+	defer func() { globalFlag = false; targetFlag = "" }()
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	// State is written inside globalXcafHome/.xcaffold/
-	stateFile := state.StateFilePath(dir, "")
+	// For global scope, state is written to XCAFFOLD_HOME/state/
+	stateDir := filepath.Join(xcafDir, "state")
+	stateFile := filepath.Join(stateDir, "project.xcaf.state")
 	_, err = os.Stat(stateFile)
-	assert.NoError(t, err, "state file should be written for global scope")
+	assert.NoError(t, err, "state file should be written to global state directory (%s)", stateDir)
 }
 
 func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
@@ -1362,4 +1370,41 @@ func TestOutputDir_CrossScope_StoredPathReadable(t *testing.T) {
 	if ts.OutputDir != "custom-out/" {
 		t.Errorf("OutputDir = %q, want %q", ts.OutputDir, "custom-out/")
 	}
+}
+
+// TestApplyGlobal_UnsupportedTarget_Errors verifies that xcaffold apply --global --target
+// with an unsupported target returns an error before compilation.
+func TestApplyGlobal_UnsupportedTarget_Errors(t *testing.T) {
+	homeDir := t.TempDir()
+	globalHome := filepath.Join(homeDir, ".xcaffold")
+	globalXcafDir := filepath.Join(globalHome, "xcaf")
+	if err := os.MkdirAll(globalXcafDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a minimal global.xcaf
+	globalXcaf := filepath.Join(globalXcafDir, "global.xcaf")
+	content := `---
+kind: global
+version: "1.0"
+`
+	if err := os.WriteFile(globalXcaf, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set up global scope flags
+	globalFlag = true
+	globalXcafHome = globalHome
+	globalXcafPath = globalXcaf
+	targetFlag = "codex" // codex returns false for SupportsGlobalScope
+	defer func() {
+		globalFlag = false
+		globalXcafHome = ""
+		globalXcafPath = ""
+		targetFlag = ""
+	}()
+
+	err := runApply(applyCmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not support global")
 }

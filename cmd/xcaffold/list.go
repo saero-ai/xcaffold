@@ -63,6 +63,19 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
+	if globalFlag {
+		configDir := filepath.Join(globalXcafHome, "xcaf")
+		config, err := parser.ParseDirectory(configDir)
+		if err != nil {
+			return fmt.Errorf("parse error: %w", err)
+		}
+		if listBlueprintFlag != "" {
+			return printBlueprintResources(cmd, config, listBlueprintFlag, listResolvedFlag)
+		}
+		printAllResources(cmd, config, configDir)
+		return nil
+	}
+
 	if xcafPath == "" {
 		return fmt.Errorf("no project.xcaf found; run from a project directory or use --config")
 	}
@@ -74,9 +87,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("parse error: %w", err)
 	}
 
-	if !globalFlag {
-		config.StripInherited()
-	}
+	config.StripInherited()
 
 	if listBlueprintFlag != "" {
 		return printBlueprintResources(cmd, config, listBlueprintFlag, listResolvedFlag)

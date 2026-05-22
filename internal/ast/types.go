@@ -216,11 +216,28 @@ func (c *XcaffoldConfig) StripInherited() {
 			delete(c.Settings, k)
 		}
 	}
+	for k, v := range c.Policies {
+		if v.Inherited {
+			delete(c.Policies, k)
+		}
+	}
+	for k, v := range c.Memory {
+		if v.Inherited {
+			delete(c.Memory, k)
+		}
+	}
+	for k, v := range c.Contexts {
+		if v.Inherited {
+			delete(c.Contexts, k)
+		}
+	}
+	for k, v := range c.Templates {
+		if v.Inherited {
+			delete(c.Templates, k)
+		}
+	}
 	// Hooks and Settings use additive/override merge semantics — the parser
 	// does not currently mark them as Inherited during extends resolution.
 	// The loops above are forward-compatible for provider import pipelines
 	// that will set Inherited on provider-sourced entries.
-	//
-	// Memory and Policies are convention-based or import-only; their Inherited
-	// fields are reserved for the import pipeline, not extends resolution.
 }

@@ -54,6 +54,12 @@ func (r *Renderer) OutputDir() string {
 	return ".agents"
 }
 
+// SupportsGlobalScope returns false; Antigravity global scope behavior is not
+// documented in official sources.
+func (r *Renderer) SupportsGlobalScope() bool {
+	return false
+}
+
 // Capabilities declares which resource kinds this renderer supports.
 // Agents and Hooks are handled via per-resource methods but produce no output
 // files — they emit fidelity notes only. MCP and Settings are similarly supported

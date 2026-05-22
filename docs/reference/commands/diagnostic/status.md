@@ -23,7 +23,7 @@ xcaffold status [flags]
 |------|-------|------|---------|-------------|
 | `--all` | — | `bool` | `false` | Show all tracked files grouped by subdirectory. Works with or without `--target` (default: drifted files only). |
 | `--blueprint <name>` | — | `string` | `""` | Read state from the named blueprint's state file. Mutually exclusive with `--global`. |
-| `--global` | `-g` | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. |
+| `--global` | `-g` | `bool` | `false` | Read from the global config state (`~/.xcaffold/xcaf/global.xcaf`). Mutually exclusive with `--blueprint`. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--output-dir <path>` | — | `string` | `""` | Override output directory for drift detection. When omitted, reads the stored output directory from the state manifest. |
 | `--target <name>` | — | `string` | `""` | Focus drift inspection on a single provider (e.g., `claude`, `cursor`, `gemini`). |

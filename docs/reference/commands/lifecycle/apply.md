@@ -23,7 +23,7 @@ xcaffold apply [flags]
 | `--blueprint <name>` | — | `string` | `""` | Compile only the named blueprint's resources. |
 | `--dry-run` | — | `bool` | `false` | Preview changes without writing to disk. Shows a diff of what would change. |
 | `--force` | — | `bool` | `false` | Overwrite output files even when drift is detected. |
-| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcaf`). |
+| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/xcaf/global.xcaf`). |
 | `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
@@ -138,7 +138,7 @@ xcaffold apply --backup
 
 ## Notes
 
-- `--global` compiles the user-wide global config at `~/.xcaffold/global.xcaf`.
+- `--global` compiles the user-wide global config at `~/.xcaffold/xcaf/global.xcaf`. State is stored at `~/.xcaffold/state/`.
 - `--blueprint` and `--global` cannot be combined. Blueprints are project-scoped.
 - The state file is written to `.xcaffold/project.xcaf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../../concepts/execution/state-and-drift.md) for schema details.
 - Policy rules are evaluated after successful compilation. If compilation fails, the policy phase is skipped.

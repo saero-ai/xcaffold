@@ -8,6 +8,52 @@ import (
 	"time"
 )
 
+func TestGlobalScanResult_IncludesPolicies(t *testing.T) {
+	r := NewScanResult()
+	r.Policies["no-secrets"] = GlobalPolicyEntry{InstructionsFile: "policy.md"}
+
+	if len(r.Policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(r.Policies))
+	}
+	if r.Policies["no-secrets"].InstructionsFile != "policy.md" {
+		t.Fatalf("unexpected instructions file")
+	}
+}
+
+func TestGlobalScanResult_IncludesContexts(t *testing.T) {
+	r := NewScanResult()
+	r.Contexts["project-instructions"] = GlobalContextEntry{InstructionsFile: "CLAUDE.md"}
+
+	if len(r.Contexts) != 1 {
+		t.Fatalf("expected 1 context, got %d", len(r.Contexts))
+	}
+}
+
+func TestMarshalGlobalXCAF_EmitsPoliciesSection(t *testing.T) {
+	r := NewScanResult()
+	r.Policies["no-secrets"] = GlobalPolicyEntry{InstructionsFile: "policy.md"}
+
+	out := marshalGlobalXCAF(&r)
+
+	if !strings.Contains(string(out), "policies:") {
+		t.Fatal("output should contain policies: section")
+	}
+	if !strings.Contains(string(out), "no-secrets:") {
+		t.Fatal("output should contain policy name")
+	}
+}
+
+func TestMarshalGlobalXCAF_EmitsContextsSection(t *testing.T) {
+	r := NewScanResult()
+	r.Contexts["instructions"] = GlobalContextEntry{InstructionsFile: "CLAUDE.md"}
+
+	out := marshalGlobalXCAF(&r)
+
+	if !strings.Contains(string(out), "contexts:") {
+		t.Fatal("output should contain contexts: section")
+	}
+}
+
 const testProjectName = "my-app"
 
 // setupTestHome redirects $HOME to a temp dir and ensures the global home exists.
