@@ -19,6 +19,7 @@ xcaffold init [flags]
 
 | Flag | Default | Description |
 |---|---|---|
+| `-g, --global` | `false` | Bootstrap the user-wide global config at `~/.xcaffold/xcaf/`. |
 | `-y, --yes` | `false` | Accept all defaults non-interactively. Useful for CI/CD. |
 | `--target <strings>` | `[]` | One or more compilation target providers (e.g., `claude`, `cursor`). Repeat or comma-separate for multiple targets. |
 | `--upgrade` | `false` | Force-refresh toolkit files (xaff agent, xcaffold skill, xcaf-conventions rule) to the latest embedded versions. |
@@ -69,3 +70,25 @@ xcaffold init --target claude --target gemini
 ```bash
 xcaffold init --json --target claude
 ```
+
+**Bootstrap the user-wide global config:**
+```bash
+xcaffold init --global
+```
+
+## Global Initialization
+
+`xcaffold init --global` creates the global xcaf directory structure for user-wide configuration:
+
+```
+~/.xcaffold/
+  xcaf/
+    global.xcaf          Starter template (kind: global)
+    agents/              Agent definitions
+    skills/              Skill definitions
+    rules/               Rule definitions
+  state/                 Compilation state for global scope
+  registry.xcaf          Project registry (if not already present)
+```
+
+Running `init --global` is idempotent. If `~/.xcaffold/xcaf/global.xcaf` already exists, it is not overwritten.

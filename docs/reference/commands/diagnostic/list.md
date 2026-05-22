@@ -28,7 +28,7 @@ xcaffold list [flags]
 | `--hook` | — | `bool` | `false` | List hooks. |
 | `--setting` | — | `bool` | `false` | List settings. |
 | `--verbose` | `-v` | `bool` | `false` | Show individual memory entry names per agent instead of aggregate counts. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). Not yet available for this command. |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/xcaf/global.xcaf`). |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--blueprint [name]` | — | `string` | `""` | Show resources belonging to a named blueprint. |
 | `--resolved` | — | `bool` | `false` | Include transitive dependencies when listing a blueprint. Use with `--blueprint`. |
@@ -51,7 +51,7 @@ Positional arguments are not accepted. To filter by name, use `--<kind>=<name>` 
 
 ### Scope
 
-By default, `xcaffold list` operates on the project-level manifest. The `--global` flag is registered but not yet functional for this command. Using it prints `Global scope is not yet available.` and exits with code 1.
+By default, `xcaffold list` operates on the project-level manifest. When `--global` is set, the command scans the user-wide global configuration at `~/.xcaffold/xcaf/` instead.
 
 ## Sample output
 

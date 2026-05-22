@@ -9,7 +9,7 @@ The Xcaffold CLI translates your YAML configuration logic into strict native art
 
 ## Command Scopes
 
-By default, operations strictly interact within the specific project configuration contextual to your `$CWD` resolution path. When the `--global` flag explicitly enforces scope, commands automatically evaluate your `.xcaffold/global.xcaf` directory map instead, executing identically. 
+By default, operations strictly interact within the specific project configuration contextual to your `$CWD` resolution path. When the `--global` flag explicitly enforces scope, commands automatically evaluate the user-wide `~/.xcaffold/xcaf/` directory instead, executing identically. 
 
 ## Global Flags
 
@@ -18,7 +18,7 @@ All top-level commands accept the following persistent flags:
 | Flag | Default | Description |
 |---|---|---|
 | `--config <path>` | `""` | Path to `project.xcaf` or a directory containing one. Overrides directory-walk resolution. |
-| `-g, --global` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). |
+| `-g, --global` | `false` | Operate on user-wide global config (`~/.xcaffold/xcaf/global.xcaf`). |
 | `--no-color` | `false` | Disable ANSI color and UTF-8 glyphs. Also honored via the `NO_COLOR` environment variable. |
 | `--verbose` | `false` | Show fidelity notes and policy warnings during compilation. |
 | `--xcaf <kind>` | `""` | Display the field schema for a resource kind (e.g., `agent`, `skill`, `rule`). |
