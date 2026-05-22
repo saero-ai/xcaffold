@@ -1,0 +1,60 @@
+provider: antigravity2
+version: "1.0"
+kinds:
+  agent:
+    name: { support: supported }
+    description: { support: optional }
+    model: { support: optional }
+    effort: { support: unsupported }
+    max-turns: { support: optional }
+    tools: { support: optional }
+    disallowed-tools: { support: optional }
+    readonly: { support: optional }
+    permission-mode: { support: unsupported }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: optional }
+    background: { support: unsupported }
+    isolation: { support: unsupported }
+    memory: { support: unsupported }
+    color: { support: unsupported }
+    initial-prompt: { support: optional }
+    skills: { support: optional }
+    rules: { support: optional }
+    mcp: { support: unsupported }
+    assertions: { support: unsupported }
+    mcp-servers: { support: unsupported }
+    hooks: { support: unsupported }
+    targets: { support: optional }
+  skill:
+    name: { support: supported }
+    description: { support: optional }
+    when-to-use: { support: optional }
+    license: { support: unsupported }
+    allowed-tools: { support: optional }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: optional }
+    argument-hint: { support: optional }
+    artifacts: { support: optional }
+    targets: { support: optional }
+  rule:
+    always-apply: { support: unsupported }
+    description: { support: optional }
+    activation: { support: optional }
+    name: { support: optional }
+    paths: { support: optional }
+    exclude-agents: { support: unsupported }
+    targets: { support: optional }
+  hooks:
+    pre-tool-use: { support: supported }
+    post-tool-use: { support: supported }
+    notification: { support: supported }
+    stop: { support: supported }
+    session-start: { support: supported }
+  mcp:
+    command: { support: optional }
+    server-url: { support: supported }
+    disabled-tools: { support: supported }
+    env: { support: optional }
+    args: { support: optional }
+    type: { support: optional }
+    headers: { support: optional }
