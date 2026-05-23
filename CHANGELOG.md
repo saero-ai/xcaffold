@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1](https://github.com/saero-ai/xcaffold/compare/v0.9.0...v0.9.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* **cli:** correct global docs, help text, and registry file extension ([99162dc](https://github.com/saero-ai/xcaffold/commit/99162dc10d23e20bac5024576b7978e191456bd4))
+* **cli:** correct global docs, help text, and registry file extension ([af06068](https://github.com/saero-ai/xcaffold/commit/af06068a4aa3a6af8a5460f7105d7f5f6541c2ab))
+* **cli:** global docs, help text, and registry extension ([2bd65e9](https://github.com/saero-ai/xcaffold/commit/2bd65e96922266567262548da01638cdb1d6fa98))
+
 ## [0.9.0](https://github.com/saero-ai/xcaffold/compare/v0.8.0...v0.9.0) (2026-05-22)
 
 
