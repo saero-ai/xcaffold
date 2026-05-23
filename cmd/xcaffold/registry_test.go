@@ -106,8 +106,8 @@ func TestRegistryAdd_NewProject(t *testing.T) {
 
 	projectDir := t.TempDir()
 
-	// Create a minimal project.xcf
-	projectXcf := filepath.Join(projectDir, "project.xcf")
+	// Create a minimal project.xcaf
+	projectXcf := filepath.Join(projectDir, "project.xcaf")
 	err := os.WriteFile(projectXcf, []byte("---\nkind: project\nversion: \"1.0\"\nname: my-project\n"), 0600)
 	require.NoError(t, err)
 
@@ -346,12 +346,12 @@ func TestProjectStatus(t *testing.T) {
 		Registered: time.Now(),
 	}
 
-	// Status should be "orphan" (no xcaf/ or project.xcf)
+	// Status should be "orphan" (no xcaf/ or project.xcaf)
 	status := projectStatus(p)
 	assert.Equal(t, "orphan", status)
 
-	// Create project.xcf, status should be "ok"
-	err := os.WriteFile(filepath.Join(projectDir, "project.xcf"), []byte(""), 0600)
+	// Create project.xcaf, status should be "ok"
+	err := os.WriteFile(filepath.Join(projectDir, "project.xcaf"), []byte(""), 0600)
 	require.NoError(t, err)
 	status = projectStatus(p)
 	assert.Equal(t, "ok", status)
@@ -411,9 +411,9 @@ func TestRegistryList_StatusColumn(t *testing.T) {
 	_, cleanup := setupTestRegistry(t)
 	defer cleanup()
 
-	// Create a valid project (with project.xcf)
+	// Create a valid project (with project.xcaf)
 	validDir := t.TempDir()
-	err := os.WriteFile(filepath.Join(validDir, "project.xcf"), []byte(""), 0600)
+	err := os.WriteFile(filepath.Join(validDir, "project.xcaf"), []byte(""), 0600)
 	require.NoError(t, err)
 	err = registry.Register(validDir, "valid-project", []string{}, "")
 	require.NoError(t, err)

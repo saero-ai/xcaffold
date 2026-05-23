@@ -616,8 +616,8 @@ func Info(nameOrPath string) (ProjectInfo, error) {
 			info.HasXcafDir = true
 		}
 
-		// Check for project.xcf file
-		projectXcfPath := filepath.Join(p.Path, "project.xcf")
+		// Check for project.xcaf file
+		projectXcfPath := filepath.Join(p.Path, "project.xcaf")
 		if _, err := os.Stat(projectXcfPath); err == nil {
 			info.HasProjectXcf = true
 		}

@@ -606,9 +606,9 @@ func TestInfo_ExistingProject(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	// Create xcaf/ subdir and project.xcf file
+	// Create xcaf/ subdir and project.xcaf file
 	_ = os.Mkdir(filepath.Join(projectPath, "xcaf"), 0755)
-	_ = os.WriteFile(filepath.Join(projectPath, "project.xcf"), []byte("kind: project"), 0600)
+	_ = os.WriteFile(filepath.Join(projectPath, "project.xcaf"), []byte("kind: project"), 0600)
 
 	_ = Register(projectPath, "existing-proj", []string{"claude"}, ".")
 
@@ -624,7 +624,7 @@ func TestInfo_ExistingProject(t *testing.T) {
 		t.Error("HasXcafDir should be true when xcaf/ exists")
 	}
 	if !info.HasProjectXcf {
-		t.Error("HasProjectXcf should be true when project.xcf exists")
+		t.Error("HasProjectXcf should be true when project.xcaf exists")
 	}
 	if info.Name != "existing-proj" {
 		t.Errorf("Name should be 'existing-proj', got %q", info.Name)
@@ -676,7 +676,7 @@ func TestInfo_ByPath(t *testing.T) {
 
 	projectPath := t.TempDir()
 	_ = os.Mkdir(filepath.Join(projectPath, "xcaf"), 0755)
-	_ = os.WriteFile(filepath.Join(projectPath, "project.xcf"), []byte("kind: project"), 0600)
+	_ = os.WriteFile(filepath.Join(projectPath, "project.xcaf"), []byte("kind: project"), 0600)
 
 	_ = Register(projectPath, "path-lookup", []string{"claude"}, ".")
 
