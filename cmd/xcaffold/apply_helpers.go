@@ -112,6 +112,7 @@ func ensureGitignoreEntry(dir, entry string) {
 type crossScopeOpts struct {
 	baseDir          string
 	outputDir        string
+	storedOutputDir  string
 	currentStatePath string
 	target           string
 	force            bool
@@ -122,7 +123,6 @@ type crossScopeOpts struct {
 // If drift is found and !force, returns an error. If no drift or force, deletes orphans.
 func cleanCrossScope(opts crossScopeOpts) error {
 	baseDir := opts.baseDir
-	outputDir := opts.outputDir
 	currentStatePath := opts.currentStatePath
 	target := opts.target
 	force := opts.force
@@ -152,9 +152,15 @@ func cleanCrossScope(opts crossScopeOpts) error {
 			continue // This scope doesn't have our target
 		}
 
+		// Skip cleanup when scopes target different output directories.
+		// Both empty = same default; both equal = same explicit dir; otherwise skip.
+		if opts.storedOutputDir != targetState.OutputDir {
+			continue
+		}
+
 		// Resolve the other scope's output directory from its stored state.
 		// If the other scope was applied with --output-dir, artifacts live there.
-		otherOutputDir := outputDir
+		otherOutputDir := filepath.Join(baseDir, compiler.OutputDir(target))
 		otherBaseDir := baseDir
 		if targetState.OutputDir != "" {
 			if filepath.IsAbs(targetState.OutputDir) {

@@ -560,7 +560,7 @@ func setupApplyPhase(baseDir string, config *ast.XcaffoldConfig, outputDir, scop
 		}
 		stateFilePath = filepath.Join(globalStateDir, blueprintName+".xcaf.state")
 	} else {
-		stateFilePath = state.StateFilePath(baseDir, applyBlueprintFlag)
+		stateFilePath = state.StateFilePathWithOutputDir(baseDir, applyBlueprintFlag, applyStoredOutputDir)
 		ensureGitignoreEntry(baseDir, ".xcaffold/")
 	}
 	sourceFiles, _ := prepareSourceFiles(baseDir, targetFlag, varFileFlag)
@@ -599,6 +599,7 @@ func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
 		if err := cleanCrossScope(crossScopeOpts{
 			baseDir:          baseDir,
 			outputDir:        outputDir,
+			storedOutputDir:  applyStoredOutputDir,
 			currentStatePath: stateFilePath,
 			target:           targetFlag,
 			force:            applyForce,
