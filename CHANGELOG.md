@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2](https://github.com/saero-ai/xcaffold/compare/v0.9.1...v0.9.2) (2026-05-24)
+
+
+### Bug Fixes
+
+* **cli:** per-output-dir state isolation and cross-scope guard ([f37dbc6](https://github.com/saero-ai/xcaffold/commit/f37dbc677a107e777c3d0aad23bcf3bef7bed359))
+* **cli:** prevent cross-scope cleanup across different output dirs ([29e3def](https://github.com/saero-ai/xcaffold/commit/29e3def6d85d3fb44ecb1b0b451d761d1e2a0920))
+* **cli:** prevent cross-scope cleanup of different output-dir artifacts ([05fa170](https://github.com/saero-ai/xcaffold/commit/05fa170bb6e8effc71d67ce20cd7a9fb958836fe))
+
 ## [0.9.1](https://github.com/saero-ai/xcaffold/compare/v0.9.0...v0.9.1) (2026-05-23)
 
 
