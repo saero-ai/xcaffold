@@ -102,6 +102,30 @@ func StateFilePath(baseDir, blueprintName string) string {
 	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcaf.state"))
 }
 
+// normalizeOutputDir converts a stored output-dir path into a safe filename
+// component. Strips leading/trailing slashes and replaces internal slashes
+// with underscores.
+func normalizeOutputDir(dir string) string {
+	dir = strings.TrimSuffix(dir, "/")
+	dir = strings.TrimPrefix(dir, "/")
+	return strings.ReplaceAll(dir, "/", "_")
+}
+
+// StateFilePathWithOutputDir returns the state file path encoding both blueprint
+// and output-dir. When outputDir is empty, it produces the same path as
+// StateFilePath (backward compatible). When non-empty, the output-dir is
+// normalized and appended with an @ separator: {blueprint}@{dir}.xcaf.state.
+func StateFilePathWithOutputDir(baseDir, blueprintName, outputDir string) string {
+	name := "project"
+	if blueprintName != "" {
+		name = filepath.Base(blueprintName)
+	}
+	if outputDir != "" {
+		name += "@" + normalizeOutputDir(outputDir)
+	}
+	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcaf.state"))
+}
+
 // ListStateFiles returns a sorted list of all .xcaf.state files in the given
 // state directory. Returns an empty slice if the directory doesn't exist or
 // contains no state files.

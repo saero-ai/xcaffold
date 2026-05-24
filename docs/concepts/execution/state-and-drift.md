@@ -22,9 +22,10 @@ The directory contains:
 ```
 project.xcaf               # project manifest at root (created by xcaffold init)
 .xcaffold/
-  project.xcaf.state        # default state (created by xcaffold apply)
-  backend.xcaf.state        # xcaffold apply --blueprint backend
-  frontend.xcaf.state       # xcaffold apply --blueprint frontend
+  project.xcaf.state              # default state (created by xcaffold apply)
+  backend.xcaf.state              # xcaffold apply --blueprint backend
+  frontend.xcaf.state             # xcaffold apply --blueprint frontend
+  backend@custom-out.xcaf.state   # xcaffold apply --blueprint backend --output-dir custom-out/
 ```
 
 The `.xcaffold/` gitignore entry is added automatically by `xcaffold apply`. You do not need to add it manually, but you can if you want it committed before the first apply.
@@ -107,6 +108,8 @@ xcaffold distinguishes two types of divergence:
 Detailed per-file hash comparison between the state file and current disk contents. Reports drift labels per file, grouped by provider.
 
 When `--blueprint` is not passed, `xcaffold status` auto-detects the most recently applied state file by scanning all `.xcaf.state` files and comparing `LastApplied` timestamps. After a blueprint-scoped apply, this means status reflects the active blueprint without requiring an explicit `--blueprint` flag.
+
+Cross-scope cleanup only removes artifacts from other blueprints that target the **same output directory**. Blueprints applied with different `--output-dir` values coexist independently — switching between them does not delete files from the other's output location.
 
 See [xcaffold status](../../reference/commands/diagnostic/status.md) for flags, sample output, and exit codes.
 
