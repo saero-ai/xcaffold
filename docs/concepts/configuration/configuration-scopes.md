@@ -13,7 +13,8 @@ xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **
 | :--- | :--- | :--- | :--- |
 | Global | `--global` | User-wide personal config (`~/.xcaffold/xcaf/global.xcaf`) | `~/.xcaffold/state/project.xcaf.state` |
 | Project | (default) | All resources in `xcaf/` | `.xcaffold/project.xcaf.state` |
-| Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<blueprint-name>.xcaf.state` |
+| Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<name>.xcaf.state` |
+| Blueprint + output-dir | `--blueprint <name> --output-dir <dir>` | Same as Blueprint, redirected to `<dir>` | `.xcaffold/<name>@<dir>.xcaf.state` |
 
 > **Note:** Scopes are mutually exclusive. One context per compiled invocation.
 

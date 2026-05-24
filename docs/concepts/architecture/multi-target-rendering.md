@@ -87,7 +87,7 @@ For the `cursor` target, only the `mcp:` shorthand block is compiled to `mcp.jso
 
 ## Per-Target State Files as Proof of Separation
 
-A project compiled for both targets produces a single `.xcaffold/project.xcaf.state` file containing artifact hashes for both targets under separate target sections. Per-blueprint compilations produce `.xcaffold/<blueprint-name>.xcaf.state`. Each state file records the SHA-256 hashes of that context's artifacts, the xcaffold version, and the timestamp of the last apply.
+A project compiled for both targets produces a single `.xcaffold/project.xcaf.state` file containing artifact hashes for both targets under separate target sections. Per-blueprint compilations produce `.xcaffold/<blueprint-name>.xcaf.state`. When `--output-dir` is specified, the output directory is encoded in the filename with an `@` separator (e.g., `backend@custom-out.xcaf.state`), allowing the same blueprint to maintain independent state for different output locations. Each state file records the SHA-256 hashes of that context's artifacts, the xcaffold version, and the timestamp of the last apply.
 
 This separation is significant for teams that maintain multiple deployment contexts from a single `.xcaf` file. Advancing a `claude` compilation — adding new rules, updating agent definitions — does not invalidate the `cursor` state section, and vice versa. Drift detection operates independently per target. A team can keep one target stable while iterating on another, with the state file providing the audit trail for each independently.
 
