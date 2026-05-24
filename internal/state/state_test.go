@@ -99,6 +99,40 @@ func TestStateFilePath_PathTraversal(t *testing.T) {
 	assert.NotContains(t, got, "..")
 }
 
+func TestStateFilePathWithOutputDir_Default(t *testing.T) {
+	got := StateFilePathWithOutputDir("/home/user/proj", "", "")
+	assert.Equal(t, "/home/user/proj/.xcaffold/project.xcaf.state", got)
+}
+
+func TestStateFilePathWithOutputDir_BlueprintOnly(t *testing.T) {
+	got := StateFilePathWithOutputDir("/home/user/proj", "backend", "")
+	assert.Equal(t, "/home/user/proj/.xcaffold/backend.xcaf.state", got)
+}
+
+func TestStateFilePathWithOutputDir_WithRelativeDir(t *testing.T) {
+	got := StateFilePathWithOutputDir("/home/user/proj", "backend", "custom-out/")
+	assert.Equal(t, "/home/user/proj/.xcaffold/backend@custom-out.xcaf.state", got)
+}
+
+func TestStateFilePathWithOutputDir_WithNestedDir(t *testing.T) {
+	got := StateFilePathWithOutputDir("/home/user/proj", "backend", "deep/nested/dir/")
+	assert.Equal(t, "/home/user/proj/.xcaffold/backend@deep_nested_dir.xcaf.state", got)
+}
+
+func TestStateFilePathWithOutputDir_WithAbsoluteDir(t *testing.T) {
+	got := StateFilePathWithOutputDir("/home/user/proj", "", "/tmp/xcaffold-out/")
+	assert.Equal(t, "/home/user/proj/.xcaffold/project@tmp_xcaffold-out.xcaf.state", got)
+}
+
+func TestStateFilePathWithOutputDir_BackwardCompatible(t *testing.T) {
+	// When outputDir is empty, must produce identical result to StateFilePath
+	for _, bp := range []string{"", "alpha", "backend"} {
+		old := StateFilePath("/base", bp)
+		new := StateFilePathWithOutputDir("/base", bp, "")
+		assert.Equal(t, old, new, "mismatch for blueprint %q", bp)
+	}
+}
+
 func TestStateOpts_Fields(t *testing.T) {
 	opts := StateOpts{
 		Blueprint:     "backend",

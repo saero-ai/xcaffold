@@ -1372,6 +1372,102 @@ func TestOutputDir_CrossScope_StoredPathReadable(t *testing.T) {
 	}
 }
 
+// TestCleanCrossScope_OutputDirGuard verifies that cleanCrossScope skips cleanup
+// when the stored output-dir differs between current and other scopes. This prevents
+// accidental deletion of artifacts from blueprints targeting different --output-dir values.
+func TestCleanCrossScope_OutputDirGuard(t *testing.T) {
+	tests := []struct {
+		name             string
+		currentOutputDir string // storedOutputDir for current apply
+		otherOutputDir   string // OutputDir stored in the other scope's state
+		wantCleanup      bool   // true = other scope's artifacts should be removed
+	}{
+		{"BothDefault", "", "", true},
+		{"BothExplicitSame", "out-a/", "out-a/", true},
+		{"BothExplicitDifferent", "out-b/", "out-a/", false},
+		{"CurrentExplicit_OtherDefault", "out-b/", "", false},
+		{"CurrentDefault_OtherExplicit", "", "out-a/", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			projDir := t.TempDir()
+			stateDir := filepath.Join(projDir, ".xcaffold")
+			require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+			// Current scope's state file (will be skipped by cleanCrossScope)
+			currentManifest := &state.StateManifest{
+				Version: 1,
+				Targets: map[string]state.TargetState{
+					"claude": {
+						LastApplied: "2026-01-01T00:00:00Z",
+						OutputDir:   tt.currentOutputDir,
+					},
+				},
+			}
+			currentPath := filepath.Join(stateDir, "current.xcaf.state")
+			require.NoError(t, state.WriteState(currentManifest, currentPath))
+
+			// Other scope's state file with an artifact
+			otherManifest := &state.StateManifest{
+				Version: 1,
+				Targets: map[string]state.TargetState{
+					"claude": {
+						LastApplied: "2026-01-01T00:00:00Z",
+						OutputDir:   tt.otherOutputDir,
+						Artifacts: []state.Artifact{
+							{Path: "agents/other.md", Hash: "sha256:abc"},
+						},
+					},
+				},
+			}
+			otherPath := filepath.Join(stateDir, "other.xcaf.state")
+			require.NoError(t, state.WriteState(otherManifest, otherPath))
+
+			// Create the artifact file on disk so cleanup can delete it.
+			// The artifact path is relative to the output dir.
+			// When otherOutputDir is empty, artifacts live at baseDir/.claude/
+			// When otherOutputDir is set (relative), artifacts live at baseDir/otherOutputDir/.claude/
+			var artifactDir string
+			if tt.otherOutputDir != "" {
+				artifactDir = filepath.Join(projDir, tt.otherOutputDir, ".claude", "agents")
+			} else {
+				artifactDir = filepath.Join(projDir, ".claude", "agents")
+			}
+			require.NoError(t, os.MkdirAll(artifactDir, 0755))
+			artifactFile := filepath.Join(artifactDir, "other.md")
+			require.NoError(t, os.WriteFile(artifactFile, []byte("test"), 0644))
+
+			// The current apply's resolved output dir (what cleanCrossScope receives as outputDir)
+			// This is the fully resolved path, not the stored value.
+			var resolvedOutputDir string
+			if tt.currentOutputDir != "" {
+				resolvedOutputDir = filepath.Join(projDir, tt.currentOutputDir, ".claude")
+			} else {
+				resolvedOutputDir = filepath.Join(projDir, ".claude")
+			}
+
+			err := cleanCrossScope(crossScopeOpts{
+				baseDir:          projDir,
+				outputDir:        resolvedOutputDir,
+				storedOutputDir:  tt.currentOutputDir,
+				currentStatePath: currentPath,
+				target:           "claude",
+				force:            true, // skip drift check
+			})
+			require.NoError(t, err)
+
+			if tt.wantCleanup {
+				assert.NoFileExists(t, artifactFile, "artifact should be removed")
+				assert.NoFileExists(t, otherPath, "other state file should be removed")
+			} else {
+				assert.FileExists(t, artifactFile, "artifact should be preserved")
+				assert.FileExists(t, otherPath, "other state file should be preserved")
+			}
+		})
+	}
+}
+
 // TestApplyGlobal_UnsupportedTarget_Errors verifies that xcaffold apply --global --target
 // with an unsupported target returns an error before compilation.
 func TestApplyGlobal_UnsupportedTarget_Errors(t *testing.T) {
