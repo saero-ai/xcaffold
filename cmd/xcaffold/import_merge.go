@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -15,11 +16,12 @@ import (
 // Resources present in multiple providers are compared field-by-field: identical content
 // produces a universal base tagged with all providers; different content produces a base
 // with the first provider's values plus per-provider override files.
-func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) error {
-	xcafExists, xcafDirExists := checkExistingXcaf(xcafDest)
+// outputRoot is the directory where the xcaf/ tree will be written.
+func mergeImportDirs(providers []importer.ProviderImporter, xcafDest, outputRoot string) error {
+	xcafExists, xcafDirExists := checkExistingXcaf(xcafDest, outputRoot)
 
 	if importForce && (xcafExists || xcafDirExists) {
-		if err := performForceRemoveXcaf(xcafDest); err != nil {
+		if err := performForceRemoveXcaf(xcafDest, outputRoot); err != nil {
 			return err
 		}
 		xcafExists = false
@@ -55,7 +57,7 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) err
 	}
 
 	// Write files and summarize
-	if err := writeMergeImportFiles(config); err != nil {
+	if err := writeMergeImportFiles(config, outputRoot); err != nil {
 		return err
 	}
 
@@ -72,20 +74,21 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) err
 }
 
 // checkExistingXcaf checks if project.xcaf and xcaf/ directory exist.
-func checkExistingXcaf(xcafDest string) (bool, bool) {
+func checkExistingXcaf(xcafDest, outputRoot string) (bool, bool) {
 	xcafExists := false
 	if _, err := os.Stat(xcafDest); err == nil {
 		xcafExists = true
 	}
 	xcafDirExists := false
-	if _, err := os.Stat("xcaf"); err == nil {
+	xcafDirPath := filepath.Join(outputRoot, "xcaf")
+	if _, err := os.Stat(xcafDirPath); err == nil {
 		xcafDirExists = true
 	}
 	return xcafExists, xcafDirExists
 }
 
 // performForceRemoveXcaf removes existing project.xcaf and xcaf/ if user confirms.
-func performForceRemoveXcaf(xcafDest string) error {
+func performForceRemoveXcaf(xcafDest, outputRoot string) error {
 	fmt.Fprintf(os.Stderr, "\n  %s  --force will DELETE project.xcaf and xcaf/ directory.\n", colorYellow(glyphSrc()))
 	fmt.Fprintf(os.Stderr, "     All manual edits to xcaf files will be lost.\n\n")
 	doForce := importYes
@@ -100,7 +103,7 @@ func performForceRemoveXcaf(xcafDest string) error {
 		return nil
 	}
 	_ = os.Remove(xcafDest)
-	_ = os.RemoveAll("xcaf")
+	_ = os.RemoveAll(filepath.Join(outputRoot, "xcaf"))
 	return nil
 }
 
@@ -139,20 +142,20 @@ func printMergeImportPlan(config *ast.XcaffoldConfig, providers []importer.Provi
 }
 
 // writeMergeImportFiles writes all import-related files to disk.
-func writeMergeImportFiles(config *ast.XcaffoldConfig) error {
-	if memCount, err := writeMemoryFiles(config); err != nil {
+func writeMergeImportFiles(config *ast.XcaffoldConfig, outputRoot string) error {
+	if memCount, err := writeMemoryFiles(config, outputRoot); err != nil {
 		return fmt.Errorf("write memory files: %w", err)
 	} else if memCount > 0 {
 		fmt.Printf("  Agent memory: %d entry(ies) → xcaf/agents/<id>/memory/\n", memCount)
 	}
 
-	discoverRootContextFiles(".", config)
+	discoverRootContextFiles(outputRoot, config)
 
-	if err := WriteSplitFiles(config, "."); err != nil {
+	if err := WriteSplitFiles(config, outputRoot); err != nil {
 		return fmt.Errorf("[project] failed to write split xcaf files: %w", err)
 	}
 
-	if err := pruneOrphanMemory(config, "."); err != nil {
+	if err := pruneOrphanMemory(config, outputRoot); err != nil {
 		return fmt.Errorf("prune memory: %w", err)
 	}
 

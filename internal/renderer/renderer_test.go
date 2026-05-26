@@ -67,7 +67,7 @@ func TestValidateContextUniqueness_MultipleOverlap_NoDefault_Error(t *testing.T)
 func TestValidateContextUniqueness_MultipleOverlap_WithDefault_OK(t *testing.T) {
 	contexts := map[string]ast.ContextConfig{
 		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}},
-		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: true},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: boolPtr(true)},
 	}
 	err := ValidateContextUniqueness(contexts, []string{"claude"})
 	require.NoError(t, err)
@@ -75,8 +75,8 @@ func TestValidateContextUniqueness_MultipleOverlap_WithDefault_OK(t *testing.T) 
 
 func TestValidateContextUniqueness_MultipleDefaults_Error(t *testing.T) {
 	contexts := map[string]ast.ContextConfig{
-		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: true},
-		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: true},
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: boolPtr(true)},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: boolPtr(true)},
 	}
 	err := ValidateContextUniqueness(contexts, []string{"claude"})
 	require.Error(t, err)
@@ -94,7 +94,7 @@ func TestResolveContextBody_MultipleMatchComposesAll(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Contexts: map[string]ast.ContextConfig{
 				"ctx-main":  {Name: "ctx-main", Body: "main body", Targets: []string{"claude"}},
-				"ctx-extra": {Name: "ctx-extra", Body: "extra body", Targets: []string{"claude"}, Default: true},
+				"ctx-extra": {Name: "ctx-extra", Body: "extra body", Targets: []string{"claude"}, Default: boolPtr(true)},
 			},
 		},
 	}
@@ -137,3 +137,53 @@ func TestResolveContextBody_GlobalContext_MatchesAllTargets(t *testing.T) {
 	gotGemini := ResolveContextBody(config, "gemini")
 	assert.Equal(t, "global", gotGemini)
 }
+
+// ── default: false filtering ──────────────────────────────────────────────────
+
+// TestValidateContextUniqueness_ExplicitFalseExcluded verifies that contexts
+// with default: false are excluded from the uniqueness check entirely, so two
+// such contexts targeting the same provider do not produce an error.
+func TestValidateContextUniqueness_ExplicitFalseExcluded(t *testing.T) {
+	f := false
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: &f},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: &f},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.NoError(t, err)
+}
+
+// TestValidateContextUniqueness_MixedNilAndFalse_OneRemaining_OK verifies that
+// when explicit-false contexts are filtered out, a single remaining nil-default
+// context passes validation without needing a default marker.
+func TestValidateContextUniqueness_MixedNilAndFalse_OneRemaining_OK(t *testing.T) {
+	f := false
+	contexts := map[string]ast.ContextConfig{
+		"ctx-main":    {Name: "ctx-main", Body: "main", Targets: []string{"claude"}},
+		"ctx-task-01": {Name: "ctx-task-01", Body: "task 1", Targets: []string{"claude"}, Default: &f},
+		"ctx-task-02": {Name: "ctx-task-02", Body: "task 2", Targets: []string{"claude"}, Default: &f},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.NoError(t, err)
+}
+
+// TestResolveContextBody_SkipsExplicitFalse verifies that ResolveContextBody
+// does not include contexts marked default: false in its output.
+func TestResolveContextBody_SkipsExplicitFalse(t *testing.T) {
+	tr := true
+	f := false
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-main": {Name: "ctx-main", Body: "main body", Targets: []string{"claude"}, Default: &tr},
+				"ctx-task": {Name: "ctx-task", Body: "task body", Targets: []string{"claude"}, Default: &f},
+			},
+		},
+	}
+	result := ResolveContextBody(config, "claude")
+	assert.Equal(t, "main body", result)
+	assert.NotContains(t, result, "task body")
+}
+
+// boolPtr returns a pointer to the given bool value.
+func boolPtr(b bool) *bool { return &b }

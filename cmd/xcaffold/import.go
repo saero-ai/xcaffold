@@ -40,9 +40,10 @@ var (
 
 // importScopeContext groups the scope parameters for finalizeImportScope.
 type importScopeContext struct {
-	xcafDest  string
-	scopeName string
-	provider  string
+	xcafDest   string
+	outputRoot string
+	scopeName  string
+	provider   string
 }
 
 var importCmd = &cobra.Command{
@@ -253,10 +254,11 @@ func runImport(cmd *cobra.Command, args []string) error {
 		if len(globalDetected) == 0 {
 			return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 		}
+		outputRoot := filepath.Dir(filepath.Dir(globalXcafPath)) // ~/.xcaffold
 		if len(globalDetected) > 1 {
-			return mergeImportDirs(globalDetected, globalXcafPath)
+			return mergeImportDirs(globalDetected, globalXcafPath, outputRoot)
 		}
-		return importScope(globalDetected[0].InputDir(), globalXcafPath, "global", globalDetected[0].Provider())
+		return importScope(globalDetected[0].InputDir(), globalXcafPath, "global", globalDetected[0].Provider(), outputRoot)
 	}
 
 	// Validate --target if set
@@ -283,11 +285,11 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(detected) > 1 {
-		return mergeImportDirs(detected, "project.xcaf")
+		return mergeImportDirs(detected, "project.xcaf", ".")
 	}
 	if len(detected) == 1 {
 		imp := detected[0]
-		return importScope(imp.InputDir(), "project.xcaf", "project", imp.Provider())
+		return importScope(imp.InputDir(), "project.xcaf", "project", imp.Provider(), ".")
 	}
 
 	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
@@ -297,8 +299,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 // provider selects provider-specific extraction logic for settings, MCP,
 // hooks, project-instruction files, and memory. The provider name must match
 // a registered provider (see providers.RegisteredNames()).
-func importScope(platformDir, xcafDest, scopeName, provider string) error {
-	if shouldPromptForceDelete(xcafDest) {
+// outputRoot is the directory where the xcaf/ tree will be written.
+func importScope(platformDir, xcafDest, scopeName, provider, outputRoot string) error {
+	if shouldPromptForceDelete(xcafDest, outputRoot) {
 		fmt.Fprintf(os.Stderr, "\n  %s  --force will DELETE project.xcaf and xcaf/ directory.\n", colorYellow(glyphSrc()))
 		fmt.Fprintf(os.Stderr, "     All manual edits to xcaf files will be lost.\n\n")
 		doForce := importYes
@@ -313,11 +316,12 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 			return nil
 		}
 		_ = os.Remove(xcafDest)
-		_ = os.RemoveAll("xcaf")
+		_ = os.RemoveAll(filepath.Join(outputRoot, "xcaf"))
 	}
 
-	if fileExists(xcafDest) || fileExists("xcaf") {
-		return incrementalImport(platformDir, xcafDest, scopeName, provider)
+	xcafDirPath := filepath.Join(outputRoot, "xcaf")
+	if fileExists(xcafDest) || fileExists(xcafDirPath) {
+		return incrementalImport(platformDir, xcafDest, scopeName, provider, outputRoot)
 	}
 
 	projectDir, err := deriveProjectDir(platformDir)
@@ -333,7 +337,7 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 		return err
 	}
 	if !importDryRun {
-		if err := runPostImportSteps(config, projectDir, false); err != nil {
+		if err := runPostImportSteps(config, outputRoot, false); err != nil {
 			return err
 		}
 	}
@@ -342,13 +346,13 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 		config.Project.Targets = detectTargets(platformDir)
 	}
 
-	return finalizeImportScope(importScopeContext{xcafDest, scopeName, provider}, config, &warnings)
+	return finalizeImportScope(importScopeContext{xcafDest, outputRoot, scopeName, provider}, config, &warnings)
 }
 
 // shouldPromptForceDelete checks if the force delete prompt should be shown.
-func shouldPromptForceDelete(xcafDest string) bool {
+func shouldPromptForceDelete(xcafDest, outputRoot string) bool {
 	xcafExists := fileExists(xcafDest)
-	xcafDirExists := fileExists("xcaf")
+	xcafDirExists := fileExists(filepath.Join(outputRoot, "xcaf"))
 	return importForce && (xcafExists || xcafDirExists)
 }
 
@@ -516,7 +520,7 @@ func finalizeImportScope(ctx importScopeContext, config *ast.XcaffoldConfig, war
 		return nil
 	}
 
-	if err := WriteSplitFiles(config, "."); err != nil {
+	if err := WriteSplitFiles(config, ctx.outputRoot); err != nil {
 		return fmt.Errorf("[%s] failed to write split xcaf files: %w", ctx.scopeName, err)
 	}
 

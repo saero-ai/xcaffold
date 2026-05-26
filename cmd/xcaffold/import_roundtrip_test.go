@@ -46,7 +46,7 @@ This is a test skill for verifying allowed-tools round-trip.
 	))
 
 	// Run importScope to import from .claude/
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err)
 
 	// Verify project.xcaf was created
@@ -102,7 +102,7 @@ This is a test agent for verifying mcpServers round-trip.
 	))
 
 	// Run importScope to import from .claude/
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err)
 
 	// Verify project.xcaf was created
@@ -182,7 +182,7 @@ mcpServers:
 	))
 
 	// Run importScope to import from .claude/
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err)
 
 	// Verify project.xcaf was created
@@ -256,7 +256,7 @@ allowed-tools:
 			))
 
 			// Import
-			err = importScope(".claude", "project.xcaf", "project", "claude")
+			err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 			require.NoError(t, err)
 
 			// Verify
