@@ -31,7 +31,7 @@ func TestIncrementalImport_OverrideRouting_RuleWritesWithProviderOverride(t *tes
 	}
 
 	// rewriteRuleInPlace with target "claude" should use the claude override layout
-	err := rewriteRuleInPlace(cfg, "security", layoutFlat, "claude")
+	err := rewriteRuleInPlace(cfg, "security", layoutFlat, "claude", ".")
 	require.NoError(t, err, "rewriteRuleInPlace should succeed with provider target")
 
 	// Verify the file was written
@@ -70,7 +70,7 @@ func TestIncrementalImport_OverrideRouting_SkillRoutsCorrectlyWithoutOverride(t 
 	}
 
 	// rewriteSkillInPlace without a target should use default layout routing
-	err := rewriteSkillInPlace(cfg, "tdd", layoutFlat, "")
+	err := rewriteSkillInPlace(cfg, "tdd", layoutFlat, "", ".")
 	require.NoError(t, err, "rewriteSkillInPlace should succeed without provider target")
 
 	// Verify the file was written
@@ -104,7 +104,7 @@ func TestIncrementalImport_OverrideRouting_AgentRoutes(t *testing.T) {
 	}
 
 	// Test with provider target
-	err := rewriteAgentInPlace(cfg, "dev", layoutFlat, "gemini")
+	err := rewriteAgentInPlace(cfg, "dev", layoutFlat, "gemini", ".")
 	require.NoError(t, err, "rewriteAgentInPlace should succeed with provider target")
 
 	// Verify the file was written
@@ -130,7 +130,7 @@ func TestIncrementalImport_OverrideRouting_WorkflowRoutes(t *testing.T) {
 		},
 	}
 
-	err := rewriteWorkflowInPlace(cfg, "auth", layoutFlat, "cursor")
+	err := rewriteWorkflowInPlace(cfg, "auth", layoutFlat, "cursor", ".")
 	require.NoError(t, err, "rewriteWorkflowInPlace should succeed with provider target")
 
 	expectedPath := filepath.Join("xcaf", "workflows", "auth.xcaf")
@@ -155,7 +155,7 @@ func TestIncrementalImport_OverrideRouting_MCPRoutes(t *testing.T) {
 		},
 	}
 
-	err := rewriteMCPInPlace(cfg, "github-mcp", layoutFlat, "copilot")
+	err := rewriteMCPInPlace(cfg, "github-mcp", layoutFlat, "copilot", ".")
 	require.NoError(t, err, "rewriteMCPInPlace should succeed with provider target")
 
 	expectedPath := filepath.Join("xcaf", "mcp", "github-mcp.xcaf")
@@ -181,7 +181,7 @@ func TestIncrementalImport_OverrideRouting_ContextRoutes(t *testing.T) {
 		},
 	}
 
-	err := rewriteContextInPlace(cfg, "project", layoutFlat, "antigravity")
+	err := rewriteContextInPlace(cfg, "project", layoutFlat, "antigravity", ".")
 	require.NoError(t, err, "rewriteContextInPlace should succeed with provider target")
 
 	expectedPath := filepath.Join("xcaf", "contexts", "project.xcaf")

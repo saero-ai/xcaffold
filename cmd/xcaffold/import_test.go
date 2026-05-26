@@ -106,7 +106,7 @@ func TestImportScope_XcafDirAlreadyExists(t *testing.T) {
 
 	// When xcaf/ already exists with valid .xcaf files, importScope should attempt incremental import
 	// and succeed (since there's nothing new to import from the dummy agent)
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	// No error is expected - incremental import should handle existing state gracefully
 	if err != nil {
 		t.Errorf("expected incremental import to succeed, got error: %v", err)
@@ -182,7 +182,7 @@ func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
 	}
 	os.Stdout = w
 
-	importErr := importScope(".claude", "project.xcaf", "project", "claude")
+	importErr := importScope(".claude", "project.xcaf", "project", "claude", ".")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -216,7 +216,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	setupTestClaudeDirWithResources(t, tmp)
 
 	// Run importScope
-	if err := importScope(".claude", "project.xcaf", "project", "claude"); err != nil {
+	if err := importScope(".claude", "project.xcaf", "project", "claude", "."); err != nil {
 		t.Fatalf("importScope returned unexpected error: %v", err)
 	}
 
@@ -395,7 +395,7 @@ func TestMergeImportDirs_XcafDirAlreadyExists(t *testing.T) {
 
 	// When xcaf/ already exists, mergeImportDirs should return an error
 	// (incremental merge is not yet implemented for multi-provider scenarios)
-	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf")
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf", ".")
 	if err == nil {
 		t.Fatal("expected error when xcaf/ directory already exists, got nil")
 	}
@@ -437,7 +437,7 @@ func TestMergeImportDirs_DryRunBypassesIncrementalGuard(t *testing.T) {
 	importDryRun = true
 	defer func() { importDryRun = oldDryRun }()
 
-	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf")
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf", ".")
 	if err != nil {
 		t.Fatalf("expected no error with --dry-run when xcaf/ exists, got: %v", err)
 	}
@@ -459,7 +459,7 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	require.NoError(t, os.WriteFile(".claude/skills/tdd/SKILL.md",
 		[]byte("---\nname: tdd\ndescription: TDD\n---\n\nTDD instructions"), 0644))
 
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile("project.xcaf")
@@ -724,7 +724,7 @@ func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
 		},
 	}
 
-	n, err := writeMemoryFiles(config)
+	n, err := writeMemoryFiles(config, ".")
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
 
@@ -769,7 +769,7 @@ func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"), ".")
 	require.NoError(t, err)
 
 	config, parseErr := parser.ParseDirectory(".")
@@ -815,7 +815,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"), ".")
 	require.NoError(t, err)
 
 	// MCP from .claude/ must be present
@@ -861,7 +861,7 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"), ".")
 	require.NoError(t, err)
 
 	// Memory must be written to disk
@@ -1304,7 +1304,7 @@ func TestImport_Output_ExplainsTargetsTagging(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := importScope(".claude", "project.xcaf", "project", "claude")
+	err := importScope(".claude", "project.xcaf", "project", "claude", ".")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1340,7 +1340,7 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := importScope(".claude", "project.xcaf", "project", "claude")
+	err := importScope(".claude", "project.xcaf", "project", "claude", ".")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1389,7 +1389,7 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(providerImporters, "project.xcaf")
+	err := mergeImportDirs(providerImporters, "project.xcaf", ".")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1429,7 +1429,7 @@ func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(providerImporters, "project.xcaf")
+	err := mergeImportDirs(providerImporters, "project.xcaf", ".")
 
 	w.Close()
 	os.Stdout = oldStdout

@@ -243,7 +243,8 @@ func removeEmptyAgentDirs(agentsDir string) error {
 // writeMemoryFiles writes each memory entry in config to a plain .md file under
 // xcaf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
 // uses to discover memory at build time. Returns the number of files written.
-func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
+// outputRoot is the directory where the xcaf/ tree is located.
+func writeMemoryFiles(config *ast.XcaffoldConfig, outputRoot string) (int, error) {
 	if len(config.Memory) == 0 {
 		return 0, nil
 	}
@@ -262,7 +263,7 @@ func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
 			}
 			memName = k
 		}
-		outPath := filepath.Join("xcaf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
+		outPath := filepath.Join(outputRoot, "xcaf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
 		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 			return count, fmt.Errorf("create memory dir: %w", err)
 		}
@@ -278,8 +279,9 @@ func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
 // root context discovery, and memory pruning. The injectToolkit parameter
 // controls whether toolkit reference templates and xaff toolkit are injected
 // (typically false for import, true for init).
+// projectDir is the directory where memory and context files are written.
 func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToolkit bool) error {
-	if memCount, err := writeMemoryFiles(config); err != nil {
+	if memCount, err := writeMemoryFiles(config, projectDir); err != nil {
 		return fmt.Errorf("write memory: %w", err)
 	} else if memCount > 0 {
 		fmt.Printf("  Agent memory: %d entry(ies) → xcaf/agents/<id>/memory/\n", memCount)

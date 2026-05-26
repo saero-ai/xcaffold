@@ -18,6 +18,7 @@ import (
 // incrementalImportCtx groups parameters for incremental import operations.
 type incrementalImportCtx struct {
 	xcafDest      string
+	outputRoot    string
 	scopeName     string
 	config        *ast.XcaffoldConfig
 	scannedConfig *ast.XcaffoldConfig
@@ -26,12 +27,13 @@ type incrementalImportCtx struct {
 
 // incrementalImport scans provider resources, diffs against existing xcaf/,
 // shows a preview, and imports only new/changed resources after confirmation.
-func incrementalImport(platformDir, xcafDest, scopeName, provider string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func incrementalImport(platformDir, xcafDest, scopeName, provider, outputRoot string) error {
 	scannedConfig := newEmptyConfig()
 	var warnings []string
 	extractAndPostProcess(platformDir, provider, scannedConfig, &warnings)
 
-	existingConfig, err := parser.ParseDirectory(".")
+	existingConfig, err := parser.ParseDirectory(outputRoot)
 	if err != nil {
 		return fmt.Errorf("parsing existing xcaf/: %w", err)
 	}
@@ -58,6 +60,7 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 
 	ctx := incrementalImportCtx{
 		xcafDest:      xcafDest,
+		outputRoot:    outputRoot,
 		scopeName:     scopeName,
 		config:        existingConfig,
 		scannedConfig: scannedConfigCopy,
@@ -66,7 +69,7 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 	if err := confirmAndExecuteImport(ctx, diff, func() error {
 		// Apply saved SourceFiles to scannedConfig so rewrite can find them
 		applySourceFilesForChangedResources(scannedConfigCopy, diff, savedSourceFiles)
-		if err := rewriteChangedResourcesInPlace(scannedConfigCopy, diff, provider); err != nil {
+		if err := rewriteChangedResourcesInPlace(scannedConfigCopy, diff, provider, outputRoot); err != nil {
 			return err
 		}
 		// Refresh state after rewriting resources (use scannedConfigCopy — has SourceFile fields applied)
@@ -377,7 +380,8 @@ func renderImportPreview(diff ResourceDiff) {
 // Resources with SourceFile set are written back to their original paths.
 // New resources without SourceFile are written using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff, target, outputRoot string) error {
 	// Process both changed and new resources
 	allChanges := make(map[string][]string)
 	for kind, entries := range diff.Changed {
@@ -398,11 +402,11 @@ func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff, 
 			continue
 		}
 		opts := rewriteOpts{
-			layout: detectLayout("xcaf", kind),
+			layout: detectLayout(filepath.Join(outputRoot, "xcaf"), kind),
 			target: target,
 		}
 		for _, name := range names {
-			if err := rewriteResourceInPlace(cfg, kind, name, opts); err != nil {
+			if err := rewriteResourceInPlace(cfg, kind, name, opts, outputRoot); err != nil {
 				return err
 			}
 		}
@@ -415,20 +419,20 @@ type rewriteOpts struct {
 	target string
 }
 
-func rewriteResourceInPlace(cfg *ast.XcaffoldConfig, kind, name string, opts rewriteOpts) error {
+func rewriteResourceInPlace(cfg *ast.XcaffoldConfig, kind, name string, opts rewriteOpts, outputRoot string) error {
 	switch kind {
 	case "rule":
-		return rewriteRuleInPlace(cfg, name, opts.layout, opts.target)
+		return rewriteRuleInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	case "agent":
-		return rewriteAgentInPlace(cfg, name, opts.layout, opts.target)
+		return rewriteAgentInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	case "skill":
-		return rewriteSkillInPlace(cfg, name, opts.layout, opts.target)
+		return rewriteSkillInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	case "workflow":
-		return rewriteWorkflowInPlace(cfg, name, opts.layout, opts.target)
+		return rewriteWorkflowInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	case "mcp":
-		return rewriteMCPInPlace(cfg, name, opts.layout, opts.target)
+		return rewriteMCPInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	case "context":
-		return rewriteContextInPlace(cfg, name, opts.layout, opts.target)
+		return rewriteContextInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	}
 	return nil
 }
@@ -474,7 +478,8 @@ func isRuleContentUnchanged(rule ast.RuleConfig) bool {
 
 // rewriteRuleInPlace writes a rule back to its source file or using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target, outputRoot string) error {
 	rule, ok := cfg.Rules[name]
 	if !ok {
 		return nil
@@ -509,7 +514,7 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode,
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/rules/<name>.xcaf
-		filePath := filepath.Join("xcaf", kindToPlural("rule"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("rule"), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -523,12 +528,13 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode,
 			Rules: map[string]ast.RuleConfig{name: rule},
 		},
 	}
-	return writeRuleFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
+	return writeRuleFiles(tmpCfg, filepath.Join(outputRoot, "xcaf"), "1.0", map[string]bool{name: true})
 }
 
 // rewriteAgentInPlace writes an agent back to its source file or using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target, outputRoot string) error {
 	agent, ok := cfg.Agents[name]
 	if !ok {
 		return nil
@@ -557,7 +563,7 @@ func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/agents/<name>.xcaf
-		filePath := filepath.Join("xcaf", kindToPlural("agent"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("agent"), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -570,12 +576,13 @@ func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 			Agents: map[string]ast.AgentConfig{name: agent},
 		},
 	}
-	return writeAgentFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
+	return writeAgentFiles(tmpCfg, filepath.Join(outputRoot, "xcaf"), "1.0", map[string]bool{name: true})
 }
 
 // rewriteSkillInPlace writes a skill back to its source file or using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target, outputRoot string) error {
 	skill, ok := cfg.Skills[name]
 	if !ok {
 		return nil
@@ -604,7 +611,7 @@ func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/skills/<name>.xcaf
-		filePath := filepath.Join("xcaf", kindToPlural("skill"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("skill"), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -617,12 +624,13 @@ func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 			Skills: map[string]ast.SkillConfig{name: skill},
 		},
 	}
-	return writeSkillFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
+	return writeSkillFiles(tmpCfg, filepath.Join(outputRoot, "xcaf"), "1.0", map[string]bool{name: true})
 }
 
 // rewriteWorkflowInPlace writes a workflow back to its source file or using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target, outputRoot string) error {
 	workflow, ok := cfg.Workflows[name]
 	if !ok {
 		return nil
@@ -650,7 +658,7 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutM
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/workflows/<name>.xcaf
-		filePath := filepath.Join("xcaf", kindToPlural("workflow"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("workflow"), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -663,12 +671,13 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutM
 			Workflows: map[string]ast.WorkflowConfig{name: workflow},
 		},
 	}
-	return writeWorkflowFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
+	return writeWorkflowFiles(tmpCfg, filepath.Join(outputRoot, "xcaf"), "1.0", map[string]bool{name: true})
 }
 
 // rewriteMCPInPlace writes an MCP config back to its source file or using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target, outputRoot string) error {
 	mcp, ok := cfg.MCP[name]
 	if !ok {
 		return nil
@@ -696,7 +705,7 @@ func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, 
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/mcp/<name>.xcaf
-		filePath := filepath.Join("xcaf", kindToPlural("mcp"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("mcp"), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -709,12 +718,13 @@ func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, 
 			MCP: map[string]ast.MCPConfig{name: mcp},
 		},
 	}
-	return writeMCPFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
+	return writeMCPFiles(tmpCfg, filepath.Join(outputRoot, "xcaf"), "1.0", map[string]bool{name: true})
 }
 
 // rewriteContextInPlace writes a context back to its source file or using the detected layout.
 // target is the optional provider name for override routing (e.g., "claude", "gemini").
-func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
+// outputRoot is the directory where the xcaf/ tree is located.
+func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target, outputRoot string) error {
 	ctx, ok := cfg.Contexts[name]
 	if !ok {
 		return nil
@@ -743,7 +753,7 @@ func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMo
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/contexts/<name>.xcaf
-		filePath := filepath.Join("xcaf", kindToPlural("context"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("context"), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -756,5 +766,5 @@ func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMo
 			Contexts: map[string]ast.ContextConfig{name: ctx},
 		},
 	}
-	return writeContextFiles(tmpCfg, "xcaf", "1.0") // note: writeContextFiles doesn't take a filter param
+	return writeContextFiles(tmpCfg, filepath.Join(outputRoot, "xcaf"), "1.0") // note: writeContextFiles doesn't take a filter param
 }

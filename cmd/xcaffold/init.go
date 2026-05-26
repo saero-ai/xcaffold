@@ -470,11 +470,11 @@ func handleProviderImport(cmd *cobra.Command, detected []importer.ProviderImport
 // selectAndImportProviders handles provider selection and import.
 func selectAndImportProviders(detected []importer.ProviderImporter, xcafFile string) error {
 	if len(detected) == 1 {
-		return importScope(detected[0].InputDir(), xcafFile, "project", detected[0].Provider())
+		return importScope(detected[0].InputDir(), xcafFile, "project", detected[0].Provider(), ".")
 	}
 
 	if yesFlag {
-		return mergeImportDirs(detected, xcafFile)
+		return mergeImportDirs(detected, xcafFile, ".")
 	}
 
 	selected, err := promptMultiSelectDirs(detected)
@@ -489,12 +489,12 @@ func selectAndImportProviders(detected []importer.ProviderImporter, xcafFile str
 	if len(selected) == 1 {
 		fmt.Println()
 		provider := findProviderForDir(detected, selected[0])
-		return importScope(selected[0], xcafFile, "project", provider)
+		return importScope(selected[0], xcafFile, "project", provider, ".")
 	}
 
 	fmt.Println()
 	selectedImps := filterImportersByDirs(detected, selected)
-	return mergeImportDirs(selectedImps, xcafFile)
+	return mergeImportDirs(selectedImps, xcafFile, ".")
 }
 
 // promptMultiSelectDirs prompts the user to select directories.
