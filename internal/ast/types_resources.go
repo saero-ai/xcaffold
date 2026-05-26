@@ -616,7 +616,7 @@ type ContextConfig struct {
 	// +xcaf:optional
 	// +xcaf:group=Behavior
 	// +xcaf:provider=cursor:optional
-	Default bool `yaml:"default,omitempty"`
+	Default *bool `yaml:"default,omitempty"`
 
 	// Markdown content of the context block.
 	Body string `yaml:"-"`

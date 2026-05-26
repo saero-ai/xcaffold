@@ -591,7 +591,7 @@ func init() {
 			{
 				Name:        "Default",
 				YAMLKey:     "default",
-				GoType:      "bool",
+				GoType:      "*bool",
 				XCAFType:    "bool",
 				Optional:    true,
 				Description: "Marks this context as tie-breaker when multiple match the same target.",
