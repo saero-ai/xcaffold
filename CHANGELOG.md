@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3](https://github.com/saero-ai/xcaffold/compare/v0.9.2...v0.9.3) (2026-05-26)
+
+
+### Bug Fixes
+
+* **import:** use outputRoot for split file write paths ([ede5338](https://github.com/saero-ai/xcaffold/commit/ede53381909b7acb62e013179da6255abaee1784))
+* **import:** write split files to global dir instead of CWD ([8a7d65d](https://github.com/saero-ai/xcaffold/commit/8a7d65d72dc4c65e769629c8e231a9285a6b8c1e))
+* **renderer:** exclude contexts with default: false from bare apply ([0b9811d](https://github.com/saero-ai/xcaffold/commit/0b9811d6b7b760c099c93f69a0f70200bef963ae))
+* **renderer:** exclude default:false contexts from bare apply ([cb0d310](https://github.com/saero-ai/xcaffold/commit/cb0d310565adb74dbaee0c30698c3dab0780dd49))
+* **renderer:** exclude default:false contexts from bare apply ([ab969e2](https://github.com/saero-ai/xcaffold/commit/ab969e26ff389cab3c14ff3f460dd79f782ba5aa))
+
 ## [0.9.2](https://github.com/saero-ai/xcaffold/compare/v0.9.1...v0.9.2) (2026-05-24)
 
 
