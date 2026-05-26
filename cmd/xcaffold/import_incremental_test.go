@@ -420,7 +420,7 @@ Never use string concatenation for SQL queries.
 	scannedConfig.Rules["no-secrets"] = scannedRule
 
 	// Now test rewriteChangedResourcesInPlace - the key function being tested
-	if err := rewriteChangedResourcesInPlace(scannedConfig, diff, ""); err != nil {
+	if err := rewriteChangedResourcesInPlace(scannedConfig, diff, "", "."); err != nil {
 		t.Fatalf("rewriteChangedResourcesInPlace failed: %v", err)
 	}
 
@@ -598,7 +598,7 @@ func importInDir(t *testing.T, dir string, provider string) {
 	projectRoot = dir
 
 	// Run importScope for the specified provider
-	err := importScope("."+provider, "project.xcaf", "project", provider)
+	err := importScope("."+provider, "project.xcaf", "project", provider, ".")
 	require.NoError(t, err)
 }
 
@@ -709,7 +709,7 @@ func TestImport_NewResourceUsesDetectedFlatLayout(t *testing.T) {
 	layout := detectLayout(xcafDir, "rule")
 	require.Equal(t, layoutFlat, layout, "project should have flat layout")
 
-	err = rewriteResourceInPlace(cfg, "rule", "new-rule", rewriteOpts{layout: layout})
+	err = rewriteResourceInPlace(cfg, "rule", "new-rule", rewriteOpts{layout: layout}, ".")
 	require.NoError(t, err)
 
 	// Assert: file exists at flat location
@@ -777,7 +777,7 @@ Existing rule body
 	layout := detectLayout(xcafDir, "rule")
 	require.Equal(t, layoutNested, layout, "project should have nested layout")
 
-	err = rewriteResourceInPlace(cfg, "rule", "new-rule", rewriteOpts{layout: layout})
+	err = rewriteResourceInPlace(cfg, "rule", "new-rule", rewriteOpts{layout: layout}, ".")
 	require.NoError(t, err)
 
 	// Assert: file exists at nested location
@@ -882,7 +882,7 @@ Claude-specific rule content`
 	))
 
 	// Call incrementalImport with target="claude"
-	err = incrementalImport(platformDir, "project.xcaf", "project", "claude")
+	err = incrementalImport(platformDir, "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err, "incrementalImport failed")
 
 	// Verify the result: the rule should be in xcaf/rules/security/rule.xcaf with updated content

@@ -784,7 +784,7 @@ func TestInit_MultiProviderImport_PreservesMemoryFiles(t *testing.T) {
 	}
 
 	// Step 1: mergeImportDirs writes memory files from the full config
-	memCount, err := writeMemoryFiles(fullConfig)
+	memCount, err := writeMemoryFiles(fullConfig, ".")
 	require.NoError(t, err)
 	require.Equal(t, 2, memCount, "expected 2 memory files to be written by mergeImportDirs")
 

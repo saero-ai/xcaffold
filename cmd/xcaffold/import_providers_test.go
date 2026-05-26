@@ -52,7 +52,7 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".mcp.json"), mcpJSON)
 
-	require.NoError(t, importScope(".claude", "project.xcaf", "project", "claude"))
+	require.NoError(t, importScope(".claude", "project.xcaf", "project", "claude", "."))
 
 	// In split-file format, MCP servers go to xcaf/mcp/<name>/mcp.xcaf.
 	// Ref lists are no longer maintained in project.xcaf; resources are discovered from xcaf/ directory.
@@ -84,7 +84,7 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".claude", "agent-memory", "dev", "MEMORY.md"), memIndexContent)
 	writeFile(t, filepath.Join(tmp, ".claude", "agent-memory", "dev", "note.md"), "some useful note")
 
-	require.NoError(t, importScope(".claude", "project.xcaf", "project", "claude"))
+	require.NoError(t, importScope(".claude", "project.xcaf", "project", "claude", "."))
 
 	// xcaf/agents/dev/memory/ must have been created with plain .md files.
 	// MEMORY.md is an auto-generated index and must be skipped on import.
@@ -121,7 +121,7 @@ func TestImportScope_Gemini_SettingsAndMCP(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".gemini", "settings.json"), geminiSettings)
 
-	require.NoError(t, importScope(".gemini", "project.xcaf", "project", "gemini"))
+	require.NoError(t, importScope(".gemini", "project.xcaf", "project", "gemini", "."))
 
 	// In split-file format, MCP servers go to xcaf/mcp/<name>/mcp.xcaf.
 	// Ref lists are no longer maintained in project.xcaf; resources are discovered from xcaf/ directory.
@@ -155,7 +155,7 @@ func TestImportScope_Cursor_MCPJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".cursor", "mcp.json"), cursorMCP)
 
-	require.NoError(t, importScope(".cursor", "project.xcaf", "project", "cursor"))
+	require.NoError(t, importScope(".cursor", "project.xcaf", "project", "cursor", "."))
 
 	// In split-file format, MCP servers go to xcaf/mcp/<name>/mcp.xcaf.
 	// Ref lists are no longer maintained in project.xcaf; resources are discovered from xcaf/ directory.
@@ -190,7 +190,7 @@ func TestImportScope_Cursor_HooksJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".cursor", "hooks.json"), cursorHooks)
 
-	require.NoError(t, importScope(".cursor", "project.xcaf", "project", "cursor"))
+	require.NoError(t, importScope(".cursor", "project.xcaf", "project", "cursor", "."))
 
 	// Hooks are written to xcaf/hooks/<name>/hooks.xcaf in split-file format.
 	hooksXcaf, err := os.ReadFile(filepath.Join(tmp, "xcaf", "hooks", "default", "hooks.xcaf"))
@@ -207,7 +207,7 @@ func TestImportScope_Antigravity_NoMemoryCrash(t *testing.T) {
 
 	writeFile(t, filepath.Join(tmp, ".agents", "rules", "style.md"), "# Style\n")
 
-	require.NoError(t, importScope(".agents", "project.xcaf", "project", "antigravity"))
+	require.NoError(t, importScope(".agents", "project.xcaf", "project", "antigravity", "."))
 
 	// xcaf/agents/ must NOT exist (Antigravity imports rules only, no agent
 	// memory dirs should be created).
@@ -232,7 +232,7 @@ func TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior(t *testing.
 	writeFile(t, filepath.Join(tmp, ".claude", "settings.json"), `{"hooks": {}}`)
 
 	// 4-arg call with "claude" must behave identically to old 3-arg behavior
-	require.NoError(t, importScope(".claude", "project.xcaf", "project", "claude"))
+	require.NoError(t, importScope(".claude", "project.xcaf", "project", "claude", "."))
 
 	data, err := os.ReadFile("project.xcaf")
 	require.NoError(t, err)
