@@ -897,7 +897,7 @@ func TestCompile_ContextUniqueness_AmbiguousWithDefault_OK(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Contexts: map[string]ast.ContextConfig{
 				"ctx-a": {Name: "ctx-a", Body: "body a", Targets: []string{"claude"}},
-				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}, Default: true},
+				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}, Default: boolPtr(true)},
 			},
 		},
 	}
