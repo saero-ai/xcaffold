@@ -72,7 +72,13 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 	// Context uniqueness validation: only when no blueprint is active. When a
 	// blueprint is provided, its contexts: selector already narrows the set
 	// to an explicit composition list and no ambiguity check is needed.
+	//
+	// In bare-apply mode, exclude contexts with default:false before validation
+	// and rendering. These are task-scoped contexts intended only for blueprint
+	// applies; multiple such contexts targeting the same provider must not
+	// trigger a uniqueness error in bare mode.
 	if blueprintName == "" {
+		config.Contexts = filterDefaultFalseContexts(config.Contexts)
 		if err := renderer.ValidateContextUniqueness(config.Contexts, []string{target}); err != nil {
 			return nil, nil, fmt.Errorf("context validation failed: %w", err)
 		}
@@ -166,6 +172,26 @@ func checkPolicyConflicts(global, project map[string]ast.PolicyConfig) error {
 		}
 	}
 	return nil
+}
+
+// filterDefaultFalseContexts returns a copy of contexts with entries that have
+// Default explicitly set to false removed. These task-scoped contexts are only
+// rendered during blueprint applies; bare applies must exclude them so that
+// multiple task-scoped contexts targeting the same provider do not trigger a
+// uniqueness error and so that their bodies do not appear in the root
+// instruction file.
+func filterDefaultFalseContexts(contexts map[string]ast.ContextConfig) map[string]ast.ContextConfig {
+	if len(contexts) == 0 {
+		return contexts
+	}
+	filtered := make(map[string]ast.ContextConfig, len(contexts))
+	for name, ctx := range contexts {
+		if ctx.Default != nil && !*ctx.Default {
+			continue
+		}
+		filtered[name] = ctx
+	}
+	return filtered
 }
 
 // mergeMap copies base entries then overlays child entries (child wins on conflict).
