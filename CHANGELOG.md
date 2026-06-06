@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4](https://github.com/saero-ai/xcaffold/compare/v0.9.3...v0.9.4) (2026-06-06)
+
+
+### Bug Fixes
+
+* **compiler:** restore context rendering in blueprint-filtered applies ([936a196](https://github.com/saero-ai/xcaffold/commit/936a1965d7b2336d061298bbda5082ef245f0dac))
+* **compiler:** restore context rendering in blueprint-filtered applies ([b24ed8b](https://github.com/saero-ai/xcaffold/commit/b24ed8bbc815dc95a8a6f1f02f4950df16fb3a02))
+* **compiler:** restore context rendering in blueprint-filtered applies ([c8a9e92](https://github.com/saero-ai/xcaffold/commit/c8a9e924fdc7c605f35c4b485886b16fa77cfcee)), closes [#94](https://github.com/saero-ai/xcaffold/issues/94)
+
 ## [0.9.3](https://github.com/saero-ai/xcaffold/compare/v0.9.2...v0.9.3) (2026-05-26)
 
 
