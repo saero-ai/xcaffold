@@ -96,10 +96,6 @@ func ValidateContextUniqueness(contexts map[string]ast.ContextConfig, targets []
 		var matching []string
 		var defaults []string
 		for name, ctx := range contexts {
-			// Skip contexts explicitly excluded from bare apply.
-			if ctx.Default != nil && !*ctx.Default {
-				continue
-			}
 			applies := len(ctx.Targets) == 0
 			if !applies {
 				for _, t := range ctx.Targets {
@@ -163,10 +159,6 @@ func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
 			}
 		}
 		if !applies || ctx.Body == "" {
-			continue
-		}
-		// Skip contexts explicitly excluded from bare apply.
-		if ctx.Default != nil && !*ctx.Default {
 			continue
 		}
 		mc := matchedContext{name: name, body: ctx.Body, isDefault: ctx.Default != nil && *ctx.Default}

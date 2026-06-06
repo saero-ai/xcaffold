@@ -138,51 +138,62 @@ func TestResolveContextBody_GlobalContext_MatchesAllTargets(t *testing.T) {
 	assert.Equal(t, "global", gotGemini)
 }
 
-// ── default: false filtering ──────────────────────────────────────────────────
+// ── default: false — renderer trusts upstream selection ───────────────────────
+//
+// After the fix, both ValidateContextUniqueness and ResolveContextBody receive
+// only the contexts the compiler has already selected. The renderer no longer
+// skips contexts based on default:false — that exclusion happens in the compiler
+// before blueprint.ApplyBlueprint or before validation in bare-apply mode.
+// The tests below verify the post-fix renderer semantics.
 
-// TestValidateContextUniqueness_ExplicitFalseExcluded verifies that contexts
-// with default: false are excluded from the uniqueness check entirely, so two
-// such contexts targeting the same provider do not produce an error.
-func TestValidateContextUniqueness_ExplicitFalseExcluded(t *testing.T) {
+// TestValidateContextUniqueness_ExplicitFalse_IncludedInCheck verifies that
+// ValidateContextUniqueness treats default:false contexts just like any other
+// context: two matching contexts that are both false require one to be the
+// explicit default to resolve the ambiguity.
+func TestValidateContextUniqueness_ExplicitFalse_IncludedInCheck(t *testing.T) {
 	f := false
 	contexts := map[string]ast.ContextConfig{
 		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: &f},
 		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: &f},
 	}
+	// Both have Default=false. Neither is the explicit default, so two contexts
+	// match with no tie-breaker — the renderer must report ambiguity.
 	err := ValidateContextUniqueness(contexts, []string{"claude"})
-	require.NoError(t, err)
+	require.Error(t, err, "two matching contexts with no default must be flagged as ambiguous")
+	assert.Contains(t, err.Error(), `"claude"`)
 }
 
-// TestValidateContextUniqueness_MixedNilAndFalse_OneRemaining_OK verifies that
-// when explicit-false contexts are filtered out, a single remaining nil-default
-// context passes validation without needing a default marker.
-func TestValidateContextUniqueness_MixedNilAndFalse_OneRemaining_OK(t *testing.T) {
+// TestValidateContextUniqueness_MixedNilAndFalse_MultipleMatching_Error verifies
+// that when the compiler passes through a mix of nil-default and false-default
+// contexts (which it would only do for blueprint applies), multiple matches with
+// no explicit default are flagged by the renderer.
+func TestValidateContextUniqueness_MixedNilAndFalse_MultipleMatching_Error(t *testing.T) {
 	f := false
 	contexts := map[string]ast.ContextConfig{
 		"ctx-main":    {Name: "ctx-main", Body: "main", Targets: []string{"claude"}},
 		"ctx-task-01": {Name: "ctx-task-01", Body: "task 1", Targets: []string{"claude"}, Default: &f},
-		"ctx-task-02": {Name: "ctx-task-02", Body: "task 2", Targets: []string{"claude"}, Default: &f},
 	}
+	// Two contexts match claude with no explicit default — ambiguous.
 	err := ValidateContextUniqueness(contexts, []string{"claude"})
-	require.NoError(t, err)
+	require.Error(t, err, "multiple matching contexts with no default must be flagged as ambiguous")
 }
 
-// TestResolveContextBody_SkipsExplicitFalse verifies that ResolveContextBody
-// does not include contexts marked default: false in its output.
-func TestResolveContextBody_SkipsExplicitFalse(t *testing.T) {
-	tr := true
+// TestResolveContextBody_RendersExplicitFalseContexts verifies that
+// ResolveContextBody renders a context with default:false when the compiler
+// has already selected it (blueprint apply path). The renderer trusts upstream
+// filtering — it renders everything it receives.
+func TestResolveContextBody_RendersExplicitFalseContexts(t *testing.T) {
 	f := false
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Contexts: map[string]ast.ContextConfig{
-				"ctx-main": {Name: "ctx-main", Body: "main body", Targets: []string{"claude"}, Default: &tr},
 				"ctx-task": {Name: "ctx-task", Body: "task body", Targets: []string{"claude"}, Default: &f},
 			},
 		},
 	}
+	// After the fix, the renderer renders the context regardless of Default value.
 	result := ResolveContextBody(config, "claude")
-	assert.Equal(t, "main body", result)
-	assert.NotContains(t, result, "task body")
+	assert.Equal(t, "task body", result, "renderer must render default:false contexts it receives")
 }
 
 // boolPtr returns a pointer to the given bool value.
