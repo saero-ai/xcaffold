@@ -418,6 +418,28 @@ func parseGlobalDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, infer
 	if err := mergeMCPs(config, doc.MCP); err != nil {
 		return err
 	}
+	if err := mergePolicies(config, doc.Policies); err != nil {
+		return err
+	}
+	if err := mergeContexts(config, doc.Contexts); err != nil {
+		return err
+	}
+	if err := mergeMemory(config, doc.Memory); err != nil {
+		return err
+	}
+
+	// Templates are schema-only; direct assignment after nil-check
+	if len(doc.Templates) > 0 {
+		if config.Templates == nil {
+			config.Templates = make(map[string]ast.TemplateConfig)
+		}
+		for k, v := range doc.Templates {
+			if _, exists := config.Templates[k]; exists {
+				return fmt.Errorf("duplicate template ID %q", k)
+			}
+			config.Templates[k] = v
+		}
+	}
 
 	return nil
 }
@@ -468,6 +490,22 @@ func parseBlueprintDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, in
 	dec.KnownFields(true)
 	if err := dec.Decode(&doc); err != nil {
 		return wrapDecodeError("blueprint", err)
+	}
+	// Warn if YAML name differs from inferred name (when both are present)
+	if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+		config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
+	}
+	// Filesystem-as-schema inference: use inferred name if YAML name is empty
+	wasInferred := false
+	if doc.Name == "" && inferredName != "" {
+		doc.Name = inferredName
+		doc.BlueprintConfig.Name = inferredName
+		wasInferred = true
+	}
+	if wasInferred {
+		if err := validateID("blueprint", inferredName); err != nil {
+			return fmt.Errorf("filesystem-inferred name %q: %w", inferredName, err)
+		}
 	}
 	if err := validateEnvelope(doc.Version, doc.Name, "blueprint"); err != nil {
 		return err

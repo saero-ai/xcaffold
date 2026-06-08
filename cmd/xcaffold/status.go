@@ -19,6 +19,7 @@ import (
 var statusTargetFlag string
 var statusBlueprintFlag string
 var statusAllFlag bool
+var statusOutputDirFlag string
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
@@ -42,6 +43,7 @@ Use --all to see every tracked file.`,
 func init() {
 	statusCmd.Flags().StringVar(&statusTargetFlag, "target", "", "focus on a single provider")
 	statusCmd.Flags().StringVar(&statusBlueprintFlag, "blueprint", "", "filter by blueprint")
+	statusCmd.Flags().StringVar(&statusOutputDirFlag, "output-dir", "", "override output directory for drift detection")
 	statusCmd.Flags().BoolVar(&statusAllFlag, "all", false, "show all files (default: drifted only)")
 	rootCmd.AddCommand(statusCmd)
 }
@@ -75,19 +77,64 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		dir = globalXcafHome
 	}
 
-	statePath := state.StateFilePath(dir, statusBlueprintFlag)
-	manifest, err := state.ReadState(statePath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+	var manifest *state.StateManifest
+	var detectedBlueprint string
+	var err error
+
+	if statusBlueprintFlag != "" {
+		var statePath string
+		if globalFlag {
+			globalStateDir, err := state.GlobalStateDir()
+			if err != nil {
+				return fmt.Errorf("could not determine global state directory: %w", err)
+			}
+			statePath = filepath.Join(globalStateDir, filepath.Base(statusBlueprintFlag)+".xcaf.state")
+		} else {
+			statePath = state.StateFilePath(dir, statusBlueprintFlag)
+		}
+		manifest, err = state.ReadState(statePath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				projectName := filepath.Base(dir)
+				fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag}))
+				fmt.Println()
+				fmt.Printf("  %s  No compilation state found.\n", glyphNever())
+				fmt.Println()
+				fmt.Printf("%s Run 'xcaffold apply' to compile all providers.\n", glyphArrow())
+				return nil
+			}
+			return fmt.Errorf("could not read state: %w", err)
+		}
+		detectedBlueprint = statusBlueprintFlag
+	} else {
+		var stateDir string
+		if globalFlag {
+			globalStateDir, err := state.GlobalStateDir()
+			if err != nil {
+				return fmt.Errorf("could not determine global state directory: %w", err)
+			}
+			stateDir = globalStateDir
+		} else {
+			stateDir = state.StateDir(dir)
+		}
+		manifest, detectedBlueprint, err = state.FindMostRecentState(stateDir)
+		if err != nil {
+			return fmt.Errorf("could not read state: %w", err)
+		}
+		if manifest == nil {
 			projectName := filepath.Base(dir)
-			fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag}))
+			fmt.Println(formatHeader(headerInfo{project: projectName, isGlobal: globalFlag}))
 			fmt.Println()
 			fmt.Printf("  %s  No compilation state found.\n", glyphNever())
 			fmt.Println()
 			fmt.Printf("%s Run 'xcaffold apply' to compile all providers.\n", glyphArrow())
 			return nil
 		}
-		return fmt.Errorf("could not read state: %w", err)
+	}
+
+	// Update the flag so downstream functions use the detected blueprint
+	if detectedBlueprint != "" {
+		statusBlueprintFlag = detectedBlueprint
 	}
 
 	if statusTargetFlag != "" {
@@ -149,6 +196,38 @@ type statusRow struct {
 	noState bool
 }
 
+// resolveStatusOutputDir determines the base and output directories for drift
+// detection. Priority: --output-dir flag > stored output-dir in state > default.
+// When isGlobal is true, the output dir is resolved relative to the user home dir,
+// not the global config dir (~/.xcaffold/).
+func resolveStatusOutputDir(dir, target string, ts state.TargetState, isGlobal bool) (baseDir, outputDir string) {
+	override := statusOutputDirFlag
+	stored := ts.OutputDir
+
+	switch {
+	case override != "":
+		abs, err := filepath.Abs(override)
+		if err != nil {
+			abs = override
+		}
+		return abs, filepath.Join(abs, compiler.OutputDir(target))
+	case stored != "":
+		var base string
+		if filepath.IsAbs(stored) {
+			base = filepath.Clean(stored)
+		} else {
+			base = filepath.Clean(filepath.Join(dir, stored))
+		}
+		return base, filepath.Join(base, compiler.OutputDir(target))
+	default:
+		if isGlobal {
+			homeDir := filepath.Dir(dir) // ~/.xcaffold -> ~
+			return homeDir, filepath.Join(homeDir, compiler.OutputDir(target))
+		}
+		return dir, filepath.Join(dir, compiler.OutputDir(target))
+	}
+}
+
 // buildProviderRows constructs the table data and drifted files map.
 func buildProviderRows(dir string, manifest *state.StateManifest) ([]statusRow, map[string][]state.DriftEntry) {
 	var rows []statusRow
@@ -156,8 +235,8 @@ func buildProviderRows(dir string, manifest *state.StateManifest) ([]statusRow, 
 
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
-		outputDir := filepath.Join(dir, compiler.OutputDir(name))
-		entries := state.CollectDriftedFiles(dir, outputDir, ts)
+		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts, globalFlag)
+		entries := state.CollectDriftedFiles(baseDir, outputDir, ts)
 		drifted := len(entries)
 		rows = append(rows, statusRow{name: name, count: len(ts.Artifacts), drifted: drifted})
 		if drifted > 0 {
@@ -233,9 +312,9 @@ func printDriftBlock(targets map[string]state.TargetState, allDriftedFiles map[s
 func printAllFilesPerProvider(dir string, manifest *state.StateManifest) {
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
-		outputDir := filepath.Join(dir, compiler.OutputDir(name))
+		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts, globalFlag)
 		fmt.Printf("\n  %s\n\n", bold(name))
-		printAllFilesGrouped(dir, outputDir, ts)
+		printAllFilesGrouped(baseDir, outputDir, ts)
 	}
 }
 
@@ -263,8 +342,8 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	}
 
 	projectName := filepath.Base(dir)
-	outputDir := filepath.Join(dir, compiler.OutputDir(target))
-	driftedEntries := state.CollectDriftedFiles(dir, outputDir, ts)
+	baseDir, outputDir := resolveStatusOutputDir(dir, target, ts, globalFlag)
+	driftedEntries := state.CollectDriftedFiles(baseDir, outputDir, ts)
 	drifted := len(driftedEntries)
 	synced := len(ts.Artifacts) - drifted
 	sourceFiles := aggregateSourceFiles(manifest)

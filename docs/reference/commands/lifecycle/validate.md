@@ -19,9 +19,7 @@ xcaffold validate [flags]
 |------|-------|------|---------|-------------|
 | `--target` | | `string` | `""` | Validate field support for a specific provider target. When set, runs field-level fidelity checks and returns a non-zero exit code on any field error. |
 | `--var-file` | | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
-| `--global` | `-g` | `bool` | `false` | Operate on the user-wide global configuration. Inherited from the root command. |
-
-> **Note:** Global scope (`--global`) is not yet fully implemented. Running `xcaffold validate --global` will return an error.
+| `--global` | `-g` | `bool` | `false` | Operate on the user-wide global configuration (`~/.xcaffold/xcaf/global.xcaf`). Inherited from the root command. |
 
 ## Behavior
 
@@ -31,7 +29,7 @@ xcaffold validate [flags]
 2. **Cross-References**: Ensures that all resource links (e.g., an agent referencing a skill) resolve to valid resource IDs. Unresolved cross-references are reported as non-fatal warnings and do not cause a non-zero exit code.
 3. **Directory Integrity**: Validates that all referenced supporting files (scripts, references, artifacts) exist on the filesystem. Checked separately for skill directories and hook directories.
 4. **Structural Checks**: Runs invariant checks. The only structural check is: warning if an agent has the `Bash` tool enabled without a `PreToolUse` hook for command validation.
-5. **Policy Evaluation**: Evaluates all project and global policies against the resources. This includes a simulated compilation to check for output-level policy violations. Policies are aggregated and reported as a single count.
+5. **Policy Evaluation**: Compiles the project and evaluates all project and global policies against the compiled output. When `--target` is set, runs once for that target. When `--target` is omitted, runs once per target declared in `project.xcaf`'s `targets:` list and aggregates findings across all targets. If `--target` is omitted and no targets are declared in `project.xcaf`, validate exits with an error. The `policies` line appears in output only when at least one policy is evaluated or at least one violation is found.
 6. **Field Validation**: If `--target` is specified, checks for missing required fields or unsupported field types for that provider.
 
 ## Examples
@@ -65,6 +63,32 @@ xcaffold-project  ·  validating 14 resources
   ✓  policies (2 checked)
 
 ✓  Validation passed.  14 .xcaf files checked.
+```
+
+## Errors
+
+### No targets configured
+
+```text
+error: no targets configured; specify --target or add targets: in project.xcaf
+```
+
+This error fires when `--target` is not passed and `project.xcaf` has no `targets:` block. To resolve:
+
+**Option 1** — Add a `targets:` list to `project.xcaf`:
+
+```yaml
+kind: project
+name: my-project
+targets:
+  - claude
+  - cursor
+```
+
+**Option 2** — Pass `--target` explicitly:
+
+```bash
+xcaffold validate --target claude
 ```
 
 ## Exit Codes

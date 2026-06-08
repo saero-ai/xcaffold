@@ -893,7 +893,7 @@ func TestMergeContextConfig_BasePreserved(t *testing.T) {
 	base := ast.ContextConfig{
 		Name:        "ctx",
 		Description: "desc",
-		Default:     true,
+		Default:     boolPtr(true),
 		Targets:     []string{"claude", "gemini"},
 		Body:        "context body",
 	}
@@ -904,7 +904,7 @@ func TestMergeContextConfig_BasePreserved(t *testing.T) {
 	if got.Name != "ctx" {
 		t.Errorf("Name: want %q, got %q", "ctx", got.Name)
 	}
-	if !got.Default {
+	if got.Default == nil || !*got.Default {
 		t.Error("Default: want true, got false")
 	}
 	if len(got.Targets) != 2 {

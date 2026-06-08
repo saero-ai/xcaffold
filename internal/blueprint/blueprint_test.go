@@ -190,7 +190,7 @@ func TestResolveTransitiveDeps_AgentPullsSkillsRulesMCP(t *testing.T) {
 		Agents: ast.ClearableList{Values: []string{"backend"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"skill-db", "skill-http"}, p.Skills.Values)
@@ -216,7 +216,7 @@ func TestResolveTransitiveDeps_ExplicitSkillsMergedWithAgentDeps(t *testing.T) {
 		Skills: ast.ClearableList{Values: []string{"my-explicit-skill"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
 	require.NoError(t, err)
 
 	// Explicit skill + agent skill merged
@@ -238,7 +238,7 @@ func TestResolveTransitiveDeps_NoAgents_NoOp(t *testing.T) {
 		// Agents zero-value (no agents selected)
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
 	require.NoError(t, err)
 
 	assert.Empty(t, p.Skills)
@@ -253,7 +253,7 @@ func TestResolveTransitiveDeps_NilScope_NoOp(t *testing.T) {
 	}
 
 	// Must not panic
-	err := ResolveTransitiveDeps(p, nil)
+	err := ResolveTransitiveDeps(p, nil, false)
 	require.NoError(t, err)
 
 	assert.Empty(t, p.Skills)
@@ -270,7 +270,7 @@ func TestResolveTransitiveDeps_AgentNotInScope_Skipped(t *testing.T) {
 	}
 
 	// Must not panic
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
 	require.NoError(t, err)
 
 	assert.Empty(t, p.Skills)
@@ -298,7 +298,7 @@ func TestResolveTransitiveDeps_MultipleAgents_Union(t *testing.T) {
 		Agents: ast.ClearableList{Values: []string{"frontend", "backend"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
 	require.NoError(t, err)
 
 	// skill-shared appears in both agents, must appear once
@@ -330,7 +330,7 @@ func TestResolveTransitiveDeps_AllExplicitMergedWithAgentDeps(t *testing.T) {
 		MCP:    ast.ClearableList{Values: []string{"my-mcp"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"my-skill", "skill-db"}, p.Skills.Values)
@@ -338,7 +338,7 @@ func TestResolveTransitiveDeps_AllExplicitMergedWithAgentDeps(t *testing.T) {
 	assert.Equal(t, []string{"my-mcp", "mcp-x"}, p.MCP.Values)
 }
 
-func TestResolveTransitiveDeps_DuplicateSkill_ReturnsError(t *testing.T) {
+func TestResolveTransitiveDeps_DuplicateSkill_Deduplicated(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"developer": {
@@ -353,13 +353,23 @@ func TestResolveTransitiveDeps_DuplicateSkill_ReturnsError(t *testing.T) {
 		Skills: ast.ClearableList{Values: []string{"tdd", "security-audit"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "tdd")
-	assert.Contains(t, err.Error(), "developer")
+	err := ResolveTransitiveDeps(p, scope, false)
+	require.NoError(t, err)
+	// "tdd" should appear exactly once (deduplicated), plus the other two skills
+	assert.Equal(t, 3, len(p.Skills.Values), "expected 3 skills after dedup, got: %v", p.Skills.Values)
+	assert.Contains(t, p.Skills.Values, "tdd")
+	assert.Contains(t, p.Skills.Values, "security-audit")
+	assert.Contains(t, p.Skills.Values, "schema-design")
+	count := 0
+	for _, s := range p.Skills.Values {
+		if s == "tdd" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count, "tdd must appear exactly once")
 }
 
-func TestResolveTransitiveDeps_DuplicateRule_ReturnsError(t *testing.T) {
+func TestResolveTransitiveDeps_DuplicateRule_Deduplicated(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"developer": {
@@ -374,13 +384,22 @@ func TestResolveTransitiveDeps_DuplicateRule_ReturnsError(t *testing.T) {
 		Rules:  ast.ClearableList{Values: []string{"secure-code", "extra-rule"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "secure-code")
-	assert.Contains(t, err.Error(), "developer")
+	err := ResolveTransitiveDeps(p, scope, false)
+	require.NoError(t, err)
+	// "secure-code" should appear exactly once (deduplicated)
+	assert.Equal(t, 2, len(p.Rules.Values), "expected 2 rules after dedup, got: %v", p.Rules.Values)
+	assert.Contains(t, p.Rules.Values, "secure-code")
+	assert.Contains(t, p.Rules.Values, "extra-rule")
+	count := 0
+	for _, r := range p.Rules.Values {
+		if r == "secure-code" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count, "secure-code must appear exactly once")
 }
 
-func TestResolveTransitiveDeps_DuplicateMCP_ReturnsError(t *testing.T) {
+func TestResolveTransitiveDeps_DuplicateMCP_Deduplicated(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"developer": {
@@ -395,9 +414,73 @@ func TestResolveTransitiveDeps_DuplicateMCP_ReturnsError(t *testing.T) {
 		MCP:    ast.ClearableList{Values: []string{"database-tools"}},
 	}
 
-	err := ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope, false)
+	require.NoError(t, err)
+	// "database-tools" should appear exactly once (deduplicated)
+	assert.Equal(t, 1, len(p.MCP.Values), "expected 1 MCP entry after dedup, got: %v", p.MCP.Values)
+	assert.Contains(t, p.MCP.Values, "database-tools")
+}
+
+func TestResolveTransitiveDeps_Strict_DuplicateRule_ReturnsError(t *testing.T) {
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{
+			"developer": {
+				Rules: ast.ClearableList{Values: []string{"secure-code"}},
+			},
+		},
+	}
+
+	p := &ast.BlueprintConfig{
+		Name:   "test",
+		Agents: ast.ClearableList{Values: []string{"developer"}},
+		Rules:  ast.ClearableList{Values: []string{"secure-code", "extra-rule"}},
+	}
+
+	err := ResolveTransitiveDeps(p, scope, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "secure-code")
+	assert.Contains(t, err.Error(), "developer")
+}
+
+func TestResolveTransitiveDeps_Strict_DuplicateMCP_ReturnsError(t *testing.T) {
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{
+			"developer": {
+				MCP: ast.ClearableList{Values: []string{"database-tools"}},
+			},
+		},
+	}
+
+	p := &ast.BlueprintConfig{
+		Name:   "test",
+		Agents: ast.ClearableList{Values: []string{"developer"}},
+		MCP:    ast.ClearableList{Values: []string{"database-tools"}},
+	}
+
+	err := ResolveTransitiveDeps(p, scope, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "database-tools")
+	assert.Contains(t, err.Error(), "developer")
+}
+
+func TestResolveTransitiveDeps_Strict_DuplicateSkill_ReturnsError(t *testing.T) {
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{
+			"developer": {
+				Skills: ast.ClearableList{Values: []string{"tdd", "schema-design"}},
+			},
+		},
+	}
+
+	p := &ast.BlueprintConfig{
+		Name:   "test",
+		Agents: ast.ClearableList{Values: []string{"developer"}},
+		Skills: ast.ClearableList{Values: []string{"tdd", "security-audit"}},
+	}
+
+	err := ResolveTransitiveDeps(p, scope, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tdd")
 	assert.Contains(t, err.Error(), "developer")
 }
 

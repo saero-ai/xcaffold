@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,6 +57,7 @@ type StateManifest struct {
 // for a single compilation target within a StateManifest.
 type TargetState struct {
 	LastApplied string       `yaml:"last-applied"`
+	OutputDir   string       `yaml:"output-dir,omitempty"`
 	Artifacts   []Artifact   `yaml:"artifacts"`
 	SourceFiles []SourceFile `yaml:"source-files,omitempty"`
 }
@@ -67,6 +69,7 @@ type StateOpts struct {
 	BlueprintHash string
 	Target        string
 	BaseDir       string
+	OutputDir     string
 	SourceFiles   []string
 	MemorySeeds   []MemorySeed
 }
@@ -77,6 +80,17 @@ func StateDir(baseDir string) string {
 	return filepath.Join(baseDir, ".xcaffold")
 }
 
+// GlobalStateDir returns the global state directory path (~/.xcaffold/state/).
+// It respects the XCAFFOLD_HOME environment variable for test isolation.
+// Returns an error if the home directory cannot be determined.
+func GlobalStateDir() (string, error) {
+	globalHome, err := registry.GlobalHome()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(globalHome, "state"), nil
+}
+
 // StateFilePath returns the full path to the state file for a given blueprint.
 // If blueprintName is empty, the default filename "project.xcaf.state" is used.
 // The blueprintName is sanitized with filepath.Base to prevent directory traversal.
@@ -84,6 +98,30 @@ func StateFilePath(baseDir, blueprintName string) string {
 	name := "project"
 	if blueprintName != "" {
 		name = filepath.Base(blueprintName)
+	}
+	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcaf.state"))
+}
+
+// normalizeOutputDir converts a stored output-dir path into a safe filename
+// component. Strips leading/trailing slashes and replaces internal slashes
+// with underscores.
+func normalizeOutputDir(dir string) string {
+	dir = strings.TrimSuffix(dir, "/")
+	dir = strings.TrimPrefix(dir, "/")
+	return strings.ReplaceAll(dir, "/", "_")
+}
+
+// StateFilePathWithOutputDir returns the state file path encoding both blueprint
+// and output-dir. When outputDir is empty, it produces the same path as
+// StateFilePath (backward compatible). When non-empty, the output-dir is
+// normalized and appended with an @ separator: {blueprint}@{dir}.xcaf.state.
+func StateFilePathWithOutputDir(baseDir, blueprintName, outputDir string) string {
+	name := "project"
+	if blueprintName != "" {
+		name = filepath.Base(blueprintName)
+	}
+	if outputDir != "" {
+		name += "@" + normalizeOutputDir(outputDir)
 	}
 	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcaf.state"))
 }
@@ -108,6 +146,56 @@ func ListStateFiles(stateDir string) ([]string, error) {
 	}
 	sort.Strings(files)
 	return files, nil
+}
+
+// FindMostRecentState finds the most recent state file in the given directory
+// by comparing LastApplied timestamps across all targets in all manifests.
+// Returns the manifest, its Blueprint name, and nil error.
+// If no state directory or no valid state files exist, returns (nil, "", nil).
+// Unreadable or unparseable files are skipped; targets with invalid timestamps are skipped.
+// For tied timestamps, the lexicographically first file path is returned.
+func FindMostRecentState(stateDir string) (*StateManifest, string, error) {
+	files, err := ListStateFiles(stateDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, "", nil
+		}
+		return nil, "", err
+	}
+
+	if len(files) == 0 {
+		return nil, "", nil
+	}
+
+	var bestManifest *StateManifest
+	var bestTime time.Time
+	var bestPath string
+
+	for _, path := range files {
+		manifest, err := ReadState(path)
+		if err != nil {
+			continue
+		}
+
+		for _, ts := range manifest.Targets {
+			parsedTime, err := time.Parse(time.RFC3339, ts.LastApplied)
+			if err != nil {
+				continue
+			}
+
+			if bestManifest == nil || parsedTime.After(bestTime) || (parsedTime.Equal(bestTime) && path < bestPath) {
+				bestManifest = manifest
+				bestTime = parsedTime
+				bestPath = path
+			}
+		}
+	}
+
+	if bestManifest == nil {
+		return nil, "", nil
+	}
+
+	return bestManifest, bestManifest.Blueprint, nil
 }
 
 // sortMemorySeeds sorts a slice of MemorySeed in ascending order by Name.
@@ -171,6 +259,7 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 	sourceFiles := buildSourceFiles(opts)
 	targetState := TargetState{
 		LastApplied: now,
+		OutputDir:   opts.OutputDir,
 		Artifacts:   buildArtifacts(out),
 		SourceFiles: sourceFiles,
 	}

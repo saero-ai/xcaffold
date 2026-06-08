@@ -50,14 +50,20 @@ You are working on xcaffold, a deterministic Harness-as-Code compiler...
 | Field | Type | Description |
 |-------|------|-------------|
 | `description` | `string` | Human-readable purpose of this context block. |
-| `default` | `bool` | Marks this context as tie-breaker when multiple match the same target. |
+| `default` | `bool` | Controls inclusion in bare apply. When `true`, marks this context as the tie-breaker when multiple contexts match the same target. When `false`, excludes this context from bare `xcaffold apply` (it is only used when a blueprint explicitly selects it). Omitting this field includes the context normally. |
 | `targets` | `[]string` | Restricts this context to specific provider targets. When absent, context renders for all targets. |
 
 The **markdown body** (content after the closing `---`) contains the workspace context prose that is rendered verbatim to the provider's instruction file.
 
 ## Targets and Default Resolution
 
-The `targets:` field filters which compilation targets receive this context. When multiple contexts match a target, the `default` field controls ordering. See [Targets](../../../concepts/configuration/targets.md) for the full concept, including filter semantics and default resolution rules.
+The `targets:` field filters which compilation targets receive this context. When multiple contexts match a target during bare apply, the `default` field determines which one is used:
+
+- `default: true` — this context wins the tie-breaker; it is placed first in the composed output
+- `default: false` — this context is excluded from bare apply entirely; it only participates when a blueprint explicitly selects it
+- field omitted — context participates normally; if exactly one context matches after filtering, no tie-breaker is needed
+
+See [Targets](../../../concepts/configuration/targets.md) for the full concept, including filter semantics and default resolution rules.
 
 ## Filesystem-as-Schema
 

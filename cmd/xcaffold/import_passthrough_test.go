@@ -26,7 +26,7 @@ func TestImport_HookScriptPassthrough(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude", "custom"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "custom", "test.json"), []byte("{}"), 0o644))
 
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err)
 
 	hookOutput := filepath.Join(dir, "xcaf", "hooks", "pre-commit.sh")

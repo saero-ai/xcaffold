@@ -8,6 +8,52 @@ import (
 	"time"
 )
 
+func TestGlobalScanResult_IncludesPolicies(t *testing.T) {
+	r := NewScanResult()
+	r.Policies["no-secrets"] = GlobalPolicyEntry{InstructionsFile: "policy.md"}
+
+	if len(r.Policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(r.Policies))
+	}
+	if r.Policies["no-secrets"].InstructionsFile != "policy.md" {
+		t.Fatalf("unexpected instructions file")
+	}
+}
+
+func TestGlobalScanResult_IncludesContexts(t *testing.T) {
+	r := NewScanResult()
+	r.Contexts["project-instructions"] = GlobalContextEntry{InstructionsFile: "CLAUDE.md"}
+
+	if len(r.Contexts) != 1 {
+		t.Fatalf("expected 1 context, got %d", len(r.Contexts))
+	}
+}
+
+func TestMarshalGlobalXCAF_EmitsPoliciesSection(t *testing.T) {
+	r := NewScanResult()
+	r.Policies["no-secrets"] = GlobalPolicyEntry{InstructionsFile: "policy.md"}
+
+	out := marshalGlobalXCAF(&r)
+
+	if !strings.Contains(string(out), "policies:") {
+		t.Fatal("output should contain policies: section")
+	}
+	if !strings.Contains(string(out), "no-secrets:") {
+		t.Fatal("output should contain policy name")
+	}
+}
+
+func TestMarshalGlobalXCAF_EmitsContextsSection(t *testing.T) {
+	r := NewScanResult()
+	r.Contexts["instructions"] = GlobalContextEntry{InstructionsFile: "CLAUDE.md"}
+
+	out := marshalGlobalXCAF(&r)
+
+	if !strings.Contains(string(out), "contexts:") {
+		t.Fatal("output should contain contexts: section")
+	}
+}
+
 const testProjectName = "my-app"
 
 // setupTestHome redirects $HOME to a temp dir and ensures the global home exists.
@@ -196,7 +242,7 @@ func TestUnregister_ByName(t *testing.T) {
 
 	projectPath := t.TempDir()
 	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
-	_ = Unregister(testProjectName)
+	_, _ = Unregister(testProjectName)
 
 	projects, _ := List()
 	if len(projects) != 0 {
@@ -209,7 +255,7 @@ func TestUnregister_ByPath(t *testing.T) {
 
 	projectPath := t.TempDir()
 	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
-	_ = Unregister(projectPath)
+	_, _ = Unregister(projectPath)
 
 	projects, _ := List()
 	if len(projects) != 0 {
@@ -217,11 +263,51 @@ func TestUnregister_ByPath(t *testing.T) {
 	}
 }
 
-func TestUnregister_NotFound(t *testing.T) {
+func TestUnregister_NotFound_OldTest(t *testing.T) {
 	setupTestHome(t)
 
-	if err := Unregister("nonexistent"); err != nil {
-		t.Fatalf("Unregister should not error for missing project: %v", err)
+	// Old test — still registers projects, but now expects an error for missing project
+	_, err := Unregister("nonexistent")
+	if err == nil {
+		t.Fatal("Unregister should error for missing project")
+	}
+	if !strings.Contains(err.Error(), "no project found") {
+		t.Errorf("error should contain 'no project found', got: %v", err)
+	}
+}
+
+func TestUnregister_ReturnsRemovedProject(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	if err := Register(projectPath, testProjectName, []string{"claude"}, "."); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	removed, err := Unregister(testProjectName)
+	if err != nil {
+		t.Fatalf("Unregister should not error for found project: %v", err)
+	}
+
+	if removed.Name != testProjectName {
+		t.Errorf("expected removed project name %q, got %q", testProjectName, removed.Name)
+	}
+
+	projects, _ := List()
+	if len(projects) != 0 {
+		t.Fatalf("expected 0 projects after unregister, got %d", len(projects))
+	}
+}
+
+func TestUnregister_NotFound_ReturnsError(t *testing.T) {
+	setupTestHome(t)
+
+	_, err := Unregister("ghost")
+	if err == nil {
+		t.Fatal("Unregister should return error when project not found")
+	}
+	if !strings.Contains(err.Error(), "no project found") {
+		t.Errorf("error should contain 'no project found', got: %v", err)
 	}
 }
 
@@ -358,5 +444,252 @@ func TestGlobalHome_XcaffoldHomeOverride(t *testing.T) {
 	}
 	if home != customDir {
 		t.Errorf("expected GlobalHome() == %q, got %q", customDir, home)
+	}
+}
+
+func TestPathExists_ValidPath(t *testing.T) {
+	setupTestHome(t)
+	projectPath := t.TempDir()
+	p := Project{Path: projectPath}
+	if !PathExists(p) {
+		t.Errorf("PathExists should return true for existing directory %q", projectPath)
+	}
+}
+
+func TestPathExists_NonexistentPath(t *testing.T) {
+	setupTestHome(t)
+	p := Project{Path: "/nonexistent/path/that/does/not/exist"}
+	if PathExists(p) {
+		t.Error("PathExists should return false for nonexistent path")
+	}
+}
+
+func TestPrune_RemovesNonExistentPaths(t *testing.T) {
+	setupTestHome(t)
+
+	// Register 3 projects
+	path1 := t.TempDir()
+	path2 := t.TempDir()
+	path3 := t.TempDir()
+
+	_ = Register(path1, "proj-1", []string{"claude"}, ".")
+	_ = Register(path2, "proj-2", []string{"claude"}, ".")
+	_ = Register(path3, "proj-3", []string{"claude"}, ".")
+
+	// Delete one directory
+	_ = os.RemoveAll(path2)
+
+	// Prune with dry-run=false
+	pruned, err := Prune(false)
+	if err != nil {
+		t.Fatalf("Prune failed: %v", err)
+	}
+
+	// Should return 1 entry (the deleted one)
+	if len(pruned) != 1 {
+		t.Errorf("expected 1 pruned entry, got %d", len(pruned))
+	}
+	if pruned[0].Name != "proj-2" {
+		t.Errorf("expected pruned entry to be proj-2, got %q", pruned[0].Name)
+	}
+
+	// List should now show only 2 projects
+	remaining, _ := List()
+	if len(remaining) != 2 {
+		t.Errorf("expected 2 remaining projects after prune, got %d", len(remaining))
+	}
+}
+
+func TestPrune_PreservesValidPaths(t *testing.T) {
+	setupTestHome(t)
+
+	// Register 3 projects with all dirs existing
+	path1 := t.TempDir()
+	path2 := t.TempDir()
+	path3 := t.TempDir()
+
+	_ = Register(path1, "proj-1", []string{"claude"}, ".")
+	_ = Register(path2, "proj-2", []string{"claude"}, ".")
+	_ = Register(path3, "proj-3", []string{"claude"}, ".")
+
+	// Prune with all paths existing
+	pruned, err := Prune(false)
+	if err != nil {
+		t.Fatalf("Prune failed: %v", err)
+	}
+
+	// Should return 0 entries (nothing to prune)
+	if len(pruned) != 0 {
+		t.Errorf("expected 0 pruned entries, got %d", len(pruned))
+	}
+
+	// List should still show 3 projects
+	remaining, _ := List()
+	if len(remaining) != 3 {
+		t.Errorf("expected 3 projects after prune, got %d", len(remaining))
+	}
+}
+
+func TestPrune_EmptyRegistry(t *testing.T) {
+	setupTestHome(t)
+
+	// Registry is empty by default after setup
+	pruned, err := Prune(false)
+	if err != nil {
+		t.Fatalf("Prune failed: %v", err)
+	}
+
+	// Should return 0 entries
+	if len(pruned) != 0 {
+		t.Errorf("expected 0 pruned entries from empty registry, got %d", len(pruned))
+	}
+}
+
+func TestPrune_DryRun(t *testing.T) {
+	setupTestHome(t)
+
+	// Register 2 projects
+	path1 := t.TempDir()
+	path2 := t.TempDir()
+
+	_ = Register(path1, "proj-1", []string{"claude"}, ".")
+	_ = Register(path2, "proj-2", []string{"claude"}, ".")
+
+	// Delete one directory
+	_ = os.RemoveAll(path2)
+
+	// Prune with dry-run=true
+	pruned, err := Prune(true)
+	if err != nil {
+		t.Fatalf("Prune failed: %v", err)
+	}
+
+	// Should return 1 entry (the deleted one)
+	if len(pruned) != 1 {
+		t.Errorf("expected 1 pruned entry, got %d", len(pruned))
+	}
+
+	// List should still show 2 projects (registry unchanged)
+	remaining, _ := List()
+	if len(remaining) != 2 {
+		t.Errorf("expected 2 projects after dry-run prune, got %d (should be unchanged)", len(remaining))
+	}
+}
+
+func TestWriteProjects_AtomicWrite(t *testing.T) {
+	setupTestHome(t)
+
+	// Register a project
+	projectPath := t.TempDir()
+	_ = Register(projectPath, "test-proj", []string{"claude"}, ".")
+
+	// Verify that no .registry.xcaf.tmp file is left behind
+	home, _ := GlobalHome()
+	tmpPath := filepath.Join(home, ".registry.xcaf.tmp")
+
+	// After Register (which calls writeProjects), the tmp file should not exist
+	if _, err := os.Stat(tmpPath); err == nil {
+		t.Error("temporary .registry.xcaf.tmp file should not exist after successful write")
+	}
+
+	// Verify the actual registry file exists and is valid
+	projects, err := List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(projects) != 1 {
+		t.Errorf("expected 1 project in registry, got %d", len(projects))
+	}
+}
+
+func TestInfo_ExistingProject(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	// Create xcaf/ subdir and project.xcaf file
+	_ = os.Mkdir(filepath.Join(projectPath, "xcaf"), 0755)
+	_ = os.WriteFile(filepath.Join(projectPath, "project.xcaf"), []byte("kind: project"), 0600)
+
+	_ = Register(projectPath, "existing-proj", []string{"claude"}, ".")
+
+	info, err := Info("existing-proj")
+	if err != nil {
+		t.Fatalf("Info failed: %v", err)
+	}
+
+	if !info.Exists {
+		t.Error("Exists should be true for registered project")
+	}
+	if !info.HasXcafDir {
+		t.Error("HasXcafDir should be true when xcaf/ exists")
+	}
+	if !info.HasProjectXcf {
+		t.Error("HasProjectXcf should be true when project.xcaf exists")
+	}
+	if info.Name != "existing-proj" {
+		t.Errorf("Name should be 'existing-proj', got %q", info.Name)
+	}
+	if info.Path != projectPath {
+		t.Errorf("Path should be %q, got %q", projectPath, info.Path)
+	}
+}
+
+func TestInfo_StaleProject(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	_ = Register(projectPath, "stale-proj", []string{"claude"}, ".")
+
+	// Delete the project directory
+	_ = os.RemoveAll(projectPath)
+
+	info, err := Info("stale-proj")
+	if err != nil {
+		t.Fatalf("Info failed: %v", err)
+	}
+
+	if info.Exists {
+		t.Error("Exists should be false for deleted project")
+	}
+	if info.HasXcafDir {
+		t.Error("HasXcafDir should be false when path doesn't exist")
+	}
+	if info.HasProjectXcf {
+		t.Error("HasProjectXcf should be false when path doesn't exist")
+	}
+}
+
+func TestInfo_NotFound(t *testing.T) {
+	setupTestHome(t)
+
+	_, err := Info("nonexistent")
+	if err == nil {
+		t.Fatal("Info should return error for unknown project")
+	}
+	if !strings.Contains(err.Error(), "no project found") {
+		t.Errorf("error should contain 'no project found', got: %v", err)
+	}
+}
+
+func TestInfo_ByPath(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	_ = os.Mkdir(filepath.Join(projectPath, "xcaf"), 0755)
+	_ = os.WriteFile(filepath.Join(projectPath, "project.xcaf"), []byte("kind: project"), 0600)
+
+	_ = Register(projectPath, "path-lookup", []string{"claude"}, ".")
+
+	// Resolve by absolute path instead of name
+	info, err := Info(projectPath)
+	if err != nil {
+		t.Fatalf("Info by path failed: %v", err)
+	}
+
+	if !info.Exists {
+		t.Error("Exists should be true")
+	}
+	if info.Name != "path-lookup" {
+		t.Errorf("Name should be 'path-lookup', got %q", info.Name)
 	}
 }

@@ -1500,3 +1500,10 @@ func TestCursor_BasicMode(t *testing.T) {
 	}
 	assert.True(t, found, "expected skill file for workflow in Cursor; got keys: %v", renderer.SortedKeys(out.Files))
 }
+
+func TestSupportsGlobalScope_Cursor(t *testing.T) {
+	r := cursor.New()
+	if !r.SupportsGlobalScope() {
+		t.Error("expected Cursor renderer to support global scope")
+	}
+}

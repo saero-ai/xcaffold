@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,24 +217,32 @@ func TestRunApply_ScopeProject(t *testing.T) {
 }
 
 func TestRunApply_ScopeGlobal(t *testing.T) {
-	dir := t.TempDir()
-	xcaf := filepath.Join(dir, "global.xcaf")
+	homeDir := t.TempDir()
+	xcafDir := filepath.Join(homeDir, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
+
+	xcaf := filepath.Join(xcafDir, "global.xcaf")
 	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	// Set XCAFFOLD_HOME to use a temp directory for test isolation
+	t.Setenv("XCAFFOLD_HOME", xcafDir)
 
 	// globalXcafHome is the source directory containing global.xcaf (~/.xcaffold/).
 	// Output goes one level up from globalXcafHome into the home dir's .claude/.
 	globalXcafPath = xcaf
-	globalXcafHome = dir
+	globalXcafHome = xcafDir
 	globalFlag = true
-	defer func() { globalFlag = false }()
+	targetFlag = testTarget
+	defer func() { globalFlag = false; targetFlag = "" }()
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	// State is written inside globalXcafHome/.xcaffold/
-	stateFile := state.StateFilePath(dir, "")
+	// For global scope, state is written to XCAFFOLD_HOME/state/
+	stateDir := filepath.Join(xcafDir, "state")
+	stateFile := filepath.Join(stateDir, "project.xcaf.state")
 	_, err = os.Stat(stateFile)
-	assert.NoError(t, err, "state file should be written for global scope")
+	assert.NoError(t, err, "state file should be written to global state directory (%s)", stateDir)
 }
 
 func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
@@ -1254,4 +1263,244 @@ func TestRenderApplyPreview_CountsCorrectly(t *testing.T) {
 	assert.Equal(t, 2, newC, "should count 2 new files")
 	assert.Equal(t, 1, changedC, "should count 1 changed file")
 	assert.Equal(t, 2, unchangedC, "should count 2 unchanged files")
+}
+
+// TestOutputDir_GlobalMutualExclusion verifies that --output-dir and --global
+// are mutually exclusive on apply.
+func TestOutputDir_GlobalMutualExclusion(t *testing.T) {
+	origOutputDir := applyOutputDirFlag
+	origGlobal := globalFlag
+	defer func() {
+		applyOutputDirFlag = origOutputDir
+		globalFlag = origGlobal
+	}()
+
+	applyOutputDirFlag = "/tmp/test"
+	globalFlag = true
+
+	err := validateOutputDirFlag()
+	require.Error(t, err, "expected error when --output-dir and --global both set")
+	assert.Contains(t, err.Error(), "cannot be used together")
+}
+
+// TestResolveOutputDir verifies path resolution logic for --output-dir flag.
+func TestResolveOutputDir(t *testing.T) {
+	projRoot := t.TempDir()
+	parentDir := filepath.Dir(projRoot)
+
+	tests := []struct {
+		name        string
+		flag        string
+		projectRoot string
+		wantRel     bool
+		wantEmpty   bool
+	}{
+		{
+			name:        "relative path inside project resolves to relative stored",
+			flag:        filepath.Join(projRoot, "output"),
+			projectRoot: projRoot,
+			wantRel:     true,
+		},
+		{
+			name:        "absolute path outside project resolves to absolute stored",
+			flag:        filepath.Join(parentDir, "outside-output"),
+			projectRoot: projRoot,
+			wantRel:     false,
+		},
+		{
+			name:        "empty means default",
+			flag:        "",
+			projectRoot: projRoot,
+			wantEmpty:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved, storedPath, err := resolveOutputDir(tt.flag, tt.projectRoot)
+			require.NoError(t, err, "unexpected error: %v", err)
+			if tt.wantEmpty {
+				require.Equal(t, "", resolved, "empty flag should return empty resolved")
+				require.Equal(t, "", storedPath, "empty flag should return empty storedPath")
+				return
+			}
+			require.NotEmpty(t, resolved, "resolved path should not be empty for non-empty flag")
+			require.True(t, strings.HasSuffix(storedPath, "/"), "stored path should end with /")
+			if tt.wantRel {
+				require.False(t, filepath.IsAbs(storedPath), "expected relative stored path, got absolute: %q", storedPath)
+			} else {
+				require.True(t, filepath.IsAbs(storedPath), "expected absolute stored path, got relative: %q", storedPath)
+			}
+		})
+	}
+}
+
+// TestOutputDir_CrossScope_StoredPathReadable verifies that cross-scope cleanup reads stored
+// OutputDir from state files. Create a temp dir with a state file containing a non-default
+// OutputDir, then verify the state can be read and the OutputDir field is populated.
+func TestOutputDir_CrossScope_StoredPathReadable(t *testing.T) {
+	projDir := t.TempDir()
+	stateDir := filepath.Join(projDir, ".xcaffold")
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	oldManifest := &state.StateManifest{
+		Version: 1,
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: "2026-01-01T00:00:00Z",
+				OutputDir:   "custom-out/",
+				Artifacts: []state.Artifact{
+					{Path: "agents/old.md", Hash: "sha256:abc"},
+				},
+			},
+		},
+	}
+	oldPath := filepath.Join(stateDir, "old-blueprint.xcaf.state")
+	if err := state.WriteState(oldManifest, oldPath); err != nil {
+		t.Fatal(err)
+	}
+
+	read, err := state.ReadState(oldPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := read.Targets["claude"]
+	if ts.OutputDir != "custom-out/" {
+		t.Errorf("OutputDir = %q, want %q", ts.OutputDir, "custom-out/")
+	}
+}
+
+// TestCleanCrossScope_OutputDirGuard verifies that cleanCrossScope skips cleanup
+// when the stored output-dir differs between current and other scopes. This prevents
+// accidental deletion of artifacts from blueprints targeting different --output-dir values.
+func TestCleanCrossScope_OutputDirGuard(t *testing.T) {
+	tests := []struct {
+		name             string
+		currentOutputDir string // storedOutputDir for current apply
+		otherOutputDir   string // OutputDir stored in the other scope's state
+		wantCleanup      bool   // true = other scope's artifacts should be removed
+	}{
+		{"BothDefault", "", "", true},
+		{"BothExplicitSame", "out-a/", "out-a/", true},
+		{"BothExplicitDifferent", "out-b/", "out-a/", false},
+		{"CurrentExplicit_OtherDefault", "out-b/", "", false},
+		{"CurrentDefault_OtherExplicit", "", "out-a/", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			projDir := t.TempDir()
+			stateDir := filepath.Join(projDir, ".xcaffold")
+			require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+			// Current scope's state file (will be skipped by cleanCrossScope)
+			currentManifest := &state.StateManifest{
+				Version: 1,
+				Targets: map[string]state.TargetState{
+					"claude": {
+						LastApplied: "2026-01-01T00:00:00Z",
+						OutputDir:   tt.currentOutputDir,
+					},
+				},
+			}
+			currentPath := filepath.Join(stateDir, "current.xcaf.state")
+			require.NoError(t, state.WriteState(currentManifest, currentPath))
+
+			// Other scope's state file with an artifact
+			otherManifest := &state.StateManifest{
+				Version: 1,
+				Targets: map[string]state.TargetState{
+					"claude": {
+						LastApplied: "2026-01-01T00:00:00Z",
+						OutputDir:   tt.otherOutputDir,
+						Artifacts: []state.Artifact{
+							{Path: "agents/other.md", Hash: "sha256:abc"},
+						},
+					},
+				},
+			}
+			otherPath := filepath.Join(stateDir, "other.xcaf.state")
+			require.NoError(t, state.WriteState(otherManifest, otherPath))
+
+			// Create the artifact file on disk so cleanup can delete it.
+			// The artifact path is relative to the output dir.
+			// When otherOutputDir is empty, artifacts live at baseDir/.claude/
+			// When otherOutputDir is set (relative), artifacts live at baseDir/otherOutputDir/.claude/
+			var artifactDir string
+			if tt.otherOutputDir != "" {
+				artifactDir = filepath.Join(projDir, tt.otherOutputDir, ".claude", "agents")
+			} else {
+				artifactDir = filepath.Join(projDir, ".claude", "agents")
+			}
+			require.NoError(t, os.MkdirAll(artifactDir, 0755))
+			artifactFile := filepath.Join(artifactDir, "other.md")
+			require.NoError(t, os.WriteFile(artifactFile, []byte("test"), 0644))
+
+			// The current apply's resolved output dir (what cleanCrossScope receives as outputDir)
+			// This is the fully resolved path, not the stored value.
+			var resolvedOutputDir string
+			if tt.currentOutputDir != "" {
+				resolvedOutputDir = filepath.Join(projDir, tt.currentOutputDir, ".claude")
+			} else {
+				resolvedOutputDir = filepath.Join(projDir, ".claude")
+			}
+
+			err := cleanCrossScope(crossScopeOpts{
+				baseDir:          projDir,
+				outputDir:        resolvedOutputDir,
+				storedOutputDir:  tt.currentOutputDir,
+				currentStatePath: currentPath,
+				target:           "claude",
+				force:            true, // skip drift check
+			})
+			require.NoError(t, err)
+
+			if tt.wantCleanup {
+				assert.NoFileExists(t, artifactFile, "artifact should be removed")
+				assert.NoFileExists(t, otherPath, "other state file should be removed")
+			} else {
+				assert.FileExists(t, artifactFile, "artifact should be preserved")
+				assert.FileExists(t, otherPath, "other state file should be preserved")
+			}
+		})
+	}
+}
+
+// TestApplyGlobal_UnsupportedTarget_Errors verifies that xcaffold apply --global --target
+// with an unsupported target returns an error before compilation.
+func TestApplyGlobal_UnsupportedTarget_Errors(t *testing.T) {
+	homeDir := t.TempDir()
+	globalHome := filepath.Join(homeDir, ".xcaffold")
+	globalXcafDir := filepath.Join(globalHome, "xcaf")
+	if err := os.MkdirAll(globalXcafDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a minimal global.xcaf
+	globalXcaf := filepath.Join(globalXcafDir, "global.xcaf")
+	content := `---
+kind: global
+version: "1.0"
+`
+	if err := os.WriteFile(globalXcaf, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set up global scope flags
+	globalFlag = true
+	globalXcafHome = globalHome
+	globalXcafPath = globalXcaf
+	targetFlag = "codex" // codex returns false for SupportsGlobalScope
+	defer func() {
+		globalFlag = false
+		globalXcafHome = ""
+		globalXcafPath = ""
+		targetFlag = ""
+	}()
+
+	err := runApply(applyCmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not support global")
 }

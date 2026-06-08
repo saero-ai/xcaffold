@@ -1,0 +1,51 @@
+name: Update release PR
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update-pr:
+    name: Sync release PR body
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Find open develop→main PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --base main --head develop --state open --json number -q '.[0].number')
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR body
+        if: steps.pr.outputs.number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"- %s" --no-merges \
+            | grep -E "^- (feat|fix|refactor|perf|docs)\b" || echo "No notable changes yet.")
+
+          FEAT=$(echo "$COMMITS" | grep -c "^- feat" || true)
+          FIX=$(echo "$COMMITS" | grep -c "^- fix" || true)
+
+          gh pr edit "${{ steps.pr.outputs.number }}" --body "$(cat <<EOF
+          ## Changes since last release
+
+          **${FEAT} feature(s), ${FIX} fix(es)** queued on develop.
+
+          ${COMMITS}
+
+          ---
+          _Auto-generated from conventional commits. Updated on every push to develop._
+          EOF
+          )"
+
+          echo "Updated PR #${{ steps.pr.outputs.number }} with $FEAT feat(s) and $FIX fix(es)."

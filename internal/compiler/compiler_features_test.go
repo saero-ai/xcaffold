@@ -897,7 +897,7 @@ func TestCompile_ContextUniqueness_AmbiguousWithDefault_OK(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Contexts: map[string]ast.ContextConfig{
 				"ctx-a": {Name: "ctx-a", Body: "body a", Targets: []string{"claude"}},
-				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}, Default: true},
+				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}, Default: boolPtr(true)},
 			},
 		},
 	}
@@ -930,4 +930,169 @@ func TestCompile_ContextUniqueness_BlueprintActive_SkipsValidation(t *testing.T)
 	// Compile with an active blueprint — ambiguous contexts must not error.
 	_, _, err := Compile(config, "", CompileOpts{Target: "claude", Blueprint: "my-bp", VarFile: ""})
 	require.NoError(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// Blueprint context rendering — regression tests (default:false handling)
+// ---------------------------------------------------------------------------
+
+// TestCompile_BlueprintContext_DefaultFalseRendered is the primary regression
+// test. A blueprint that lists a context with default:false must produce a
+// non-empty root instruction body for the target. Before the fix, blueprint
+// applies wrote an empty CLAUDE.md because the renderer silently skipped every
+// context with Default != nil && !*Default, which is the conventional value for
+// blueprint-scoped contexts.
+func TestCompile_BlueprintContext_DefaultFalseRendered(t *testing.T) {
+	f := false
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"task-ctx": {
+					Name:    "task-ctx",
+					Body:    "Task-specific instructions.",
+					Targets: []string{"claude"},
+					Default: &f,
+				},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Description: "developer"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"task-bp": {
+				Name:     "task-bp",
+				Agents:   ast.ClearableList{Values: []string{"dev"}},
+				Contexts: ast.ClearableList{Values: []string{"task-ctx"}},
+			},
+		},
+	}
+
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude", Blueprint: "task-bp"})
+	require.NoError(t, err)
+
+	// The compiled root instruction file must contain the context body.
+	claudeMD, ok := out.RootFiles["CLAUDE.md"]
+	require.True(t, ok, "blueprint apply must produce CLAUDE.md in RootFiles")
+	assert.Contains(t, claudeMD, "Task-specific instructions.", "context body must appear in CLAUDE.md")
+}
+
+// TestCompile_BlueprintContext_OnlyListedContextsRendered verifies that a
+// blueprint apply excludes workspace contexts not referenced in the
+// blueprint's contexts: list, even when those contexts match the target.
+func TestCompile_BlueprintContext_OnlyListedContextsRendered(t *testing.T) {
+	f := false
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"task-ctx": {
+					Name:    "task-ctx",
+					Body:    "Blueprint context body.",
+					Targets: []string{"claude"},
+					Default: &f,
+				},
+				"workspace-ctx": {
+					Name:    "workspace-ctx",
+					Body:    "Workspace-wide body.",
+					Targets: []string{"claude"},
+				},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Description: "developer"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"task-bp": {
+				Name:     "task-bp",
+				Agents:   ast.ClearableList{Values: []string{"dev"}},
+				Contexts: ast.ClearableList{Values: []string{"task-ctx"}},
+			},
+		},
+	}
+
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude", Blueprint: "task-bp"})
+	require.NoError(t, err)
+
+	claudeMD, ok := out.RootFiles["CLAUDE.md"]
+	require.True(t, ok, "blueprint apply must produce CLAUDE.md")
+	assert.Contains(t, claudeMD, "Blueprint context body.", "blueprint context must be rendered")
+	assert.NotContains(t, claudeMD, "Workspace-wide body.", "non-blueprint workspace context must be excluded")
+}
+
+// TestCompile_BareApplyContext_DefaultFalseExcluded verifies that bare apply
+// (no blueprint) skips contexts with default:false and does not include their
+// body in the root instruction file.
+func TestCompile_BareApplyContext_DefaultFalseExcluded(t *testing.T) {
+	tr := true
+	f := false
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"main-ctx": {
+					Name:    "main-ctx",
+					Body:    "Main workspace instructions.",
+					Targets: []string{"claude"},
+					Default: &tr,
+				},
+				"task-ctx": {
+					Name:    "task-ctx",
+					Body:    "Task-only body.",
+					Targets: []string{"claude"},
+					Default: &f,
+				},
+			},
+		},
+	}
+
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
+	require.NoError(t, err)
+
+	claudeMD, ok := out.RootFiles["CLAUDE.md"]
+	require.True(t, ok, "bare apply must produce CLAUDE.md when a context matches")
+	assert.Contains(t, claudeMD, "Main workspace instructions.", "default:true context must be rendered")
+	assert.NotContains(t, claudeMD, "Task-only body.", "default:false context must be excluded in bare apply")
+}
+
+// TestCompile_BareApplyContext_MultipleTaskScopedNoUniquenessError verifies
+// that bare apply with one plain context plus multiple default:false contexts
+// targeting the same provider succeeds without a "multiple contexts target"
+// error. The rendered body must contain only the plain context's text.
+func TestCompile_BareApplyContext_MultipleTaskScopedNoUniquenessError(t *testing.T) {
+	f := false
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"main-ctx": {
+					Name:    "main-ctx",
+					Body:    "Main body.",
+					Targets: []string{"claude"},
+				},
+				"task-01": {
+					Name:    "task-01",
+					Body:    "Task 01 body.",
+					Targets: []string{"claude"},
+					Default: &f,
+				},
+				"task-02": {
+					Name:    "task-02",
+					Body:    "Task 02 body.",
+					Targets: []string{"claude"},
+					Default: &f,
+				},
+			},
+		},
+	}
+
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
+	// Must not return a "multiple contexts target" uniqueness error.
+	require.NoError(t, err)
+
+	claudeMD, ok := out.RootFiles["CLAUDE.md"]
+	require.True(t, ok, "bare apply must produce CLAUDE.md")
+	assert.Contains(t, claudeMD, "Main body.", "plain context must be rendered")
+	assert.NotContains(t, claudeMD, "Task 01 body.", "default:false context must be excluded")
+	assert.NotContains(t, claudeMD, "Task 02 body.", "default:false context must be excluded")
 }

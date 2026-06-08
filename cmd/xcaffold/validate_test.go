@@ -37,6 +37,7 @@ func TestValidateCmd_ValidConfig(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
+targets: [claude]
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
@@ -93,6 +94,7 @@ func TestValidateCmd_InvalidCrossRef_ExitsZero(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
+targets: [claude]
 `), 0600))
 
 	// Global config with agent referencing undefined skill
@@ -112,16 +114,24 @@ agents:
 	assert.NoError(t, err, "cross-reference warnings should not fail validation")
 }
 
-func TestValidate_GlobalFlag_ReturnsGuardError(t *testing.T) {
+// TestValidate_GlobalFlag_NoLongerBlocked verifies that the old
+// "global scope is not yet available" guard has been removed.
+// validate may still error (e.g., missing global.xcaf), but not
+// with the old gate message.
+func TestValidate_GlobalFlag_NoLongerBlocked(t *testing.T) {
 	globalFlag = true
 	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "global scope is not yet available")
+	if err != nil {
+		assert.NotContains(t, err.Error(), "global scope is not yet available",
+			"validate must not return the old global-scope guard error")
+	}
 }
 
-func TestValidate_GlobalFlag_WithBlueprint_ReturnsGuardError(t *testing.T) {
+// TestValidate_GlobalFlag_WithBlueprint_NoLongerBlocked verifies
+// the same for the blueprint+global combination.
+func TestValidate_GlobalFlag_WithBlueprint_NoLongerBlocked(t *testing.T) {
 	validateBlueprintFlag = "my-blueprint"
 	globalFlag = true
 	defer func() {
@@ -130,8 +140,10 @@ func TestValidate_GlobalFlag_WithBlueprint_ReturnsGuardError(t *testing.T) {
 	}()
 
 	err := runValidate(validateCmd, []string{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "global scope is not yet available")
+	if err != nil {
+		assert.NotContains(t, err.Error(), "global scope is not yet available",
+			"validate must not return the old global-scope guard error")
+	}
 }
 
 // TestCheckBashWithoutHook_ProjectHook_NoWarn verifies that a project-level
@@ -194,6 +206,7 @@ func TestValidateCmd_StructuralChecks(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
+targets: [claude]
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
@@ -262,6 +275,7 @@ func TestValidate_NoTarget_NoFieldCheck(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "field-test"
+targets: [claude]
 `), 0600))
 
 	// effort: low is unsupported by antigravity, but without --target no check runs.
@@ -298,6 +312,7 @@ func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 name: test
 version: "1.0"
+targets: [claude]
 `), 0644))
 
 	// Agent at the project root with an unresolved cross-reference.
@@ -369,6 +384,7 @@ func TestValidate_NoTarget_HeaderExcludesProvider(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "myproject"
+targets: [claude]
 `), 0600))
 
 	oldPath := xcafPath
@@ -427,6 +443,7 @@ func TestValidate_NoTarget_FooterExcludesFieldValidation(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "myproject"
+targets: [claude]
 `), 0600))
 
 	oldPath := xcafPath
@@ -455,6 +472,7 @@ func TestValidate_CrossRefWarnings_TieredOutput(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
+targets: [claude]
 `), 0600))
 
 	// Global config with agent referencing undefined skill
@@ -571,4 +589,286 @@ agents: []
 	require.Error(t, err, "validate must fail on circular blueprint extends")
 	assert.Contains(t, err.Error(), "circular", "error message must mention circular extends")
 	assert.Contains(t, out, "circular", "output must mention circular extends detection")
+}
+
+func TestValidateCmd_ErrorsIncludeSourceFilePath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "rules", "bad"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "test"
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "rules", "bad", "rule.xcaf"), []byte(`kind: rule
+name: bad
+tools: [Read]
+`), 0o600))
+
+	oldPath := xcafPath
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	defer func() { xcafPath = oldPath }()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.Error(t, err)
+	assert.Contains(t, out, "xcaf/rules/bad/rule.xcaf:")
+	assert.Contains(t, err.Error(), "xcaf/rules/bad/rule.xcaf:")
+}
+
+// TestCompile_Validate_NoTarget_LoopsAllTargets verifies that when --target is not
+// provided, validate loops through all targets in cfg.Project.Targets and validates each.
+func TestCompile_Validate_NoTarget_LoopsAllTargets(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create project.xcaf with multiple targets
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "multi-target-test"
+targets: [claude, antigravity]
+`), 0600))
+
+	// Create a simple agent that will compile for both targets
+	agentsDir := filepath.Join(dir, "xcaf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcaf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: A test agent
+---
+You are a test agent.
+`), 0600))
+
+	oldPath := xcafPath
+	oldTarget := targetFlag
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	targetFlag = "" // empty target = loop all targets
+	defer func() {
+		xcafPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err, "validate should succeed when looping all targets:\n%s", out)
+	// Both targets should be validated (no specific assertion needed; just that it succeeds)
+}
+
+// TestCompile_Validate_NoTarget_NoTargetsConfigured_Errors verifies that when
+// --target is not provided and no targets are configured in project.xcaf,
+// validate returns a clear error.
+func TestCompile_Validate_NoTarget_NoTargetsConfigured_Errors(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create project.xcaf WITHOUT targets
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "no-targets-test"
+`), 0600))
+
+	oldPath := xcafPath
+	oldTarget := targetFlag
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	targetFlag = "" // empty target without configured targets = error
+	defer func() {
+		xcafPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.Error(t, err, "validate should fail when no targets configured")
+	assert.Contains(t, err.Error(), "no targets configured", "error must mention missing targets configuration")
+	_ = out // silence unused
+}
+
+// TestCompile_Validate_NoTarget_CompileError_SurfacesError verifies that when
+// a real compilation error occurs, the actual error text is surfaced (not relabeled).
+func TestCompile_Validate_NoTarget_CompileError_SurfacesError(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "compile-error-test"
+targets: [claude]
+`), 0600))
+
+	// Create an agent with an invalid field that will fail compile for claude
+	agentsDir := filepath.Join(dir, "xcaf", "agents", "bad")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcaf"), []byte(`---
+kind: agent
+version: "1.0"
+name: bad
+description: Bad agent
+instructions: "This field does not exist in the agent kind"
+---
+Body text.
+`), 0600))
+
+	oldPath := xcafPath
+	oldTarget := targetFlag
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	targetFlag = ""
+	defer func() {
+		xcafPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.Error(t, err, "validate should fail on compile error")
+	// The error output should contain the actual compilation error, not a generic "policies skipped" message
+	assert.NotContains(t, out, "policies (skipped:", "compile error must not use the old misleading message")
+	_ = out // silence unused
+}
+
+// TestCompile_Validate_NoPolicies_OmitsPolicyLine verifies that when there are
+// no policy manifests and no policy violations, the policies line is omitted from output.
+func TestCompile_Validate_NoPolicies_OmitsPolicyLine(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a minimal project with NO policies
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "no-policies-test"
+targets: [claude]
+`), 0600))
+
+	agentsDir := filepath.Join(dir, "xcaf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcaf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: Test agent
+---
+Body.
+`), 0600))
+
+	oldPath := xcafPath
+	oldTarget := targetFlag
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	targetFlag = ""
+	defer func() {
+		xcafPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err)
+	// When there are no policies, the word "policies" should not appear in output
+	assert.NotContains(t, out, "policies", "policies line must be omitted when no policies configured")
+}
+
+// TestCompile_Validate_NoTarget_LoopIsIdempotent_AcrossTargets verifies that the
+// multi-target validation loop produces consistent results across iterations.
+// This is a regression test for a bug where deepCopyConfig was created but
+// the live cfg was passed to Compile, causing mutations to corrupt subsequent iterations.
+// The test uses a fixture with a blueprint referencing an agent, which exercises
+// the code paths that Compile mutates (attribute resolution, scope merging).
+func TestCompile_Validate_NoTarget_LoopIsIdempotent_AcrossTargets(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create project.xcaf with multiple targets
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "loop-idempotent-test"
+targets: [claude, antigravity, gemini]
+`), 0600))
+
+	// Create an agent
+	agentsDir := filepath.Join(dir, "xcaf", "agents", "worker")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcaf"), []byte(`---
+kind: agent
+version: "1.0"
+name: worker
+description: Worker agent
+---
+You are a worker.
+`), 0600))
+
+	// Create a blueprint that references the agent
+	bpDir := filepath.Join(dir, "xcaf", "blueprints")
+	require.NoError(t, os.MkdirAll(bpDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(bpDir, "test.xcaf"), []byte(`kind: blueprint
+version: "1.0"
+name: test-blueprint
+agents: [worker]
+`), 0600))
+
+	oldPath := xcafPath
+	oldTarget := targetFlag
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	targetFlag = "" // empty target = loop all targets
+	defer func() {
+		xcafPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	// Run validation without --target. This should loop through all three targets
+	// and produce consistent results across iterations (no false blueprint errors).
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err, "validate should succeed when looping all targets with a blueprint:\n%s", out)
+
+	// Verify that no blueprint validation errors appear in the output.
+	// Before the fix, iterations 2+ would produce false "blueprint references X which does not exist" errors
+	// because cfg was mutated by Compile and the corrupted cfg was used in the next iteration.
+	assert.NotContains(t, out, "blueprint \"test-blueprint\" references", "output must not contain blueprint reference errors on multi-target loop",
+		"hint: blueprint errors indicate the cfg mutation bug (configSnapshot not passed to Compile)")
+}
+
+// TestValidate_Global_ParsesCorrectPath verifies that validate --global parses
+// the global xcaf directory (~/.xcaffold/xcaf) instead of the CWD.
+func TestValidate_Global_ParsesCorrectPath(t *testing.T) {
+	homeDir := t.TempDir()
+	globalHome := filepath.Join(homeDir, ".xcaffold")
+	globalXcafDir := filepath.Join(globalHome, "xcaf")
+	require.NoError(t, os.MkdirAll(globalXcafDir, 0755))
+
+	// Create a valid global config
+	globalXcaf := filepath.Join(globalXcafDir, "global.xcaf")
+	require.NoError(t, os.WriteFile(globalXcaf, []byte(`kind: project
+version: "1.0"
+name: global
+targets: [claude]
+`), 0600))
+
+	// Also create a project.xcaf in CWD to ensure we don't accidentally parse it
+	cwdXcaf := filepath.Join(t.TempDir(), "project.xcaf")
+	require.NoError(t, os.WriteFile(cwdXcaf, []byte(`kind: project
+version: "1.0"
+name: cwd-project
+targets: [cursor]
+`), 0600))
+
+	// Set up global scope flags
+	oldGlobal := globalFlag
+	oldHome := globalXcafHome
+	oldPath := xcafPath
+	globalFlag = true
+	globalXcafHome = globalHome
+	xcafPath = cwdXcaf // This should be ignored when globalFlag=true
+	defer func() {
+		globalFlag = oldGlobal
+		globalXcafHome = oldHome
+		xcafPath = oldPath
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err, "validate --global should succeed:\n%s", out)
+
+	// Verify it parsed the global config, not the CWD one
+	// The global project name is "global", so output should contain it
+	assert.Contains(t, out, "global", "output should contain global project name")
 }

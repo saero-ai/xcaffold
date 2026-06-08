@@ -4,6 +4,121 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4](https://github.com/saero-ai/xcaffold/compare/v0.9.3...v0.9.4) (2026-06-06)
+
+
+### Bug Fixes
+
+* **compiler:** restore context rendering in blueprint-filtered applies ([936a196](https://github.com/saero-ai/xcaffold/commit/936a1965d7b2336d061298bbda5082ef245f0dac))
+* **compiler:** restore context rendering in blueprint-filtered applies ([b24ed8b](https://github.com/saero-ai/xcaffold/commit/b24ed8bbc815dc95a8a6f1f02f4950df16fb3a02))
+* **compiler:** restore context rendering in blueprint-filtered applies ([c8a9e92](https://github.com/saero-ai/xcaffold/commit/c8a9e924fdc7c605f35c4b485886b16fa77cfcee)), closes [#94](https://github.com/saero-ai/xcaffold/issues/94)
+
+## [0.9.3](https://github.com/saero-ai/xcaffold/compare/v0.9.2...v0.9.3) (2026-05-26)
+
+
+### Bug Fixes
+
+* **import:** use outputRoot for split file write paths ([ede5338](https://github.com/saero-ai/xcaffold/commit/ede53381909b7acb62e013179da6255abaee1784))
+* **import:** write split files to global dir instead of CWD ([8a7d65d](https://github.com/saero-ai/xcaffold/commit/8a7d65d72dc4c65e769629c8e231a9285a6b8c1e))
+* **renderer:** exclude contexts with default: false from bare apply ([0b9811d](https://github.com/saero-ai/xcaffold/commit/0b9811d6b7b760c099c93f69a0f70200bef963ae))
+* **renderer:** exclude default:false contexts from bare apply ([cb0d310](https://github.com/saero-ai/xcaffold/commit/cb0d310565adb74dbaee0c30698c3dab0780dd49))
+* **renderer:** exclude default:false contexts from bare apply ([ab969e2](https://github.com/saero-ai/xcaffold/commit/ab969e26ff389cab3c14ff3f460dd79f782ba5aa))
+
+## [0.9.2](https://github.com/saero-ai/xcaffold/compare/v0.9.1...v0.9.2) (2026-05-24)
+
+
+### Bug Fixes
+
+* **cli:** per-output-dir state isolation and cross-scope guard ([f37dbc6](https://github.com/saero-ai/xcaffold/commit/f37dbc677a107e777c3d0aad23bcf3bef7bed359))
+* **cli:** prevent cross-scope cleanup across different output dirs ([29e3def](https://github.com/saero-ai/xcaffold/commit/29e3def6d85d3fb44ecb1b0b451d761d1e2a0920))
+* **cli:** prevent cross-scope cleanup of different output-dir artifacts ([05fa170](https://github.com/saero-ai/xcaffold/commit/05fa170bb6e8effc71d67ce20cd7a9fb958836fe))
+
+## [0.9.1](https://github.com/saero-ai/xcaffold/compare/v0.9.0...v0.9.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* **cli:** correct global docs, help text, and registry file extension ([99162dc](https://github.com/saero-ai/xcaffold/commit/99162dc10d23e20bac5024576b7978e191456bd4))
+* **cli:** correct global docs, help text, and registry file extension ([af06068](https://github.com/saero-ai/xcaffold/commit/af06068a4aa3a6af8a5460f7105d7f5f6541c2ab))
+* **cli:** global docs, help text, and registry extension ([2bd65e9](https://github.com/saero-ai/xcaffold/commit/2bd65e96922266567262548da01638cdb1d6fa98))
+
+## [0.9.0](https://github.com/saero-ai/xcaffold/compare/v0.8.0...v0.9.0) (2026-05-22)
+
+
+### Features
+
+* **cli:** add registry subcommands for project management ([1330a3f](https://github.com/saero-ai/xcaffold/commit/1330a3f5f932d0b6e1d497410207336088f004b3))
+* **cli:** add registry subcommands for project management ([3821001](https://github.com/saero-ai/xcaffold/commit/38210011f89a3310f9be9a3e283141ab648d8250))
+* **cli:** unblock --global, implement init bootstrap, wire global state ([92bc6b9](https://github.com/saero-ai/xcaffold/commit/92bc6b9d241823b146188e35447b0f72e7842727))
+* **compiler:** complete global scope in parser, compiler, and AST ([337ef5b](https://github.com/saero-ai/xcaffold/commit/337ef5b58738a1f4cb9e35fe86b0c088e74db492))
+* complete global scope support ([5be7f31](https://github.com/saero-ai/xcaffold/commit/5be7f3172914b4ffbdf907ca45501ea86651979d))
+* registry CLI and global scope completion ([0400a42](https://github.com/saero-ai/xcaffold/commit/0400a42aa71b9d4dae352ab2f2d09bd5457c678a))
+* **registry:** expand GlobalScanResult with policies and contexts ([1dd16b3](https://github.com/saero-ai/xcaffold/commit/1dd16b3498b085f4fdf707fcebaa71b444d1c949))
+* **renderer:** add SupportsGlobalScope to all providers ([1daa6ca](https://github.com/saero-ai/xcaffold/commit/1daa6ca41dbd69ac63d5af9a0965d6e437b636e5))
+
+## [0.8.0](https://github.com/saero-ai/xcaffold/compare/v0.7.2...v0.8.0) (2026-05-20)
+
+
+### Features
+
+* **cli:** add --output-dir flag and path resolution for apply command ([5d45594](https://github.com/saero-ai/xcaffold/commit/5d45594d5b7a512e3615964ddd902c004b56bb4d))
+* **cli:** add --output-dir flag for alternate output directory ([8ed3c26](https://github.com/saero-ai/xcaffold/commit/8ed3c26e836bf1a2f102831ada75c56c0caad42f))
+* **cli:** add --output-dir flag to status command ([c209d06](https://github.com/saero-ai/xcaffold/commit/c209d06e3725dc7edaa5b95c3d8510bd8aad9ec9))
+* **cli:** wire --output-dir flag through apply flow ([d7403b3](https://github.com/saero-ai/xcaffold/commit/d7403b3f0d3bb7fcd61eff362bc4cf7aef84410d))
+* **state:** add OutputDir field to TargetState ([782646f](https://github.com/saero-ai/xcaffold/commit/782646fec6e93e4075886580fed8f0f35450691c))
+
+
+### Bug Fixes
+
+* **cli:** use stored output-dir for drift detection in apply safeguard ([9e0d3d3](https://github.com/saero-ai/xcaffold/commit/9e0d3d36b05b52451a8efeec8f15bf372a367238))
+
+## [0.7.2](https://github.com/saero-ai/xcaffold/compare/v0.7.1...v0.7.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* **parser:** add blueprint name inference and mismatch warnings ([0039915](https://github.com/saero-ai/xcaffold/commit/003991587e0c9dff8c9f1752e5a4f981aedbfa59))
+* **parser:** handle nested flat-file resource name inference ([63b4f73](https://github.com/saero-ai/xcaffold/commit/63b4f73b15c2af4b1ff33dd6b7783e82d854418b))
+* **parser:** handle nested flat-file resource name inference ([1733ba2](https://github.com/saero-ai/xcaffold/commit/1733ba25ac1001926ab45b4740b11babbe42f14a))
+* **parser:** handle nested flat-file resource name inference correctly ([bff12d9](https://github.com/saero-ai/xcaffold/commit/bff12d9fc4e9b226a4175b347421c23a33f5ad77))
+* **parser:** remove rule carve-out and fix skill directory validator ([101bbe4](https://github.com/saero-ai/xcaffold/commit/101bbe4ccaa36978358cd87238bd6dbc0bc71106))
+
+## [0.7.1](https://github.com/saero-ai/xcaffold/compare/v0.7.0...v0.7.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **cli:** include file path in xcaffold validate error messages ([53378c2](https://github.com/saero-ai/xcaffold/commit/53378c23accd5cd920687f7163caafddfcc22ac8))
+* **parser:** use strings.TrimPrefix to satisfy gosimple lint ([b394362](https://github.com/saero-ai/xcaffold/commit/b394362fae418bfbc6dbf59ed88b10c8faef8235))
+* **validate:** loop configured targets and omit empty policy line ([3a35677](https://github.com/saero-ai/xcaffold/commit/3a35677d403ea6387f1f6e69edf3160095112833))
+* **validate:** loop configured targets and omit empty policy line ([1873288](https://github.com/saero-ai/xcaffold/commit/1873288bf44353f6777921bfb5962518fd640cc6)), closes [#56](https://github.com/saero-ai/xcaffold/issues/56)
+
+## [0.7.0](https://github.com/saero-ai/xcaffold/compare/v0.6.1...v0.7.0) (2026-05-19)
+
+
+### Features
+
+* **cli:** auto-detect blueprint state in xcaffold status ([f6b60c1](https://github.com/saero-ai/xcaffold/commit/f6b60c14c0b3d52535af6726db933eb61aae17e5))
+* **cli:** auto-detect blueprint state in xcaffold status ([caa3d68](https://github.com/saero-ai/xcaffold/commit/caa3d68f32e188f9d2533ae3c651ab3c04f04ed9)), closes [#45](https://github.com/saero-ai/xcaffold/issues/45)
+* **parser:** add content-based monorepo boundary detection ([fcc2933](https://github.com/saero-ai/xcaffold/commit/fcc2933fc7852b4e6213cf9511c08e7bfd6d6af7))
+* **parser:** add content-based monorepo boundary detection ([b354aff](https://github.com/saero-ai/xcaffold/commit/b354aff8f7520474aac0b18b0ef2b9a839f266c0))
+
+## [0.6.1](https://github.com/saero-ai/xcaffold/compare/v0.6.0...v0.6.1) (2026-05-18)
+
+
+### Bug Fixes
+
+* **cli:** resolve actual installed version from build info ([37c69f5](https://github.com/saero-ai/xcaffold/commit/37c69f5bb06d61fabf962d2d14eea24bebae3571))
+* **cli:** resolve version from build info instead of hardcoded string ([345b8f2](https://github.com/saero-ai/xcaffold/commit/345b8f28a432b88026b24f67e5b62c2a815b81ef))
+
+## [0.6.0](https://github.com/saero-ai/xcaffold/compare/v0.5.0...v0.6.0) (2026-05-18)
+
+
+### Features
+
+* **compiler:** relax blueprint transitive dep resolution ([26d8a5d](https://github.com/saero-ai/xcaffold/commit/26d8a5d5c052e05c19f19f4844d05484b6826e13))
+* **compiler:** relax blueprint transitive dep resolution ([0b430b7](https://github.com/saero-ai/xcaffold/commit/0b430b7f3c95cc43d609bd3ef3eaafe8ca0dd5a6)), closes [#36](https://github.com/saero-ai/xcaffold/issues/36)
+
 ## [0.5.0](https://github.com/saero-ai/xcaffold/compare/v0.4.2...v0.5.0) (2026-05-17)
 
 

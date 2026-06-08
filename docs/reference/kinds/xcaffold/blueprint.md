@@ -81,4 +81,5 @@ When a blueprint is defined at `xcaf/blueprints/<id>/blueprint.xcaf`, Xcaffold a
 
 1.  **Selection Logic**: Only resources explicitly listed in the active blueprint (or its parents) are processed.
 2.  **Merging**: Lists are concatenated and deduplicated. Singletons (`settings`, `hooks`) use the value from the child-most blueprint.
-3.  **Invocation**: Specify the active blueprint via `xcaffold apply --blueprint <name>`.
+3.  **Transitive deduplication**: When an agent in the blueprint's `agents` list declares a skill, rule, or MCP server that is also listed explicitly on the blueprint, the duplicate is silently skipped. The explicit entry is kept and the transitive copy is not appended. Declaring a resource in both the blueprint and an agent's own definition is safe and produces no error.
+4.  **Invocation**: Specify the active blueprint via `xcaffold apply --blueprint <name>`.

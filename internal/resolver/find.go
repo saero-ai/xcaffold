@@ -9,18 +9,90 @@ import (
 	"strings"
 )
 
-// FindProjectRoot walks up from start directory looking for a project.xcaf file.
-// Returns the directory containing project.xcaf, or an empty string if not found.
+// fileHasProjectKind reads the first bytes of a .xcaf file and returns true
+// if its top-level kind field is "project". Uses lightweight string parsing
+// rather than YAML unmarshaling to avoid adding a YAML dependency.
+func fileHasProjectKind(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	if n == 0 {
+		return false
+	}
+
+	for _, line := range strings.Split(string(buf[:n]), "\n") {
+		// Only match non-indented kind: to avoid nested YAML structures
+		if !strings.HasPrefix(line, "kind:") {
+			continue
+		}
+		val := strings.TrimSpace(line[5:]) // after "kind:"
+		val = strings.Trim(val, "\"'")
+		return val == "project"
+	}
+	return false
+}
+
+// DirHasProjectManifest checks whether dir contains any top-level .xcaf file
+// whose kind field is "project". It checks project.xcaf first as a fast path,
+// then scans remaining .xcaf files if needed.
+func DirHasProjectManifest(dir string) bool {
+	// Fast path: most projects use the conventional name.
+	if fileHasProjectKind(filepath.Join(dir, "project.xcaf")) {
+		return true
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".xcaf") || e.Name() == "project.xcaf" {
+			continue
+		}
+		if fileHasProjectKind(filepath.Join(dir, e.Name())) {
+			return true
+		}
+	}
+	return false
+}
+
+// FindProjectManifestPath returns the path to the first .xcaf file with
+// kind:project in dir, or empty string if none found.
+func FindProjectManifestPath(dir string) string {
+	p := filepath.Join(dir, "project.xcaf")
+	if fileHasProjectKind(p) {
+		return p
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".xcaf") || e.Name() == "project.xcaf" {
+			continue
+		}
+		p = filepath.Join(dir, e.Name())
+		if fileHasProjectKind(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+// FindProjectRoot walks up from start directory looking for a directory with kind:project.
+// Returns the directory containing a project manifest, or an empty string if not found.
 func FindProjectRoot(start string) string {
 	curr := start
 	for {
-		// Check for project.xcaf at root level
-		if _, err := os.Stat(filepath.Join(curr, "project.xcaf")); err == nil {
+		if DirHasProjectManifest(curr) {
 			return curr
 		}
 		parent := filepath.Dir(curr)
 		if parent == curr {
-			// Reached filesystem root
 			return ""
 		}
 		curr = parent
@@ -72,6 +144,7 @@ func FindConfigDir(start, home string) (string, error) {
 
 // FindXCAFFiles returns all *.xcaf file paths in the given directory (recursive),
 // sorted alphabetically. Hidden directories and node_modules are skipped.
+// Nested projects (directories containing kind:project) are treated as boundaries.
 func FindXCAFFiles(dir string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -81,6 +154,9 @@ func FindXCAFFiles(dir string) ([]string, error) {
 		if d.IsDir() {
 			name := d.Name()
 			if path != dir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+				return filepath.SkipDir
+			}
+			if path != dir && DirHasProjectManifest(path) {
 				return filepath.SkipDir
 			}
 			return nil

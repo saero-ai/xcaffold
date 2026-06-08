@@ -60,7 +60,7 @@ skills:
   - security-audit
 ```
 
-The resolved skill set is `tdd` + `schema-design` (from `api-developer`) + `security-audit` (from the blueprint). If a skill appears in both the agent's dependencies and the blueprint's explicit list, the compiler returns an error — remove the duplicate from the blueprint since it is already included via the agent.
+The resolved skill set is `tdd` + `schema-design` (from `api-developer`) + `security-audit` (from the blueprint). If a skill appears in both the agent's dependencies and the blueprint's explicit list, the compiler silently deduplicates them — the explicit entry is kept and the transitive copy is not appended. This means you can safely list resources in both the blueprint and an agent's definition without conflict.
 
 ## Extending Blueprints
 
@@ -196,7 +196,14 @@ Blueprints can select which `kind: settings` and `kind: hooks` configuration to 
 
 ## Checking Blueprint State
 
-State is tracked independently per blueprint. Use `xcaffold status` to inspect drift:
+State is tracked independently per blueprint. After a blueprint-scoped apply, `xcaffold status` auto-detects the active blueprint — no `--blueprint` flag needed:
+
+```bash
+xcaffold apply --blueprint backend --target claude -y
+xcaffold status    # auto-detects backend blueprint state
+```
+
+To explicitly check a specific blueprint's state:
 
 ```bash
 xcaffold status --blueprint backend

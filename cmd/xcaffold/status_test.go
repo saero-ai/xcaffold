@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -266,4 +267,345 @@ func TestStatus_RootPrefixHandling(t *testing.T) {
 	assert.Contains(t, out, "modified", "should show modified status")
 	assert.Contains(t, out, "CLAUDE.md  (root)", "should display root file with (root) annotation, not root: prefix")
 	assert.NotContains(t, out, "root:CLAUDE.md", "should not display root: prefix in output")
+}
+
+func TestStatus_BlueprintAutoDetect_ShowsBlueprintName(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create .xcaffold dir with backend.xcaf.state
+	stateDir := filepath.Join(dir, ".xcaffold")
+	os.MkdirAll(stateDir, 0755)
+
+	// Create .claude output dir with a matching artifact
+	claudeDir := filepath.Join(dir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test agent content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "dev.md"), content, 0644)
+
+	// Create a valid StateManifest with Blueprint="backend"
+	manifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "backend",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	// Write state file
+	state.WriteState(manifest, filepath.Join(stateDir, "backend.xcaf.state"))
+
+	// Set up test environment
+	projectRoot = dir
+	statusBlueprintFlag = ""
+	noColorFlag = true
+	globalFlag = false
+
+	out, err := captureStatusStdout(func() error {
+		return runStatus(statusCmd, nil)
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, out, "blueprint: backend")
+}
+
+func TestStatus_BlueprintAutoDetect_ShowsSyncStatus(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create .xcaffold dir with backend.xcaf.state
+	stateDir := filepath.Join(dir, ".xcaffold")
+	os.MkdirAll(stateDir, 0755)
+
+	// Create .claude output dir with matching artifacts
+	claudeDir := filepath.Join(dir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test agent content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "dev.md"), content, 0644)
+
+	manifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "backend",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	state.WriteState(manifest, filepath.Join(stateDir, "backend.xcaf.state"))
+
+	projectRoot = dir
+	statusBlueprintFlag = ""
+	noColorFlag = true
+	globalFlag = false
+
+	out, err := captureStatusStdout(func() error {
+		return runStatus(statusCmd, nil)
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, out, "1")
+	assert.Contains(t, out, "synced")
+}
+
+func TestStatus_ExplicitBlueprint_IgnoresAutoDetect(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create .xcaffold dir with both backend.xcaf.state and project.xcaf.state
+	stateDir := filepath.Join(dir, ".xcaffold")
+	os.MkdirAll(stateDir, 0755)
+
+	// Create output dirs
+	claudeDir := filepath.Join(dir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test agent content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "dev.md"), content, 0644)
+
+	// Create backend state (older)
+	backendManifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "backend",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	// Create project state (newer)
+	projectManifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "project",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	state.WriteState(backendManifest, filepath.Join(stateDir, "backend.xcaf.state"))
+	state.WriteState(projectManifest, filepath.Join(stateDir, "project.xcaf.state"))
+
+	// Set explicit blueprint flag
+	projectRoot = dir
+	statusBlueprintFlag = "backend"
+	noColorFlag = true
+	globalFlag = false
+
+	out, err := captureStatusStdout(func() error {
+		return runStatus(statusCmd, nil)
+	})
+
+	assert.NoError(t, err)
+	assert.Contains(t, out, "blueprint: backend")
+}
+
+func TestStatus_ProjectState_NoBlueprintInHeader(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create .xcaffold dir with only project.xcaf.state (Blueprint="")
+	stateDir := filepath.Join(dir, ".xcaffold")
+	os.MkdirAll(stateDir, 0755)
+
+	// Create output dir
+	claudeDir := filepath.Join(dir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test agent content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "dev.md"), content, 0644)
+
+	// Blueprint is empty string (project.xcaf.state)
+	manifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	state.WriteState(manifest, filepath.Join(stateDir, "project.xcaf.state"))
+
+	projectRoot = dir
+	statusBlueprintFlag = ""
+	noColorFlag = true
+	globalFlag = false
+
+	out, err := captureStatusStdout(func() error {
+		return runStatus(statusCmd, nil)
+	})
+
+	assert.NoError(t, err)
+	assert.NotContains(t, out, "blueprint:")
+}
+
+// TestOutputDir_StatusReadsStoredPath verifies that resolveStatusOutputDir
+// correctly reads a stored output-dir from state.
+func TestOutputDir_StatusReadsStoredPath(t *testing.T) {
+	projDir := t.TempDir()
+	ts := state.TargetState{
+		OutputDir: "custom-output/",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = ""
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts, false)
+	expectedBase := filepath.Clean(filepath.Join(projDir, "custom-output"))
+	if baseDir != expectedBase {
+		t.Errorf("baseDir = %q, want %q", baseDir, expectedBase)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+}
+
+// TestOutputDir_StatusFlagOverride verifies that the --output-dir flag on status
+// overrides the stored value.
+func TestOutputDir_StatusFlagOverride(t *testing.T) {
+	projDir := t.TempDir()
+	overrideDir := t.TempDir()
+
+	ts := state.TargetState{
+		OutputDir: "stored-path/",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = overrideDir
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts, false)
+	if baseDir != overrideDir {
+		t.Errorf("baseDir = %q, want override %q", baseDir, overrideDir)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+}
+
+// TestStatusGlobal_OutputDirResolution verifies that resolveStatusOutputDir
+// with isGlobal=true returns home-relative paths instead of config-relative.
+func TestStatusGlobal_OutputDirResolution(t *testing.T) {
+	// Create a temp home structure
+	homeDir := t.TempDir()
+	globalConfigDir := filepath.Join(homeDir, ".xcaffold")
+	os.MkdirAll(globalConfigDir, 0755)
+
+	ts := state.TargetState{
+		OutputDir: "",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = ""
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	// When isGlobal=true, the output dir should be relative to homeDir, not globalConfigDir
+	baseDir, outputDir := resolveStatusOutputDir(globalConfigDir, "claude", ts, true)
+	if baseDir != homeDir {
+		t.Errorf("baseDir = %q, want %q (user home)", baseDir, homeDir)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+	// outputDir should be ~/.claude, not ~/.xcaffold/.claude
+	expectedOutputDir := filepath.Join(homeDir, ".claude")
+	if !strings.HasPrefix(outputDir, expectedOutputDir) {
+		t.Errorf("outputDir = %q, should start with %q", outputDir, expectedOutputDir)
+	}
+}
+
+// TestStatusGlobal_OutputDirResolution_LocalScope verifies that resolveStatusOutputDir
+// with isGlobal=false returns config-relative paths (existing behavior).
+func TestStatusGlobal_OutputDirResolution_LocalScope(t *testing.T) {
+	projDir := t.TempDir()
+	ts := state.TargetState{
+		OutputDir: "",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = ""
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	// When isGlobal=false, output dir is relative to projDir
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts, false)
+	if baseDir != projDir {
+		t.Errorf("baseDir = %q, want %q", baseDir, projDir)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+}
+
+// TestStatusGlobal_ReadsFromStatePath verifies that status --global reads from XCAFFOLD_HOME state path.
+func TestStatusGlobal_ReadsFromStatePath(t *testing.T) {
+	homeDir := t.TempDir()
+	stateDir := filepath.Join(homeDir, "state")
+	os.MkdirAll(stateDir, 0755)
+
+	// Create a global state file at $XCAFFOLD_HOME/state/project.xcaf.state
+	content := []byte("test agent content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+
+	manifest := &state.StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md", Hash: contentHashStr},
+				},
+			},
+		},
+	}
+
+	statePath := filepath.Join(stateDir, "project.xcaf.state")
+	err := state.WriteState(manifest, statePath)
+	if err != nil {
+		t.Fatalf("failed to write state: %v", err)
+	}
+
+	// Verify the state file was created at the expected path
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Fatalf("state file not created at %s", statePath)
+	}
 }

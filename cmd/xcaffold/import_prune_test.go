@@ -40,7 +40,7 @@ func TestImportScope_PrunesOrphanMemory(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude", "agent-memory", "sub"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "agent-memory", "sub", "task.md"), []byte("task mem"), 0o644))
 
-	err = importScope(".claude", "project.xcaf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude", ".")
 	require.NoError(t, err)
 
 	// Memory for the declared agent must be present.

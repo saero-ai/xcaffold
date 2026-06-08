@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pmezard/go-difflib/difflib"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/state"
 )
 
@@ -75,6 +76,16 @@ func hasDriftFromState(outputDir, stateFile, baseDir, target string) ([]state.Dr
 		return nil, nil
 	}
 
+	// If the previous apply used --output-dir, root files are stored relative to that dir.
+	// Override baseDir to match where those files actually live.
+	if ts.OutputDir != "" {
+		if filepath.IsAbs(ts.OutputDir) {
+			baseDir = filepath.Clean(ts.OutputDir)
+		} else {
+			baseDir = filepath.Clean(filepath.Join(baseDir, ts.OutputDir))
+		}
+	}
+
 	return state.CollectDriftedFiles(baseDir, outputDir, ts), nil
 }
 
@@ -101,6 +112,7 @@ func ensureGitignoreEntry(dir, entry string) {
 type crossScopeOpts struct {
 	baseDir          string
 	outputDir        string
+	storedOutputDir  string
 	currentStatePath string
 	target           string
 	force            bool
@@ -111,7 +123,6 @@ type crossScopeOpts struct {
 // If drift is found and !force, returns an error. If no drift or force, deletes orphans.
 func cleanCrossScope(opts crossScopeOpts) error {
 	baseDir := opts.baseDir
-	outputDir := opts.outputDir
 	currentStatePath := opts.currentStatePath
 	target := opts.target
 	force := opts.force
@@ -141,8 +152,27 @@ func cleanCrossScope(opts crossScopeOpts) error {
 			continue // This scope doesn't have our target
 		}
 
+		// Skip cleanup when scopes target different output directories.
+		// Both empty = same default; both equal = same explicit dir; otherwise skip.
+		if opts.storedOutputDir != targetState.OutputDir {
+			continue
+		}
+
+		// Resolve the other scope's output directory from its stored state.
+		// If the other scope was applied with --output-dir, artifacts live there.
+		otherOutputDir := filepath.Join(baseDir, compiler.OutputDir(target))
+		otherBaseDir := baseDir
+		if targetState.OutputDir != "" {
+			if filepath.IsAbs(targetState.OutputDir) {
+				otherBaseDir = filepath.Clean(targetState.OutputDir)
+			} else {
+				otherBaseDir = filepath.Clean(filepath.Join(baseDir, targetState.OutputDir))
+			}
+			otherOutputDir = filepath.Join(otherBaseDir, compiler.OutputDir(target))
+		}
+
 		// Detect drift in the other scope's artifacts
-		driftEntries := state.CollectDriftedFiles(baseDir, outputDir, targetState)
+		driftEntries := state.CollectDriftedFiles(otherBaseDir, otherOutputDir, targetState)
 		if len(driftEntries) > 0 && !force {
 			return fmt.Errorf("cannot switch scope: %d files were manually edited since last apply\n\nRun 'xcaffold import' to sync edits, or use --backup --force to overwrite", len(driftEntries))
 		}
@@ -152,12 +182,12 @@ func cleanCrossScope(opts crossScopeOpts) error {
 			var absPath string
 			if strings.HasPrefix(artifact.Path, "root:") {
 				relPath := strings.TrimPrefix(artifact.Path, "root:")
-				absPath = filepath.Clean(filepath.Join(baseDir, relPath))
+				absPath = filepath.Clean(filepath.Join(otherBaseDir, relPath))
 			} else {
-				absPath = filepath.Clean(filepath.Join(outputDir, artifact.Path))
+				absPath = filepath.Clean(filepath.Join(otherOutputDir, artifact.Path))
 			}
 			_ = os.Remove(absPath)
-			cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
+			cleanEmptyDirsUpToTarget(filepath.Dir(absPath), otherOutputDir)
 		}
 
 		// Delete the other scope's state file

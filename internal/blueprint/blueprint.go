@@ -127,13 +127,18 @@ func validateChain(blueprints map[string]ast.BlueprintConfig, start string) erro
 // dependency graph from each selected agent. Agent-referenced Skills, Rules,
 // and MCP are always collected and merged with the blueprint's explicit lists.
 //
-// If a resource appears in BOTH the blueprint's explicit list AND an agent's
-// dependency list, an error is returned telling the user to remove the
-// duplicate from the blueprint — it is already included via the agent.
+// When strict=false (the default), resources that appear in BOTH the
+// blueprint's explicit list AND an agent's dependency list are silently
+// deduplicated — the explicit entry is kept and the transitive duplicate is
+// skipped. This is the recommended mode for most users.
+//
+// When strict=true, a duplicate causes an error telling the user to remove it
+// from the blueprint — it is already included via the agent. This mode is
+// reserved for a future --strict CLI flag; no caller passes true today.
 //
 // Agents with no entry in scope are silently skipped. Duplicate entries
 // across multiple agents are deduplicated (first occurrence wins).
-func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) error {
+func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope, strict bool) error {
 	if len(p.Agents.Values) == 0 || scope == nil {
 		return nil
 	}
@@ -153,9 +158,23 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 	}
 
 	// Seen sets track de-duplication across multiple agents (transitive pass only).
+	// When strict=false, pre-seed from explicit entries so that transitive
+	// duplicates are silently skipped rather than appended.
 	seenSkill := make(map[string]bool)
 	seenRule := make(map[string]bool)
 	seenMCP := make(map[string]bool)
+
+	if !strict {
+		for _, s := range p.Skills.Values {
+			seenSkill[s] = true
+		}
+		for _, r := range p.Rules.Values {
+			seenRule[r] = true
+		}
+		for _, m := range p.MCP.Values {
+			seenMCP[m] = true
+		}
+	}
 
 	for _, agentName := range p.Agents.Values {
 		agent, ok := scope.Agents[agentName]
@@ -163,7 +182,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 			continue
 		}
 		for _, s := range agent.Skills.Values {
-			if explicitSkills[s] {
+			if strict && explicitSkills[s] {
 				return fmt.Errorf("blueprint %q declares skill %q which is already included via agent %q; remove it from the blueprint", p.Name, s, agentName)
 			}
 			if !seenSkill[s] {
@@ -172,7 +191,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 			}
 		}
 		for _, r := range agent.Rules.Values {
-			if explicitRules[r] {
+			if strict && explicitRules[r] {
 				return fmt.Errorf("blueprint %q declares rule %q which is already included via agent %q; remove it from the blueprint", p.Name, r, agentName)
 			}
 			if !seenRule[r] {
@@ -181,7 +200,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 			}
 		}
 		for _, m := range agent.MCP.Values {
-			if explicitMCP[m] {
+			if strict && explicitMCP[m] {
 				return fmt.Errorf("blueprint %q declares mcp %q which is already included via agent %q; remove it from the blueprint", p.Name, m, agentName)
 			}
 			if !seenMCP[m] {

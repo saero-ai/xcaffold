@@ -422,7 +422,7 @@ func mergeContextConfig(base, override ast.ContextConfig) ast.ContextConfig {
 	if override.Description != "" {
 		result.Description = override.Description
 	}
-	if override.Default {
+	if override.Default != nil {
 		result.Default = override.Default
 	}
 

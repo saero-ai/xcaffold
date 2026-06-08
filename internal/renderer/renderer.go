@@ -40,6 +40,11 @@ type TargetRenderer interface {
 	// (e.g. ".claude", ".cursor/rules").
 	OutputDir() string
 
+	// SupportsGlobalScope returns whether this renderer supports user-level
+	// (global) scope compilation. Providers that return false will cause
+	// a compilation error when targeted with --global.
+	SupportsGlobalScope() bool
+
 	// Capabilities declares which resource kinds this renderer supports.
 	// The orchestrator uses this to decide whether to call a Compile* method
 	// or emit a RENDERER_KIND_UNSUPPORTED fidelity note.
@@ -102,7 +107,7 @@ func ValidateContextUniqueness(contexts map[string]ast.ContextConfig, targets []
 			}
 			if applies {
 				matching = append(matching, name)
-				if ctx.Default {
+				if ctx.Default != nil && *ctx.Default {
 					defaults = append(defaults, name)
 				}
 			}
@@ -156,8 +161,8 @@ func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
 		if !applies || ctx.Body == "" {
 			continue
 		}
-		mc := matchedContext{name: name, body: ctx.Body, isDefault: ctx.Default}
-		if ctx.Default && defaultMatch == nil {
+		mc := matchedContext{name: name, body: ctx.Body, isDefault: ctx.Default != nil && *ctx.Default}
+		if ctx.Default != nil && *ctx.Default && defaultMatch == nil {
 			defaultMatch = &mc
 		} else {
 			rest = append(rest, mc)

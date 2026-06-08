@@ -363,6 +363,22 @@ xcaffold records source hashes in `.xcaffold/project.xcaf.state`. On the next `a
 
 ---
 
+## Step 6 — Parallel blueprint compilation
+
+Use `--output-dir` with git worktrees to give each domain its own `.claude/` directory without cross-contamination.
+
+```
+xcaffold apply --blueprint=backend --output-dir=.worktrees/backend/ -y &
+xcaffold apply --blueprint=flutter --output-dir=.worktrees/flutter/ -y &
+wait
+```
+
+Each worktree receives only the agents, rules, and skills declared by its blueprint. State manifests remain at the project root — `xcaffold status` reads the stored output path automatically, so drift checks work without passing `--output-dir` again.
+
+Relative paths resolve from the current working directory. The output directory is created if it doesn't exist.
+
+---
+
 ## What You Built
 
 You configured a two-agent workspace with distinct tool permissions, defined shared rules and a skill in individual `.xcaf` files under `xcaf/`, validated structural integrity with `xcaffold validate`, and visualized the topology with `xcaffold graph --full`. You compiled the configuration to `.claude/` and verified that each agent file contains only the resources it declared.

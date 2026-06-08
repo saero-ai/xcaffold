@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -11,7 +12,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.2.0-dev"
+var buildVersion string
+
+var version = resolveVersion()
+
+func resolveVersion() string {
+	if buildVersion != "" {
+		return buildVersion
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 // configFlag holds the value of the global --config flag.
 // It is resolved before any subcommand runs.
@@ -30,7 +43,7 @@ var globalFlag bool
 // globalXcafPath is the resolved path to global.xcaf.
 var globalXcafPath string
 
-// globalXcafHome is where global.xcaf lives ~/.xcaffold/ by convention.
+// globalXcafHome is where global.xcaf lives, in ~/.xcaffold/xcaf/ by convention.
 var globalXcafHome string
 
 // noColorFlag disables colored output in TTY.
@@ -81,7 +94,7 @@ func init() {
 		"global",
 		"g",
 		false,
-		"Operate on user-wide global config (~/.xcaffold/global.xcaf)",
+		"Operate on user-wide global config (~/.xcaffold/xcaf/)",
 	)
 	rootCmd.PersistentFlags().BoolVar(
 		&noColorFlag,
@@ -95,7 +108,6 @@ func init() {
 		false,
 		"show fidelity notes and policy warnings",
 	)
-	_ = rootCmd.PersistentFlags().MarkHidden("global")
 	rootCmd.PersistentFlags().String("xcaf", "", "Display schema for a resource kind")
 	rootCmd.PersistentFlags().String("out", "", "Generate template .xcaf file (use with --xcaf)")
 	rootCmd.Flag("out").NoOptDefVal = "."
@@ -136,6 +148,7 @@ func rootHelpFunc(cmd *cobra.Command, args []string) {
 	fmt.Println()
 	fmt.Printf("  %s\n", dim("Flags:"))
 	fmt.Printf("    --config <path>   Path to project.xcaf (default: ./project.xcaf)\n")
+	fmt.Printf("    -g, --global      Operate on global scope (~/.xcaffold/)\n")
 	fmt.Printf("    --no-color        Disable color output\n")
 	fmt.Printf("    -h, --help        Show this help\n")
 	fmt.Printf("    -v, --version     Show version\n")
@@ -158,20 +171,11 @@ func resolveConfig(cmd *cobra.Command, args []string) error {
 }
 
 func resolveGlobalConfig(cmd *cobra.Command) error {
-	home, err := os.UserHomeDir()
+	home, err := registry.GlobalHome()
 	if err != nil {
-		return fmt.Errorf("could not determine home directory: %w", err)
+		return fmt.Errorf("could not determine global home: %w", err)
 	}
-	globalXcafHome = filepath.Join(home, ".xcaffold")
-
-	if cmd.Name() != "init" && cmd.Name() != "import" {
-		fmt.Println(formatHeader(headerInfo{project: "~", isGlobal: true}))
-		fmt.Println()
-		fmt.Printf("  %s  Global scope is not yet available.\n", glyphErr())
-		fmt.Println()
-		fmt.Printf("%s Run 'xcaffold %s' for project-scoped operation.\n", glyphArrow(), cmd.Name())
-		return &silentError{msg: "global scope is not yet available"}
-	}
+	globalXcafHome = home
 
 	if configFlag != "" && globalFlag {
 		abs, err := filepath.Abs(configFlag)
@@ -180,13 +184,17 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		}
 		globalXcafPath = abs
 	} else {
-		globalXcafPath = filepath.Join(globalXcafHome, "global.xcaf")
+		globalXcafPath = filepath.Join(globalXcafHome, "xcaf", "global.xcaf")
 	}
 	return nil
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "help" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "help" {
+		return nil
+	}
+	// Check if parent command is "registry" (for subcommands like "registry list")
+	if cmd.HasParent() && cmd.Parent().Name() == "registry" {
 		return nil
 	}
 	var configDir string
@@ -218,9 +226,9 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		configDir = dir
 	}
 
-	// Look for project.xcaf at the root of configDir
-	xcafPath = filepath.Join(configDir, "project.xcaf")
-	if _, err := os.Stat(xcafPath); err != nil {
+	// Find the project manifest (any .xcaf with kind:project)
+	xcafPath = resolver.FindProjectManifestPath(configDir)
+	if xcafPath == "" {
 		xcafPath = configDir
 	}
 

@@ -470,11 +470,11 @@ func handleProviderImport(cmd *cobra.Command, detected []importer.ProviderImport
 // selectAndImportProviders handles provider selection and import.
 func selectAndImportProviders(detected []importer.ProviderImporter, xcafFile string) error {
 	if len(detected) == 1 {
-		return importScope(detected[0].InputDir(), xcafFile, "project", detected[0].Provider())
+		return importScope(detected[0].InputDir(), xcafFile, "project", detected[0].Provider(), ".")
 	}
 
 	if yesFlag {
-		return mergeImportDirs(detected, xcafFile)
+		return mergeImportDirs(detected, xcafFile, ".")
 	}
 
 	selected, err := promptMultiSelectDirs(detected)
@@ -489,12 +489,12 @@ func selectAndImportProviders(detected []importer.ProviderImporter, xcafFile str
 	if len(selected) == 1 {
 		fmt.Println()
 		provider := findProviderForDir(detected, selected[0])
-		return importScope(selected[0], xcafFile, "project", provider)
+		return importScope(selected[0], xcafFile, "project", provider, ".")
 	}
 
 	fmt.Println()
 	selectedImps := filterImportersByDirs(detected, selected)
-	return mergeImportDirs(selectedImps, xcafFile)
+	return mergeImportDirs(selectedImps, xcafFile, ".")
 }
 
 // promptMultiSelectDirs prompts the user to select directories.
@@ -756,10 +756,43 @@ func writeXCAFDirectory(baseDir string, ans wizardAnswers) error {
 	return WriteProjectFile(config, baseDir)
 }
 
-// initGlobal reports that global scope is not yet available.
+// initGlobal bootstraps the global .xcaffold/ configuration directory structure.
+// It creates ~/.xcaffold/xcaf/ with global.xcaf template and subdirectories,
+// plus ~/.xcaffold/state/. Idempotent: does not overwrite existing global.xcaf.
 func initGlobal() error {
-	fmt.Printf("\n  %s Global scope is not available yet.\n", glyphErr())
-	fmt.Printf("\n%s Run 'xcaffold init' to initialize a project-level scaffold.\n", glyphArrow())
+	xcafDir := filepath.Join(globalXcafHome, "xcaf")
+	stateDir := filepath.Join(globalXcafHome, "state")
+
+	// Create xcaf/ and state/ directories
+	if err := os.MkdirAll(xcafDir, 0755); err != nil {
+		return fmt.Errorf("could not create xcaf directory: %w", err)
+	}
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("could not create state directory: %w", err)
+	}
+
+	// Create subdirectories silently (skip if already exist)
+	for _, subdir := range []string{"agents", "skills", "rules"} {
+		_ = os.MkdirAll(filepath.Join(xcafDir, subdir), 0755)
+	}
+
+	// Create global.xcaf if it doesn't exist
+	globalXcafFile := filepath.Join(xcafDir, "global.xcaf")
+	if _, err := os.Stat(globalXcafFile); err == nil {
+		// File exists, don't overwrite
+		fmt.Printf("\n  %s Global configuration already exists at %s/xcaf/global.xcaf\n",
+			glyphNever(), globalXcafHome)
+		return nil
+	}
+
+	// Write starter global.xcaf template
+	template := "kind: global\nversion: \"1.0\"\n"
+	if err := os.WriteFile(globalXcafFile, []byte(template), 0644); err != nil {
+		return fmt.Errorf("could not write global.xcaf: %w", err)
+	}
+
+	fmt.Printf("\n  %s Global configuration initialized at %s/xcaf/\n",
+		colorGreen(glyphOK()), globalXcafHome)
 	return nil
 }
 

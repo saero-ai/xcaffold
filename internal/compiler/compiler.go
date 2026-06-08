@@ -44,6 +44,9 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 	}
 
 	if config.Project != nil {
+		if err := checkPolicyConflicts(config.ResourceScope.Policies, config.Project.ResourceScope.Policies); err != nil {
+			return nil, nil, err
+		}
 		mergeResourceScope(&config.ResourceScope, &config.Project.ResourceScope)
 	}
 
@@ -69,7 +72,13 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 	// Context uniqueness validation: only when no blueprint is active. When a
 	// blueprint is provided, its contexts: selector already narrows the set
 	// to an explicit composition list and no ambiguity check is needed.
+	//
+	// In bare-apply mode, exclude contexts with default:false before validation
+	// and rendering. These are task-scoped contexts intended only for blueprint
+	// applies; multiple such contexts targeting the same provider must not
+	// trigger a uniqueness error in bare mode.
 	if blueprintName == "" {
+		config.Contexts = filterDefaultFalseContexts(config.Contexts)
 		if err := renderer.ValidateContextUniqueness(config.Contexts, []string{target}); err != nil {
 			return nil, nil, fmt.Errorf("context validation failed: %w", err)
 		}
@@ -119,7 +128,7 @@ func applyBlueprintPhase(config *ast.XcaffoldConfig, blueprintName string) (*ast
 	}
 	if blueprintName != "" {
 		if p, ok := config.Blueprints[blueprintName]; ok {
-			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope, false); err != nil {
 				return nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
 			}
 			config.Blueprints[blueprintName] = p
@@ -139,14 +148,50 @@ func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 }
 
 // mergeResourceScope overlays project-scoped resources onto the root scope.
-// For map-based resources (agents, skills, rules, MCP, workflows), project
-// entries override global entries with the same ID.
+// For all 9 map-based resource kinds, project entries override global entries
+// with the same ID.
 func mergeResourceScope(root, project *ast.ResourceScope) {
 	root.Agents = mergeMap(root.Agents, project.Agents)
 	root.Skills = mergeMap(root.Skills, project.Skills)
 	root.Rules = mergeMap(root.Rules, project.Rules)
 	root.MCP = mergeMap(root.MCP, project.MCP)
 	root.Workflows = mergeMap(root.Workflows, project.Workflows)
+	root.Policies = mergeMap(root.Policies, project.Policies)
+	root.Memory = mergeMap(root.Memory, project.Memory)
+	root.Contexts = mergeMap(root.Contexts, project.Contexts)
+	root.Templates = mergeMap(root.Templates, project.Templates)
+}
+
+// checkPolicyConflicts returns an error if any project policy shares a name with
+// a global policy that is marked Inherited=true. Projects may add new policy names
+// but cannot override inherited global policies.
+func checkPolicyConflicts(global, project map[string]ast.PolicyConfig) error {
+	for name := range project {
+		if existing, exists := global[name]; exists && existing.Inherited {
+			return fmt.Errorf("policy %q: project policy conflicts with inherited global policy — projects can add new policies but cannot override inherited ones", name)
+		}
+	}
+	return nil
+}
+
+// filterDefaultFalseContexts returns a copy of contexts with entries that have
+// Default explicitly set to false removed. These task-scoped contexts are only
+// rendered during blueprint applies; bare applies must exclude them so that
+// multiple task-scoped contexts targeting the same provider do not trigger a
+// uniqueness error and so that their bodies do not appear in the root
+// instruction file.
+func filterDefaultFalseContexts(contexts map[string]ast.ContextConfig) map[string]ast.ContextConfig {
+	if len(contexts) == 0 {
+		return contexts
+	}
+	filtered := make(map[string]ast.ContextConfig, len(contexts))
+	for name, ctx := range contexts {
+		if ctx.Default != nil && !*ctx.Default {
+			continue
+		}
+		filtered[name] = ctx
+	}
+	return filtered
 }
 
 // mergeMap copies base entries then overlays child entries (child wins on conflict).

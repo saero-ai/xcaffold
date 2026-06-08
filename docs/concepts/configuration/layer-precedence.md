@@ -7,8 +7,8 @@ layered hierarchy. Each layer narrows or overrides the previous.
 
 From lowest to highest priority:
 
-1. **Global config** (`~/.xcaffold/global.xcaf`) — project-wide defaults
-   inherited by all resources via `extends: global`.
+1. **Global config** (`~/.xcaffold/xcaf/global.xcaf`) — user-wide defaults
+   inherited implicitly by all projects.
 2. **Resource definition** — the base `.xcaf` file for the resource
    (`xcaf/agents/<id>.xcaf`, `xcaf/skills/<id>.xcaf`, etc.).
 3. **Blueprint targets** — when `--blueprint` is active and the named

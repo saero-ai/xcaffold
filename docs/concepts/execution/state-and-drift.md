@@ -22,9 +22,10 @@ The directory contains:
 ```
 project.xcaf               # project manifest at root (created by xcaffold init)
 .xcaffold/
-  project.xcaf.state        # default state (created by xcaffold apply)
-  backend.xcaf.state        # xcaffold apply --blueprint backend
-  frontend.xcaf.state       # xcaffold apply --blueprint frontend
+  project.xcaf.state              # default state (created by xcaffold apply)
+  backend.xcaf.state              # xcaffold apply --blueprint backend
+  frontend.xcaf.state             # xcaffold apply --blueprint frontend
+  backend@custom-out.xcaf.state   # xcaffold apply --blueprint backend --output-dir custom-out/
 ```
 
 The `.xcaffold/` gitignore entry is added automatically by `xcaffold apply`. You do not need to add it manually, but you can if you want it committed before the first apply.
@@ -67,6 +68,22 @@ Skill subdirectory files (`references/`, `scripts/`, `assets/`, `examples/`) are
 
 When a supporting file is added, removed, or modified, `xcaffold status` reports it as artifact drift for the affected provider. The same orphan cleanup logic applies: if a supporting file is removed from the source `xcaf/skills/<id>/` directory, the corresponding output file is deleted on the next `xcaffold apply` and its entry is removed from the state file.
 
+### Custom output directories
+
+When `xcaffold apply --output-dir=<path>` is used, the state manifest records the output directory per target:
+
+```yaml
+targets:
+  claude:
+    last-applied: "2026-05-20T10:00:00Z"
+    output-dir: ".worktrees/backend/"
+    artifacts:
+      - path: agents/my-agent/agent.md
+        hash: "sha256:abc123"
+```
+
+`xcaffold status` reads the stored `output-dir` to check drift at the correct location. Paths inside the project root are stored as relative paths; paths outside are stored as absolute paths. An empty (absent) `output-dir` means the default location (project root).
+
 ## Source Drift vs. Artifact Drift
 
 xcaffold distinguishes two types of divergence:
@@ -89,6 +106,10 @@ xcaffold distinguishes two types of divergence:
 ## xcaffold status
 
 Detailed per-file hash comparison between the state file and current disk contents. Reports drift labels per file, grouped by provider.
+
+When `--blueprint` is not passed, `xcaffold status` auto-detects the most recently applied state file by scanning all `.xcaf.state` files and comparing `LastApplied` timestamps. After a blueprint-scoped apply, this means status reflects the active blueprint without requiring an explicit `--blueprint` flag.
+
+Cross-scope cleanup only removes artifacts from other blueprints that target the **same output directory**. Blueprints applied with different `--output-dir` values coexist independently — switching between them does not delete files from the other's output location.
 
 See [xcaffold status](../../reference/commands/diagnostic/status.md) for flags, sample output, and exit codes.
 

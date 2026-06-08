@@ -67,7 +67,7 @@ func TestValidateContextUniqueness_MultipleOverlap_NoDefault_Error(t *testing.T)
 func TestValidateContextUniqueness_MultipleOverlap_WithDefault_OK(t *testing.T) {
 	contexts := map[string]ast.ContextConfig{
 		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}},
-		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: true},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: boolPtr(true)},
 	}
 	err := ValidateContextUniqueness(contexts, []string{"claude"})
 	require.NoError(t, err)
@@ -75,8 +75,8 @@ func TestValidateContextUniqueness_MultipleOverlap_WithDefault_OK(t *testing.T) 
 
 func TestValidateContextUniqueness_MultipleDefaults_Error(t *testing.T) {
 	contexts := map[string]ast.ContextConfig{
-		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: true},
-		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: true},
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: boolPtr(true)},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: boolPtr(true)},
 	}
 	err := ValidateContextUniqueness(contexts, []string{"claude"})
 	require.Error(t, err)
@@ -94,7 +94,7 @@ func TestResolveContextBody_MultipleMatchComposesAll(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Contexts: map[string]ast.ContextConfig{
 				"ctx-main":  {Name: "ctx-main", Body: "main body", Targets: []string{"claude"}},
-				"ctx-extra": {Name: "ctx-extra", Body: "extra body", Targets: []string{"claude"}, Default: true},
+				"ctx-extra": {Name: "ctx-extra", Body: "extra body", Targets: []string{"claude"}, Default: boolPtr(true)},
 			},
 		},
 	}
@@ -137,3 +137,64 @@ func TestResolveContextBody_GlobalContext_MatchesAllTargets(t *testing.T) {
 	gotGemini := ResolveContextBody(config, "gemini")
 	assert.Equal(t, "global", gotGemini)
 }
+
+// ── default: false — renderer trusts upstream selection ───────────────────────
+//
+// After the fix, both ValidateContextUniqueness and ResolveContextBody receive
+// only the contexts the compiler has already selected. The renderer no longer
+// skips contexts based on default:false — that exclusion happens in the compiler
+// before blueprint.ApplyBlueprint or before validation in bare-apply mode.
+// The tests below verify the post-fix renderer semantics.
+
+// TestValidateContextUniqueness_ExplicitFalse_IncludedInCheck verifies that
+// ValidateContextUniqueness treats default:false contexts just like any other
+// context: two matching contexts that are both false require one to be the
+// explicit default to resolve the ambiguity.
+func TestValidateContextUniqueness_ExplicitFalse_IncludedInCheck(t *testing.T) {
+	f := false
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Default: &f},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Default: &f},
+	}
+	// Both have Default=false. Neither is the explicit default, so two contexts
+	// match with no tie-breaker — the renderer must report ambiguity.
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.Error(t, err, "two matching contexts with no default must be flagged as ambiguous")
+	assert.Contains(t, err.Error(), `"claude"`)
+}
+
+// TestValidateContextUniqueness_MixedNilAndFalse_MultipleMatching_Error verifies
+// that when the compiler passes through a mix of nil-default and false-default
+// contexts (which it would only do for blueprint applies), multiple matches with
+// no explicit default are flagged by the renderer.
+func TestValidateContextUniqueness_MixedNilAndFalse_MultipleMatching_Error(t *testing.T) {
+	f := false
+	contexts := map[string]ast.ContextConfig{
+		"ctx-main":    {Name: "ctx-main", Body: "main", Targets: []string{"claude"}},
+		"ctx-task-01": {Name: "ctx-task-01", Body: "task 1", Targets: []string{"claude"}, Default: &f},
+	}
+	// Two contexts match claude with no explicit default — ambiguous.
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.Error(t, err, "multiple matching contexts with no default must be flagged as ambiguous")
+}
+
+// TestResolveContextBody_RendersExplicitFalseContexts verifies that
+// ResolveContextBody renders a context with default:false when the compiler
+// has already selected it (blueprint apply path). The renderer trusts upstream
+// filtering — it renders everything it receives.
+func TestResolveContextBody_RendersExplicitFalseContexts(t *testing.T) {
+	f := false
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-task": {Name: "ctx-task", Body: "task body", Targets: []string{"claude"}, Default: &f},
+			},
+		},
+	}
+	// After the fix, the renderer renders the context regardless of Default value.
+	result := ResolveContextBody(config, "claude")
+	assert.Equal(t, "task body", result, "renderer must render default:false contexts it receives")
+}
+
+// boolPtr returns a pointer to the given bool value.
+func boolPtr(b bool) *bool { return &b }

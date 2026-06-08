@@ -1364,6 +1364,13 @@ func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testin
 	assert.NotContains(t, content, "# Legacy rule.", "description must not appear as # heading")
 }
 
+func TestSupportsGlobalScope_Antigravity_Blocked(t *testing.T) {
+	r := antigravity.New()
+	if r.SupportsGlobalScope() {
+		t.Fatal("Antigravity should NOT support global scope (stale ground truth)")
+	}
+}
+
 // ─── Project instructions tests ───────────────────────────────────────────────
 
 func TestCompile_ProjectInstructions_EmitsGeminiMdAsRootFile(t *testing.T) {

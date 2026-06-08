@@ -9,4 +9,5 @@ This section details how xcaffold keeps track of what has been compiled, how sta
 
 - [State and Drift](state-and-drift) — How compilation state is tracked via SHA-256 hashes.
 - [Agent Memory](agent-memory) — The lifecycle of tracked vs. seed-once memory persistence.
+- [Project Registry](project-registry) — How xcaffold tracks projects across your machine.
 

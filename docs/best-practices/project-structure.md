@@ -181,6 +181,32 @@ xcaf/backend/  @backend-team
 xcaf/policies/ @platform-team
 ```
 
+## Monorepos and Nested Projects
+
+When xcaffold encounters a subdirectory containing a `kind: project` manifest, it treats that directory as an independent project boundary and stops scanning into it. This prevents resources from nested projects from leaking into the parent project.
+
+```
+my-monorepo/
+├── project.xcaf              <- root project
+├── xcaf/
+│   └── agents/
+│       └── monorepo-agent/
+│           └── agent.xcaf
+├── app-cli/                  <- nested project (boundary)
+│   ├── project.xcaf
+│   └── xcaf/
+└── app-web/                  <- nested project (boundary)
+    ├── project.xcaf
+    └── xcaf/
+```
+
+Running `xcaffold validate` or `xcaffold apply` from `my-monorepo/` discovers only the root project's resources. `app-cli/` and `app-web/` are treated as independent projects — run xcaffold inside those directories to manage them separately.
+
+Boundary detection uses the `kind: project` field, not the filename. A nested project can name its manifest `project.xcaf`, `main.xcaf`, or anything else — as long as it contains `kind: project`, the directory is recognized as a boundary.
+
+> [!TIP]
+> The conventional filename `project.xcaf` is recommended for consistency and is checked first for performance, but any `.xcaf` filename with `kind: project` works identically.
+
 ## When to Introduce Blueprints
 
 Once you have a domain-split layout with multiple teams, `kind: blueprint` files let each team compile only their subset of agents and rules. See [Blueprint Design](blueprint-design) for guidance on when and how to introduce them.

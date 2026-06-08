@@ -5,17 +5,16 @@ description: "Understanding configuration contexts, scopes, implicit global inhe
 
 # Configuration Scopes
 
-xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing `project.xcaf`), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
+xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing a `kind: project` manifest), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
 
 ## Three Compilation Scopes
 
 | Scope | Flag | What Compiles | State File Path |
 | :--- | :--- | :--- | :--- |
-| Global | `--global` | User-wide personal config (`~/.xcaffold/global.xcaf`) | `~/.xcaffold/.xcaffold/project.xcaf.state` |
+| Global | `--global` | User-wide personal config (`~/.xcaffold/xcaf/global.xcaf`) | `~/.xcaffold/state/project.xcaf.state` |
 | Project | (default) | All resources in `xcaf/` | `.xcaffold/project.xcaf.state` |
-| Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<blueprint-name>.xcaf.state` |
-
-> **Note:** `xcaffold apply --global` is not yet available. The `--global` flag is currently functional only for `xcaffold init` and `xcaffold import`.
+| Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<name>.xcaf.state` |
+| Blueprint + output-dir | `--blueprint <name> --output-dir <dir>` | Same as Blueprint, redirected to `<dir>` | `.xcaffold/<name>@<dir>.xcaf.state` |
 
 > **Note:** Scopes are mutually exclusive. One context per compiled invocation.
 
@@ -62,7 +61,7 @@ These configuration blocks control how Xcaffold evaluates paths, manages executi
 **Crucially, nothing defined in these configurations is natively loaded into the AI's contextual window.** They represent classical, deterministic computing mechanics that execute surrounding the LLM prompt, without ever polluting it.
 
 ### `global` (Global Scope)
-System-wide declarations residing outside your project repository (`~/.xcaffold/global.xcaf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
+System-wide declarations residing outside your project repository (`~/.xcaffold/xcaf/global.xcaf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
 
 ### `project` (Project Scope)
 The authoritative root bounding the local workspace (`project:` object). It registers metadata signatures tracked in state files and limits the execution blast radius to localized overrides and dependencies.
@@ -122,7 +121,7 @@ When you execute an `xcaffold apply` inside your project, the compilation runtim
 
 Global resources are intentionally **NOT** written to the local project output directories (like `.claude/` or `.cursor/`). Because Claude Code, Cursor, Gemini CLI, and GitHub Copilot all autonomously combine the user's global environment at inference time, duplicating physical files into the local workspace would cause duplicate instruction injection and pollute git history unnecessarily. (Antigravity's scope loading behavior is not documented.)
 
-Synchronizing global changes to disc via a global-scoped apply is planned but not yet available. `xcaffold apply --global` currently returns "Global scope is not yet available." The `--global` flag is functional today only for `xcaffold init` and `xcaffold import`.
+To synchronize global configuration to disc, run `xcaffold apply --global`. This compiles global-scope resources and writes output to the user-wide provider directories alongside `~/.xcaffold/`.
 
 ## Override Mechanics
 
@@ -219,7 +218,7 @@ Resources excluded by target filtering produce a fidelity warning.
 Unlike static models (agents, rules), runtime execution lifecycle hooks accumulate across the inheritance chain securely. If the global base defines a `PreToolUse` handler and the local project also defines a `PreToolUse` handler, both run chronologically. The child's project-specific handler fires immediately after the overarching global policy baseline.
 
 ```yaml
-# ~/.xcaffold/global.xcaf
+# ~/.xcaffold/xcaf/global.xcaf
 kind: global
 version: "1.0"
 hooks:
