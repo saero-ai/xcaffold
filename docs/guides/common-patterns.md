@@ -94,7 +94,7 @@ kind: rule
 version: "1.0"
 name: commit-format
 description: "Conventional Commits for all agents."
-activation: always
+always-apply: true
 ---
 All commit messages use `type(scope): description` with types feat, fix, docs, test, or chore.
 ```
@@ -105,7 +105,7 @@ kind: rule
 version: "1.0"
 name: secure-coding
 description: "Baseline secure coding constraints."
-activation: always
+always-apply: true
 ---
 Never log secrets or tokens. Validate all external input before use.
 ```
@@ -211,7 +211,6 @@ kind: rule
 version: "1.0"
 name: frontend-css
 description: "Tailwind conventions for UI code."
-activation: path-glob
 paths:
   - "apps/platform/**/*.tsx"
   - "packages/ui/**/*.tsx"
