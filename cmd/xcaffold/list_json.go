@@ -46,7 +46,7 @@ func printListJSON(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir strin
 }
 
 func collectListResourceEntries(config *ast.XcaffoldConfig, baseDir, target string) []listResourceJSON {
-	var entries []listResourceJSON
+	entries := make([]listResourceJSON, 0)
 	add := func(kind string, names []string, providerFn func(string) string) {
 		sort.Strings(names)
 		for _, name := range names {
@@ -134,11 +134,7 @@ func resolveListResourceSource(baseDir, kind, name, target string) string {
 			return filepath.ToSlash(rel)
 		}
 	}
-	candidates := listResourceSourceCandidates(kind, name, target)
-	if len(candidates) == 0 {
-		return ""
-	}
-	return filepath.ToSlash(candidates[0])
+	return ""
 }
 
 func listResourceSourceCandidates(kind, name, target string) []string {
