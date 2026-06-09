@@ -11,11 +11,10 @@ func NewModelResolver() *geminiModelResolver {
 }
 
 // ResolveAlias maps short aliases to full Gemini model IDs.
-// Ground truth: models.json verified 2026-04-30.
+// Ground truth: models.json verified 2026-06-09.
 func (r *geminiModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Tier aliases
 	aliasMap := map[string]string{
-		"balanced": "gemini-2.5-flash",
+		"balanced": "gemini-3.5-flash",
 		"flagship": "gemini-2.5-pro",
 		"fast":     "gemini-2.5-flash",
 	}

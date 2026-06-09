@@ -609,3 +609,112 @@ func TestStatusGlobal_ReadsFromStatePath(t *testing.T) {
 		t.Fatalf("state file not created at %s", statePath)
 	}
 }
+
+func TestFindChangedSources_VarsFilesNotFalselyRemoved(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "project.xcaf"), "kind: project\nname: test\nversion: \"1.0\"")
+
+	xcafDir := filepath.Join(dir, "xcaf")
+	os.MkdirAll(filepath.Join(xcafDir, "agents", "test-agent"), 0o755)
+	writeFile(t, filepath.Join(xcafDir, "agents", "test-agent", "test-agent.xcaf"),
+		"---\nkind: agent\nname: test-agent\n---\nbody")
+
+	writeFile(t, filepath.Join(xcafDir, "project.vars"), "key: value")
+	writeFile(t, filepath.Join(xcafDir, "project.claude.vars"), "model: sonnet-4")
+
+	allPaths := []string{
+		filepath.Join(dir, "project.xcaf"),
+		filepath.Join(xcafDir, "agents", "test-agent", "test-agent.xcaf"),
+		filepath.Join(xcafDir, "project.vars"),
+		filepath.Join(xcafDir, "project.claude.vars"),
+	}
+
+	var sourceFiles []state.SourceFile
+	for _, p := range allPaths {
+		rel, _ := filepath.Rel(dir, p)
+		data, _ := os.ReadFile(p)
+		h := sha256.Sum256(data)
+		sourceFiles = append(sourceFiles, state.SourceFile{
+			Path: rel,
+			Hash: fmt.Sprintf("sha256:%x", h),
+		})
+	}
+
+	entries, _, driftCount := findChangedSources(dir, sourceFiles)
+
+	if driftCount != 0 {
+		t.Errorf("expected 0 drift, got %d", driftCount)
+		for _, e := range entries {
+			t.Errorf("  %s: %s", e.status, e.path)
+		}
+	}
+}
+
+func TestFindChangedSources_VarsFileActuallyRemoved(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "project.xcaf"), "kind: project\nname: test\nversion: \"1.0\"")
+
+	xcafDir := filepath.Join(dir, "xcaf")
+	os.MkdirAll(xcafDir, 0o755)
+	writeFile(t, filepath.Join(xcafDir, "project.vars"), "key: value")
+
+	varsPath := filepath.Join(xcafDir, "project.vars")
+	data, _ := os.ReadFile(varsPath)
+	h := sha256.Sum256(data)
+
+	sourceFiles := []state.SourceFile{
+		{Path: "project.xcaf", Hash: hashFile(t, filepath.Join(dir, "project.xcaf"))},
+		{Path: "xcaf/project.vars", Hash: fmt.Sprintf("sha256:%x", h)},
+	}
+
+	// Delete the vars file — now it's genuinely removed
+	os.Remove(varsPath)
+
+	entries, _, driftCount := findChangedSources(dir, sourceFiles)
+
+	if driftCount != 1 {
+		t.Errorf("expected 1 drift (real removal), got %d", driftCount)
+	}
+	if len(entries) != 1 || entries[0].status != "source removed" || entries[0].path != "xcaf/project.vars" {
+		t.Errorf("unexpected entries: %+v", entries)
+	}
+}
+
+func TestFindChangedSources_VarsFileChanged(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "project.xcaf"), "kind: project\nname: test\nversion: \"1.0\"")
+
+	xcafDir := filepath.Join(dir, "xcaf")
+	os.MkdirAll(xcafDir, 0o755)
+	writeFile(t, filepath.Join(xcafDir, "project.vars"), "key: original")
+
+	sourceFiles := []state.SourceFile{
+		{Path: "project.xcaf", Hash: hashFile(t, filepath.Join(dir, "project.xcaf"))},
+		{Path: "xcaf/project.vars", Hash: hashFile(t, filepath.Join(xcafDir, "project.vars"))},
+	}
+
+	// Modify the vars file after recording state
+	writeFile(t, filepath.Join(xcafDir, "project.vars"), "key: modified")
+
+	entries, _, driftCount := findChangedSources(dir, sourceFiles)
+
+	if driftCount != 1 {
+		t.Errorf("expected 1 drift (real change), got %d", driftCount)
+	}
+	if len(entries) != 1 || entries[0].status != "source changed" || entries[0].path != "xcaf/project.vars" {
+		t.Errorf("unexpected entries: %+v", entries)
+	}
+}
+
+func hashFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("hashFile %s: %v", path, err)
+	}
+	h := sha256.Sum256(data)
+	return fmt.Sprintf("sha256:%x", h)
+}

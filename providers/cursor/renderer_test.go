@@ -311,7 +311,7 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 	// Cursor-compatible fields MUST appear
 	assert.Contains(t, content, "name: Full Agent")
 	assert.Contains(t, content, "description: Has many fields.")
-	assert.NotContains(t, content, "model:", "literal model claude-opus-4-5 is unmapped for cursor — must be omitted")
+	assert.Contains(t, content, "model: claude-opus-4-5", "literal model claude-opus-4-5 passes through via claude- prefix")
 	assert.Contains(t, content, "is_background: true")
 }
 
@@ -333,12 +333,14 @@ func TestCompile_Agent_UnmappedModel_Omitted(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/model-agent.md"]
-	assert.NotContains(t, content, "model:", "unmapped literal model must be omitted from Cursor output")
+	assert.Contains(t, content, "model: claude-sonnet-4-5", "pass-through literal model must be emitted in Cursor output")
 
-	note, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
-	require.True(t, ok, "AGENT_MODEL_UNMAPPED note must be emitted")
-	assert.Equal(t, "model-agent", note.Resource)
-	assert.Equal(t, renderer.LevelWarning, note.Level)
+	_, unmappedFound := findNote(notes, renderer.CodeAgentModelUnmapped)
+	assert.False(t, unmappedFound, "pass-through model must not emit AGENT_MODEL_UNMAPPED")
+
+	note, transformedFound := findNote(notes, renderer.CodeFieldTransformed)
+	require.True(t, transformedFound, "pass-through model must emit FIELD_TRANSFORMED note")
+	assert.Equal(t, renderer.LevelInfo, note.Level)
 }
 
 func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
@@ -359,7 +361,7 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/aliased-agent.md"]
-	assert.Contains(t, content, "model: claude-sonnet-4-5", "balanced maps to claude-sonnet-4-5 for cursor — must be emitted")
+	assert.Contains(t, content, "model: claude-sonnet-4-6", "balanced maps to claude-sonnet-4-6 for cursor — must be emitted")
 
 	_, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
 	assert.False(t, ok, "mapped alias must not emit AGENT_MODEL_UNMAPPED")
@@ -391,10 +393,11 @@ func TestCompile_Agent_UnmappedModel_NoteReturnedRegardlessOfSuppress(t *testing
 	require.NoError(t, err)
 
 	content := out.Files["agents/quiet-agent.md"]
-	assert.NotContains(t, content, "model:", "unmapped literal model must be omitted regardless of suppress flag")
+	assert.Contains(t, content, "model: claude-sonnet-4-5", "pass-through literal model must be emitted regardless of suppress flag")
 
-	_, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
-	assert.True(t, ok, "renderer returns the note regardless of suppression; suppression is applied at the command layer")
+	note, ok := findNote(notes, renderer.CodeFieldTransformed)
+	require.True(t, ok, "pass-through model must emit FIELD_TRANSFORMED note regardless of suppression")
+	assert.Equal(t, renderer.LevelInfo, note.Level)
 }
 
 func TestCompile_Agent_BodyContentPreserved(t *testing.T) {

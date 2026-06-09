@@ -496,20 +496,8 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps r
 
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
 	notes = append(notes, modelNotes...)
-	// Cursor only accepts explicitly mapped models.
-	if resolvedModel != "" && renderer.IsMappedModel(agent.Model, targetName) {
+	if resolvedModel != "" {
 		fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolvedModel))
-	} else if agent.Model != "" && !renderer.IsMappedModel(agent.Model, targetName) {
-		notes = append(notes, renderer.FidelityNote{
-			Level:      renderer.LevelWarning,
-			Target:     targetName,
-			Kind:       "agent",
-			Resource:   id,
-			Field:      "model",
-			Code:       renderer.CodeAgentModelUnmapped,
-			Reason:     fmt.Sprintf("literal model %q is unmapped for cursor \u2014 must be omitted", agent.Model),
-			Mitigation: "Use a mapped alias defined in xcaffold model aliases",
-		})
 	}
 	if agent.Background != nil && *agent.Background {
 		sb.WriteString("is_background: true\n")

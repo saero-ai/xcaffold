@@ -500,6 +500,20 @@ func findChangedSources(baseDir string, sourceFiles []state.SourceFile) ([]drift
 		}
 	}
 
+	// State may include non-.xcaf sources (e.g. .vars files) that
+	// FindXCAFFiles does not return. Hash them directly from disk
+	// so they aren't falsely reported as removed.
+	for _, sf := range sourceFiles {
+		if _, exists := currByPath[sf.Path]; !exists {
+			absPath := filepath.Join(baseDir, sf.Path)
+			data, err := os.ReadFile(absPath)
+			if err == nil {
+				hash := sha256.Sum256(data)
+				currByPath[sf.Path] = fmt.Sprintf("sha256:%x", hash)
+			}
+		}
+	}
+
 	var entries []driftEntry
 	driftCount := 0
 
