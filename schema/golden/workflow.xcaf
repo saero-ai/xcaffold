@@ -38,3 +38,6 @@ targets:
   antigravity:
     suppress-fidelity-warnings: true
     skip-synthesis: true
+  antigravity2:
+    suppress-fidelity-warnings: true
+    skip-synthesis: true
