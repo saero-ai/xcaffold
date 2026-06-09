@@ -53,6 +53,7 @@ targets:
   - gemini
   - copilot
   - antigravity
+  - antigravity2
 target-options:
   copilot:
     hooks:
@@ -82,7 +83,7 @@ target-options:
 | `extends` | `string` | Path to a global config to inherit resources from. |
 | `backup-dir` | `string` | Directory where provider output is backed up before each overwrite. |
 | `allowed-env-vars` | `[]string` | Environment variable names that may be injected via `${env.NAME}` inside `.xcaf` files. Variables not listed here are rejected at compile time. |
-| `targets` | `[]string` | Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. When empty, the `--target` flag must be provided at compile time. |
+| `targets` | `[]string` | Provider targets to compile: `antigravity (deprecated)`, `antigravity2`, `claude`, `codex`, `copilot`, `cursor`, `gemini`. When empty, the `--target` flag must be provided at compile time. |
 | `target-options` | `map[string]TargetOverride` | Per-provider compile-time overrides. See [target-options block](#target-options-block). |
 
 > **Note:** Resources (agents, skills, rules, MCP servers, policies, workflows, memory, and contexts) are not declared inline in `project.xcaf`. They are discovered automatically from `xcaf/` subdirectories (e.g., `xcaf/agents/<name>/agent.xcaf`). See [Resource File Format](#resource-file-format-one-kind-per-file) in the kinds index for directory layout details.
