@@ -39,9 +39,9 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ⁵ **Codex rules** — Codex uses Starlark `.rules` files, a fundamentally different paradigm that cannot be compiled from `.xcaf` rule declarations. A `RENDERER_KIND_UNSUPPORTED` fidelity note is emitted.
 
-⁶ **Antigravity 2 agents** are compiled to `agents/agent.json` as structured JSON agent definitions. Antigravity 2.0 supports a richer agent model than v1.
+⁶ **Antigravity 2 agents** are compiled to `agents/agent.json` as structured JSON agent definitions. See [Antigravity 2.0 Runtime Behavior](#antigravity-20-runtime-behavior) for known discovery limitations.
 
-⁷ **Antigravity 2 MCP** — Unlike v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration at `.agents/mcp.json`.
+⁷ **Antigravity 2 MCP** — Unlike v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration at `.agents/mcp_config.json`.
 
 > [!NOTE]
 > Target capabilities are continuously expanding. For a granular block-by-block breakdown of per-field fidelity mappings per target, consult the [Kind Reference](./kinds/index.md).
@@ -82,6 +82,35 @@ Skills may declare `references/`, `scripts/`, `assets/`, and `examples/` subdire
 - **&rarr;** — Directory name is translated to the provider-native equivalent.
 - **FidelityNote** — Provider does not support this concept; a `FIELD_UNSUPPORTED` fidelity note is emitted.
 - **flat** — Files are placed alongside `SKILL.md` without a subdirectory wrapper.
+
+---
+
+## Antigravity 2.0 Runtime Behavior
+
+> **Tested against:** `agy` CLI v1.0.6, Antigravity 2.0 desktop (June 2026). Behavior may change in future releases.
+
+xcaffold compiles structurally correct output for Antigravity 2.0 across all supported kinds. However, the Antigravity 2.0 runtime does not consume every compiled artifact identically. The table below documents observed runtime behavior per resource type.
+
+| Resource | Compiled Output | Runtime Discovery | Notes |
+|----------|----------------|-------------------|-------|
+| **Rules** | `.agents/rules/*.md` | Auto-loaded and applied | Works as expected. |
+| **Skills** | `.agents/skills/*/SKILL.md` | Auto-discovered by name | Works as expected. Invocable via skill name. |
+| **Workflows** | `.agents/workflows/*.md` | Registered as `/<name>` slash commands | Works as expected. |
+| **MCP Servers** | `.agents/mcp_config.json` | Loaded and tools available | Works as expected. Servers start on demand. |
+| **Knowledge Items** | `.agents/knowledge/*.md` | Visible and readable | Works as expected. Available as contextual memory. |
+| **Hooks** | `.agents/hooks.json` | **Not loaded from this path** | Hooks are configured via Gemini settings (`settings.json`), not `.agents/hooks.json`. The compiled file is structurally correct but the runtime reads hooks from the settings config instead. ⁸ |
+| **Agents** | `.agents/agents/*/agent.json` | **Not auto-discovered** | Agent files exist on disk and are readable, but the runtime does not auto-register them as invocable subagents. The LLM can read agent.json and use `define_subagent` to create agents manually at runtime. ⁹ |
+| **Shared Output Dir** | `.agents/` | — | Antigravity v1, Antigravity 2.0, and Gemini CLI all write to `.agents/` and `GEMINI.md`. When compiling for multiple targets, the last-compiled target wins. |
+
+### ⁸ Hooks Runtime Path
+
+The Antigravity 2.0 documentation describes `.agents/hooks.json` as the workspace-level hooks configuration. In practice (agy v1.0.6), the runtime loads hooks from the Gemini-format settings config rather than the standalone hooks.json file. xcaffold compiles hooks.json with the correct schema (PreToolUse, PostToolUse, etc.), and the file will be consumed if/when the runtime adds direct hooks.json loading. Until then, hooks should also be configured via the antigravity2 settings path.
+
+### ⁹ Agent Auto-Discovery
+
+The Antigravity 2.0 documentation states that file-based agents "are loaded at conversation start." In practice (agy v1.0.6), the `/agents` command shows only built-in subagents (`research`, `self`). Custom agents defined in `.agents/agents/*/agent.json` are not auto-registered as invocable subagents. The runtime can read the files and offers to create agents via `define_subagent` using the JSON definition as input. This may be a planned feature gated behind the `/teamwork-preview` flag (Ultra plan, $200/month) or not yet shipped in the current CLI version.
+
+xcaffold continues to compile agent.json files because the format matches official documentation and the files serve as a useful reference even without auto-discovery.
 
 ---
 
