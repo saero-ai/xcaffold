@@ -103,7 +103,7 @@ type ProviderManifest struct {
 	GlobalScanner func(userHome string, r *registry.GlobalScanResult)
 
 	// Status is the lifecycle stage: "active" (default when empty),
-	// "deprecated", or "sunset". See ADR-0088.
+	// "deprecated", or "sunset".
 	Status string
 
 	// DeprecatedBy is the canonical name of the replacement provider.
