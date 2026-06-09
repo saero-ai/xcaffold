@@ -4,7 +4,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/providers"
+	_ "github.com/saero-ai/xcaffold/providers/antigravity2"
 )
 
 // resetRegistry replaces the global registry with the given slice and returns
@@ -235,4 +238,231 @@ func TestPrimaryNames_Empty(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("PrimaryNames() on empty registry = %v, want []", got)
 	}
+}
+
+// stubRenderer is a minimal TargetRenderer implementation for testing.
+type stubRenderer struct{}
+
+func (s *stubRenderer) Target() string {
+	return "stub"
+}
+
+func (s *stubRenderer) OutputDir() string {
+	return ".stub"
+}
+
+func (s *stubRenderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{}
+}
+
+func (s *stubRenderer) CompileAgents(map[string]ast.AgentConfig, string) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileSkills(map[string]ast.SkillConfig, string) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileRules(map[string]ast.RuleConfig, string) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileWorkflows(map[string]ast.WorkflowConfig, string) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileHooks(ast.HookConfig, string) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileSettings(ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileMCP(map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileProjectInstructions(*ast.XcaffoldConfig, string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) CompileMemory(*ast.XcaffoldConfig, string, renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), nil, nil
+}
+
+func (s *stubRenderer) Finalize(map[string]string, map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return make(map[string]string), make(map[string]string), nil, nil
+}
+
+func TestCheckDeprecation_Active(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:       "active-provider",
+		OutputDir:  ".active",
+		ValidNames: []string{"active-provider"},
+		Status:     "",
+	})
+
+	warn, err := providers.CheckDeprecation("active-provider")
+	if warn != "" {
+		t.Errorf("CheckDeprecation on active provider returned warning: %q", warn)
+	}
+	if err != nil {
+		t.Errorf("CheckDeprecation on active provider returned error: %v", err)
+	}
+}
+
+func TestCheckDeprecation_Deprecated(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:         "old-provider",
+		OutputDir:    ".old",
+		ValidNames:   []string{"old-provider"},
+		Status:       "deprecated",
+		DeprecatedBy: "new-provider",
+	})
+
+	warn, err := providers.CheckDeprecation("old-provider")
+	if warn == "" {
+		t.Error("CheckDeprecation on deprecated provider returned empty warning")
+	}
+	if err != nil {
+		t.Errorf("CheckDeprecation on deprecated provider returned error: %v", err)
+	}
+	// Verify the warning mentions both the provider name and the replacement.
+	if !contains(warn, "deprecated") {
+		t.Errorf("Warning missing 'deprecated': %q", warn)
+	}
+	if !contains(warn, "new-provider") {
+		t.Errorf("Warning missing replacement name: %q", warn)
+	}
+}
+
+func TestCheckDeprecation_Sunset(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:         "sunsetprovider",
+		OutputDir:    ".sunset",
+		ValidNames:   []string{"sunsetprovider"},
+		Status:       "sunset",
+		SunsetDate:   "2025-01-01",
+		DeprecatedBy: "new-provider",
+	})
+
+	warn, err := providers.CheckDeprecation("sunsetprovider")
+	if warn != "" {
+		t.Errorf("CheckDeprecation on sunset provider returned non-empty warning: %q", warn)
+	}
+	if err == nil {
+		t.Error("CheckDeprecation on sunset provider returned nil error")
+	}
+	// Verify the error mentions sunset and the date.
+	if err != nil {
+		if !contains(err.Error(), "sunset") {
+			t.Errorf("Error missing 'sunset': %v", err)
+		}
+		if !contains(err.Error(), "2025-01-01") {
+			t.Errorf("Error missing sunset date: %v", err)
+		}
+	}
+}
+
+func TestCheckDeprecation_Unknown(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	warn, err := providers.CheckDeprecation("does-not-exist")
+	if warn != "" {
+		t.Errorf("CheckDeprecation on unknown provider returned warning: %q", warn)
+	}
+	if err != nil {
+		t.Errorf("CheckDeprecation on unknown provider returned error: %v", err)
+	}
+}
+
+func TestResolveRenderer_Deprecated(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:         "deprecated-with-renderer",
+		OutputDir:    ".deprecated",
+		ValidNames:   []string{"deprecated-with-renderer"},
+		Status:       "deprecated",
+		DeprecatedBy: "new-provider",
+		NewRenderer:  func() renderer.TargetRenderer { return &stubRenderer{} },
+	})
+
+	_, err := providers.ResolveRenderer("deprecated-with-renderer")
+	if err != nil {
+		t.Errorf("ResolveRenderer should not error on deprecated provider with factory: %v", err)
+	}
+}
+
+func TestResolveRenderer_Sunset(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:         "sunset-provider",
+		OutputDir:    ".sunset",
+		ValidNames:   []string{"sunset-provider"},
+		Status:       "sunset",
+		SunsetDate:   "2025-01-01",
+		DeprecatedBy: "new-provider",
+		NewRenderer:  func() renderer.TargetRenderer { return &stubRenderer{} },
+	})
+
+	_, err := providers.ResolveRenderer("sunset-provider")
+	if err == nil {
+		t.Error("ResolveRenderer should error on sunset provider")
+	}
+}
+
+func TestResolveRenderer_Active(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:        "active-with-renderer",
+		OutputDir:   ".active",
+		ValidNames:  []string{"active-with-renderer"},
+		Status:      "",
+		NewRenderer: func() renderer.TargetRenderer { return &stubRenderer{} },
+	})
+
+	r, err := providers.ResolveRenderer("active-with-renderer")
+	if err != nil {
+		t.Errorf("ResolveRenderer on active provider should not error: %v", err)
+	}
+	if r == nil {
+		t.Error("ResolveRenderer on active provider should return non-nil renderer")
+	}
+}
+
+func TestPrimaryNames_IncludesAntigravity2(t *testing.T) {
+	// Don't reset registry — use the real one with actual provider registrations.
+	// This tests that antigravity2 was registered during init().
+
+	names := providers.PrimaryNames()
+	found := false
+	for _, name := range names {
+		if name == "antigravity2" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("PrimaryNames() does not include 'antigravity2' — provider may not be registered")
+	}
+}
+
+// contains is a helper that checks if a string contains a substring.
+func contains(s, substr string) bool {
+	for i := range len(s) - len(substr) + 1 {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
