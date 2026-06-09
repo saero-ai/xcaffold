@@ -346,7 +346,7 @@ func TestCompileAgents_Gemini_MappedAlias_Translated(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/tester.md"]
-	assert.Contains(t, content, "model: gemini-2.5-flash")
+	assert.Contains(t, content, "model: gemini-3.5-flash")
 }
 
 func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {

@@ -13,9 +13,11 @@ Tier aliases let you write provider-agnostic `.xcaf` files. Each provider maps t
 
 | Alias | Intent | Claude Code | Cursor | Copilot | Gemini CLI | Codex |
 |-------|--------|-------------|--------|---------|------------|-------|
-| `balanced` | General-purpose default | `claude-sonnet-4-5` | `claude-sonnet-4-6` | `claude-sonnet-4-6` | `gemini-2.5-flash` | `gpt-5.4` |
-| `flagship` | Most capable model | `claude-opus-4-7` | `gpt-5.5` | `claude-opus-4-7` | `gemini-2.5-pro` | `gpt-5.5` |
-| `fast` | Fastest / cheapest | `claude-haiku-4-5` | `composer-2.5` | `claude-haiku-4-5` | `gemini-2.5-flash` | `gpt-5.4-mini` |
+| `balanced` | General-purpose default | `sonnet` | `claude-sonnet-4-6` | `claude-sonnet-4-6` | `gemini-3.5-flash` | `gpt-5.4` |
+| `flagship` | Most capable model | `opus` | `gpt-5.5` | `claude-opus-4-8` | `gemini-2.5-pro` | `gpt-5.5` |
+| `fast` | Fastest / cheapest | `haiku` | `composer-2.5` | `claude-haiku-4-5` | `gemini-2.5-flash` | `gpt-5.4-mini` |
+
+Claude Code uses bare aliases (`sonnet`, `opus`, `haiku`) that resolve at runtime to the latest version. This means the compiled output always targets the current model without needing resolver updates.
 
 > **Last verified:** 2026-06-09 against official provider documentation.
 > Tier mappings are defaults. Override them per-provider using `${var.model-default}` in `project.<provider>.vars` or `agent.<provider>.xcaf` overrides.

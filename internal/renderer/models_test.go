@@ -123,7 +123,7 @@ func TestSanitizeAgentModel(t *testing.T) {
 			model:         "balanced",
 			caps:          renderer.CapabilitySet{},
 			targetName:    "gemini",
-			expectedModel: "gemini-2.5-flash",
+			expectedModel: "gemini-3.5-flash",
 			expectedNotes: 0,
 		},
 		{
@@ -168,11 +168,11 @@ func TestSanitizeAgentModel(t *testing.T) {
 		// A mapped xcaffold alias (e.g. "balanced") must still resolve to the
 		// target-specific literal and emit no note.
 		{
-			name:          "MappedAlias_ClaudeTarget_TranslatesToLiteral",
+			name:          "MappedAlias_ClaudeTarget_TranslatesToBareAlias",
 			model:         "balanced",
 			caps:          renderer.CapabilitySet{},
 			targetName:    "claude",
-			expectedModel: "claude-sonnet-4-5",
+			expectedModel: "sonnet",
 			expectedNotes: 0,
 		},
 		// A native literal passed directly must pass through with an info note
@@ -237,14 +237,14 @@ func TestSanitizeAgentModel_RegistryLookup(t *testing.T) {
 
 	// claude has model: optional in the schema registry — mapped alias resolves cleanly.
 	gotModel, gotNotes := renderer.SanitizeAgentModel("balanced", caps, "claude", "my-agent")
-	assert.Equal(t, "claude-sonnet-4-5", gotModel,
-		"registry lookup: claude target with mapped alias must resolve to provider literal")
+	assert.Equal(t, "sonnet", gotModel,
+		"registry lookup: claude target with mapped alias must resolve to bare alias")
 	assert.Empty(t, gotNotes,
 		"registry lookup: clean alias resolution must emit no fidelity notes")
 
 	// gemini has model: optional in the schema registry — mapped alias resolves cleanly.
 	gotModel, gotNotes = renderer.SanitizeAgentModel("balanced", caps, "gemini", "my-agent")
-	assert.Equal(t, "gemini-2.5-flash", gotModel,
+	assert.Equal(t, "gemini-3.5-flash", gotModel,
 		"registry lookup: gemini target with mapped alias must resolve to provider literal")
 	assert.Empty(t, gotNotes,
 		"registry lookup: clean alias resolution must emit no fidelity notes")

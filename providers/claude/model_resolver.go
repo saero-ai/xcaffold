@@ -12,13 +12,12 @@ func NewModelResolver() *claudeModelResolver {
 
 // ResolveAlias maps short aliases to full Claude model IDs.
 // Also recognizes and passes through full model IDs that start with "claude-".
-// Ground truth: models.json verified 2026-04-30.
+// Ground truth: models.json verified 2026-06-09.
 func (r *claudeModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Tier aliases
 	aliasMap := map[string]string{
-		"balanced": "claude-sonnet-4-5",
-		"flagship": "claude-opus-4-7",
-		"fast":     "claude-haiku-4-5",
+		"balanced": "sonnet",
+		"flagship": "opus",
+		"fast":     "haiku",
 	}
 
 	if id, found := aliasMap[alias]; found {
