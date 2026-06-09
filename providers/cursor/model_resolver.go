@@ -15,9 +15,9 @@ func NewModelResolver() *cursorModelResolver {
 // Ground truth: models.json verified 2026-06-09.
 func (r *cursorModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
 	aliasMap := map[string]string{
-		"balanced": "claude-sonnet-4-5",
-		"flagship": "gemini-2.5-pro",
-		"fast":     "cursor-fast",
+		"balanced": "claude-sonnet-4-6",
+		"flagship": "gpt-5.5",
+		"fast":     "composer-2.5",
 	}
 
 	if id, found := aliasMap[alias]; found {
@@ -25,7 +25,7 @@ func (r *cursorModelResolver) ResolveAlias(alias string) (modelID string, ok boo
 	}
 
 	lowered := strings.ToLower(alias)
-	for _, prefix := range []string{"claude-", "gpt-", "gemini-", "cursor-", "composer-", "o1-", "o3-"} {
+	for _, prefix := range []string{"claude-", "gpt-", "gemini-", "cursor-", "composer-", "o1-", "o3-", "grok-", "kimi-"} {
 		if strings.HasPrefix(lowered, prefix) {
 			return lowered, true
 		}

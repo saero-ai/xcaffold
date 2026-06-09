@@ -13,9 +13,9 @@ func TestResolveAlias_TierAliases(t *testing.T) {
 		wantID string
 		wantOK bool
 	}{
-		{"balanced", "claude-sonnet-4-5", true},
-		{"flagship", "gemini-2.5-pro", true},
-		{"fast", "cursor-fast", true},
+		{"balanced", "claude-sonnet-4-6", true},
+		{"flagship", "gpt-5.5", true},
+		{"fast", "composer-2.5", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.alias, func(t *testing.T) {
@@ -32,13 +32,15 @@ func TestResolveAlias_Passthrough(t *testing.T) {
 		input  string
 		wantID string
 	}{
-		{"claude-sonnet-4-5", "claude-sonnet-4-5"},
-		{"gpt-4o", "gpt-4o"},
-		{"gemini-2.5-pro", "gemini-2.5-pro"},
-		{"cursor-fast", "cursor-fast"},
-		{"composer-agent", "composer-agent"},
+		{"claude-sonnet-4-6", "claude-sonnet-4-6"},
+		{"gpt-5.5", "gpt-5.5"},
+		{"gemini-3.1-pro", "gemini-3.1-pro"},
+		{"cursor-composer-2.5", "cursor-composer-2.5"},
+		{"composer-2.5-fast", "composer-2.5-fast"},
 		{"o1-preview", "o1-preview"},
 		{"o3-mini", "o3-mini"},
+		{"grok-build-0.1", "grok-build-0.1"},
+		{"kimi-k2.5", "kimi-k2.5"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
