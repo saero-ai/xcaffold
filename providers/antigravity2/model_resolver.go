@@ -32,6 +32,9 @@ var knownModels = map[string]string{
 	// GPT-OSS tier
 	"gpt-oss-120b": "gpt-oss-120b",
 	"gpt-oss":      "gpt-oss-120b",
+
+	// Image generation tier (non-selectable via --model flag; UI-only)
+	"nano-banana-2": "nano-banana-2",
 }
 
 // ResolveAlias returns the full model ID for a short alias.

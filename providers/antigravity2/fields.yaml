@@ -26,8 +26,8 @@ kinds:
     hooks: { support: unsupported }
     targets: { support: optional }
   skill:
-    name: { support: supported }
-    description: { support: optional }
+    name: { support: optional }
+    description: { support: required }
     when-to-use: { support: optional }
     license: { support: unsupported }
     allowed-tools: { support: optional }
@@ -45,16 +45,56 @@ kinds:
     exclude-agents: { support: unsupported }
     targets: { support: optional }
   hooks:
-    pre-tool-use: { support: supported }
-    post-tool-use: { support: supported }
-    notification: { support: supported }
-    stop: { support: supported }
-    session-start: { support: supported }
+    name: { support: supported }
+    description: { support: optional }
+    artifacts: { support: optional }
+    events: { support: supported }
+    targets: { support: optional }
   mcp:
-    command: { support: optional }
-    server-url: { support: supported }
-    disabled-tools: { support: supported }
-    env: { support: optional }
-    args: { support: optional }
+    name: { support: optional }
+    description: { support: optional }
     type: { support: optional }
+    command: { support: optional }
+    url: { support: supported }
+    cwd: { support: unsupported }
+    auth-provider-type: { support: unsupported }
+    args: { support: optional }
+    env: { support: optional }
     headers: { support: optional }
+    disabled: { support: unsupported }
+    oauth: { support: unsupported }
+    disabled-tools: { support: supported }
+    targets: { support: optional }
+  settings:
+    name: { support: unsupported }
+    description: { support: unsupported }
+    agent: { support: unsupported }
+    worktree: { support: unsupported }
+    auto-mode: { support: unsupported }
+    cleanup-period-days: { support: unsupported }
+    include-git-instructions: { support: unsupported }
+    skip-dangerous-mode-permission-prompt: { support: unsupported }
+    permissions: { support: unsupported }
+    sandbox: { support: unsupported }
+    auto-memory-enabled: { support: unsupported }
+    disable-all-hooks: { support: unsupported }
+    attribution: { support: unsupported }
+    mcp-servers: { support: unsupported }
+    hooks: { support: unsupported }
+    status-line: { support: unsupported }
+    respect-gitignore: { support: unsupported }
+    env: { support: unsupported }
+    enabled-plugins: { support: unsupported }
+    disable-skill-shell-execution: { support: unsupported }
+    always-thinking-enabled: { support: unsupported }
+    effort-level: { support: unsupported }
+    default-shell: { support: unsupported }
+    language: { support: unsupported }
+    output-style: { support: unsupported }
+    plans-directory: { support: unsupported }
+    model: { support: unsupported }
+    otel-headers-helper: { support: unsupported }
+    auto-memory-directory: { support: unsupported }
+    available-models: { support: unsupported }
+    md-excludes: { support: unsupported }
+    targets: { support: unsupported }

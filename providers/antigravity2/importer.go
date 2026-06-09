@@ -215,11 +215,16 @@ func extractMCPConfig(_ string, data []byte, config *ast.XcaffoldConfig) error {
 		config.MCP = make(map[string]ast.MCPConfig)
 	}
 	for k, v := range wrapper.MCPServers {
+		// v1.0.5+ supports both serverUrl and url; prefer serverUrl when both present.
+		serverURL := v.ServerURL
+		if serverURL == "" {
+			serverURL = v.URL
+		}
 		config.MCP[k] = ast.MCPConfig{
 			Command:        v.Command,
 			Args:           v.Args,
 			Env:            v.Env,
-			URL:            v.ServerURL,
+			URL:            serverURL,
 			DisabledTools:  v.DisabledTools,
 			SourceProvider: "antigravity2",
 		}

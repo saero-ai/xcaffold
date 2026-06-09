@@ -7,22 +7,47 @@ import (
 	"github.com/saero-ai/xcaffold/internal/registry"
 )
 
-// scanGlobal discovers Antigravity 2.0 global resources.
+// scanGlobal discovers Antigravity 2.0 global resources from two surfaces:
 //
-// Layout:
+// CLI surface (~/.gemini/antigravity-cli/):
 //
-//	~/.gemini/antigravity-cli/skills/<name>/SKILL.md → skills
-//	~/.gemini/antigravity-cli/agents/<name>/agent.json → agents
-//	~/.gemini/antigravity-cli/mcp_config.json  → mcp (serverUrl key)
-//	~/.gemini/config/hooks.json                → hooks (global)
-//	~/.gemini/GEMINI.md                        → rule "gemini-global"
+//	skills/<name>/SKILL.md   → skills
+//	agents/<name>/agent.json → agents
+//	mcp_config.json          → mcp (serverUrl key)
+//
+// Desktop app surface (~/.gemini/config/):
+//
+//	skills/<name>/SKILL.md   → skills
+//	mcp_config.json          → mcp
+//	plugins/                 → not surfaced (no GlobalScanResult field)
+//	hooks.json               → not surfaced (no GlobalScanResult field)
+//	sidecars/                → not surfaced (no GlobalScanResult field)
+//
+// Shared:
+//
+//	~/.gemini/GEMINI.md → rule "gemini-global"
 func scanGlobal(userHome string, r *registry.GlobalScanResult) {
 	cliDir := filepath.Join(userHome, ".gemini", "antigravity-cli")
 	cfgDir := filepath.Join(userHome, ".gemini", "config")
 
+	// CLI surface
 	registry.ScanSkillDirs(filepath.Join(cliDir, "skills"), r.Skills)
 	scanGlobalAgents(filepath.Join(cliDir, "agents"), r)
+	registry.ScanMCPFromJSONFile(
+		filepath.Join(cliDir, "mcp_config.json"),
+		registry.MCPScanKeys{ServersKey: "mcpServers", CmdKey: "command", URLKey: "serverUrl"},
+		r.MCP,
+	)
 
+	// Desktop app surface
+	registry.ScanSkillDirs(filepath.Join(cfgDir, "skills"), r.Skills)
+	registry.ScanMCPFromJSONFile(
+		filepath.Join(cfgDir, "mcp_config.json"),
+		registry.MCPScanKeys{ServersKey: "mcpServers", CmdKey: "command", URLKey: "serverUrl"},
+		r.MCP,
+	)
+
+	// Shared global rule
 	geminiMD := filepath.Join(userHome, ".gemini", "GEMINI.md")
 	if _, err := os.Stat(geminiMD); err == nil {
 		if _, exists := r.Rules["gemini-global"]; !exists {
@@ -31,14 +56,6 @@ func scanGlobal(userHome string, r *registry.GlobalScanResult) {
 			}
 		}
 	}
-
-	registry.ScanMCPFromJSONFile(
-		filepath.Join(cliDir, "mcp_config.json"),
-		registry.MCPScanKeys{ServersKey: "mcpServers", CmdKey: "command", URLKey: "serverUrl"},
-		r.MCP,
-	)
-
-	_ = cfgDir // hooks.json scanning is not yet surfaced in GlobalScanResult
 }
 
 // scanGlobalAgents registers agent.json entries from a global agents directory.

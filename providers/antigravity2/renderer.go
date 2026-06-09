@@ -475,11 +475,13 @@ func compileWorkflow(id string, wf ast.WorkflowConfig) string {
 }
 
 // mcpServerEntry is the Antigravity 2.0 mcp_config.json server entry schema.
+// Supports both serverUrl (canonical) and url (v1.0.5+ alias) fields.
 type mcpServerEntry struct {
 	Command       string            `json:"command,omitempty"`
 	Args          []string          `json:"args,omitempty"`
 	Env           map[string]string `json:"env,omitempty"`
 	ServerURL     string            `json:"serverUrl,omitempty"`
+	URL           string            `json:"url,omitempty"`
 	DisabledTools []string          `json:"disabledTools,omitempty"`
 }
 

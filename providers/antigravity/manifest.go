@@ -37,6 +37,8 @@ var Manifest = providers.ProviderManifest{
 	DisplayLabel:       "Antigravity",
 	CLIBinary:          "gemini",
 	DefaultModel:       "gemini-2.5-pro",
+	Status:             "deprecated",
+	DeprecatedBy:       "antigravity2",
 	NewRenderer:        func() renderer.TargetRenderer { return New() },
 	NewModelResolver:   func() renderer.ModelResolver { return NewModelResolver() },
 	NewImporter:        func() importer.ProviderImporter { return NewImporter() },

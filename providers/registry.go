@@ -100,13 +100,33 @@ func IsRegistered(name string) bool {
 	return ok
 }
 
+// CheckDeprecation returns a non-empty warning if the named provider is
+// deprecated, or an error if it has reached sunset. Active providers
+// return ("", nil).
+func CheckDeprecation(target string) (warning string, err error) {
+	m, ok := ManifestFor(target)
+	if !ok {
+		return "", nil
+	}
+	switch m.Status {
+	case "deprecated":
+		return fmt.Sprintf("Provider %q is deprecated; use %q instead.", m.Name, m.DeprecatedBy), nil
+	case "sunset":
+		return "", fmt.Errorf("Provider %q reached sunset on %s. Migrate to %q.", m.Name, m.SunsetDate, m.DeprecatedBy)
+	}
+	return "", nil
+}
+
 // ResolveRenderer returns a new TargetRenderer for the given target name or
 // alias. It returns an error when the target is unknown or its NewRenderer
-// factory is nil.
+// factory is nil. Returns ErrSunset for sunset providers.
 func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 	m, ok := ManifestFor(target)
 	if !ok {
 		return nil, fmt.Errorf("providers: unknown target %q", target)
+	}
+	if m.Status == "sunset" {
+		return nil, fmt.Errorf("providers: %q reached sunset on %s; migrate to %q", m.Name, m.SunsetDate, m.DeprecatedBy)
 	}
 	if m.NewRenderer == nil {
 		return nil, fmt.Errorf("providers: %q has no renderer factory", m.Name)

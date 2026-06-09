@@ -101,4 +101,16 @@ type ProviderManifest struct {
 	// home directory and merges them into the shared scan result. May be nil
 	// for providers with no global configuration.
 	GlobalScanner func(userHome string, r *registry.GlobalScanResult)
+
+	// Status is the lifecycle stage: "active" (default when empty),
+	// "deprecated", or "sunset". See ADR-0088.
+	Status string
+
+	// DeprecatedBy is the canonical name of the replacement provider.
+	// Set when Status is "deprecated" or "sunset".
+	DeprecatedBy string
+
+	// SunsetDate is an ISO 8601 date (YYYY-MM-DD) after which the provider
+	// refuses to compile. Empty means no fixed sunset date.
+	SunsetDate string
 }
