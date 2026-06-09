@@ -5,7 +5,7 @@ description: "How the AST enables the same configuration to compile to different
 
 # Multi-Target Rendering
 
-A single `.xcaf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
+A single `.xcaf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity and Antigravity 2, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
 
 This works because xcaffold treats configuration as data and delegates all format concerns to per-target renderers.
 
@@ -39,15 +39,16 @@ The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body
 
 The fidelity warnings are not errors. Compilation always succeeds; warnings inform you that a configuration concept present in the source had no representation in the target format and was silently dropped.
 
-## The Five-Target Architecture
+## The Multi-Target Architecture
 
-xcaffold ships five renderers, each targeting a distinct platform:
+xcaffold ships renderers for each supported platform:
 
 | Target | Output directory | Format |
 |---|---|---|
 | `claude` | `.claude/` | YAML-frontmatter Markdown agents, `settings.json`, `mcp.json` |
 | `cursor` | `.cursor/` | YAML-frontmatter Markdown agents, `.mdc` rules, `mcp.json` |
-| `antigravity` | `.agents/` | Plain Markdown workflow definitions, `mcp_config.json` |
+| `antigravity` (deprecated) | `.agents/` | Plain Markdown workflow definitions, `mcp_config.json` |
+| `antigravity2` | `.agents/` | Structured JSON agents, `mcp.json`, `settings.json` |
 | `copilot` | `.github/` | GitHub Copilot instructions and prompt files |
 | `gemini` | `.gemini/` | YAML-frontmatter Markdown agents, `rules/*.md`, `settings.json` |
 

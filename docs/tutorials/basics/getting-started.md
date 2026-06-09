@@ -41,7 +41,7 @@ xcaf-doc-test-getting-started  .  never applied
   Includes Xaff agent, xcaffold skill, and xcaf-conventions rule.
 ```
 
-xcaffold detects the first available agent runtime on your `$PATH` and uses it as the suggested default target. All five targets — `claude`, `cursor`, `antigravity`, `copilot`, and `gemini` — are fully supported and selected via `--target` on apply.
+xcaffold detects the first available agent runtime on your `$PATH` and uses it as the suggested default target. All targets — `antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, and `gemini` — are fully supported and selected via `--target` on apply.
 
 The `init` command generates a scalable multi-file directory layout for your project. This prevents configuration bloat as your agent ecosystem grows:
 
@@ -278,4 +278,4 @@ You initialized a project with `xcaffold init`, producing a multi-file `xcaf/` l
 - **Multi-agent workspaces** — define multiple agents, skills, and rules: [`multi-agent-workspace.md`](../advanced/multi-agent-workspace.md)
 - **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [Project Structure](../../best-practices/project-structure.md)
 - **Import existing config** — adopt xcaffold on an existing `.claude/` project: [import command reference](../../reference/commands/lifecycle/import.md)
-- **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity`) without changing `project.xcaf`.
+- **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity2`) without changing `project.xcaf`.
