@@ -1,5 +1,7 @@
 package cursor
 
+import "strings"
+
 // cursorModelResolver implements renderer.ModelResolver for Cursor.
 type cursorModelResolver struct{}
 
@@ -9,22 +11,25 @@ func NewModelResolver() *cursorModelResolver {
 }
 
 // ResolveAlias maps short aliases to full Cursor model IDs.
-// Cursor does not expose a model selection field for agents in its schema,
-// so only explicitly mapped versioned aliases are accepted.
-// Ground truth: models.json verified 2026-04-30.
+// Also passes through native model slugs from known prefix families.
+// Ground truth: models.json verified 2026-06-09.
 func (r *cursorModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Tier aliases that map to Cursor's typical default
 	aliasMap := map[string]string{
 		"balanced": "claude-sonnet-4-5",
-		"flagship": "claude-sonnet-4-5",
-		"fast":     "claude-sonnet-4-5",
+		"flagship": "gemini-2.5-pro",
+		"fast":     "cursor-fast",
 	}
 
 	if id, found := aliasMap[alias]; found {
 		return id, true
 	}
 
-	// Cursor does not accept bare aliases or literal model IDs.
-	// Only the mapped versioned aliases above are recognized.
+	lowered := strings.ToLower(alias)
+	for _, prefix := range []string{"claude-", "gpt-", "gemini-", "cursor-", "composer-", "o1-", "o3-"} {
+		if strings.HasPrefix(lowered, prefix) {
+			return lowered, true
+		}
+	}
+
 	return "", false
 }
