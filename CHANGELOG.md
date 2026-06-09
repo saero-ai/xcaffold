@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/saero-ai/xcaffold/compare/v0.9.4...v0.10.0) (2026-06-09)
+
+
+### Features
+
+* **cursor:** refresh tier mappings and add model docs ([db366aa](https://github.com/saero-ai/xcaffold/commit/db366aafd4cb74520a24d1b60733c28f2daa8ec6))
+* **cursor:** support native model slugs and tier mapping ([171217d](https://github.com/saero-ai/xcaffold/commit/171217d9a372beced8c7f3bd3ff8d33223b9f10f))
+* **cursor:** support native model slugs and tier mapping ([c277d33](https://github.com/saero-ai/xcaffold/commit/c277d33f210607433e9fa328772d8409583d369b)), closes [#98](https://github.com/saero-ai/xcaffold/issues/98)
+* **providers:** refresh model tier mappings across all providers ([27160c2](https://github.com/saero-ai/xcaffold/commit/27160c2cc8d6727c16fff4dc76a7ba648cc86c8a))
+
+
+### Bug Fixes
+
+* **cli:** include non-xcaf source files in status drift scan ([899928d](https://github.com/saero-ai/xcaffold/commit/899928da755d8d1e2a9c909ca142f551b3460f7c))
+* **cli:** include non-xcaf source files in status drift scan ([e4d5455](https://github.com/saero-ai/xcaffold/commit/e4d545508b958017681fa985e54325d8d9ff4f24)), closes [#99](https://github.com/saero-ai/xcaffold/issues/99)
+
 ## [0.9.4](https://github.com/saero-ai/xcaffold/compare/v0.9.3...v0.9.4) (2026-06-06)
 
 
