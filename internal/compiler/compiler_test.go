@@ -611,11 +611,11 @@ func TestCompile_OverrideMerge_AppliesForTarget(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
-	// The override model (flagship → claude-opus-4-7) must appear in the compiled output.
+	// The override model (flagship → opus bare alias) must appear in the compiled output.
 	agentContent, ok := out.Files["agents/developer.md"]
 	require.True(t, ok, "expected agents/developer.md to be compiled")
-	assert.Contains(t, agentContent, "claude-opus-4-7", "override model must appear in compiled agent")
-	assert.NotContains(t, agentContent, "claude-sonnet-4-5", "base model must be replaced by override")
+	assert.Contains(t, agentContent, "model: opus", "override model must appear in compiled agent")
+	assert.NotContains(t, agentContent, "model: sonnet", "base model must be replaced by override")
 
 	// No RESOURCE_TARGET_SKIPPED notes: the agent has no Targets restriction.
 	for _, n := range notes {
