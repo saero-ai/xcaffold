@@ -22,7 +22,7 @@ Claude Code uses bare aliases (`sonnet`, `opus`, `haiku`) that resolve at runtim
 Antigravity 2.0 uses its own short aliases (`flash`, `pro`, `pro-low`, `sonnet-thinking`, `opus-thinking`, `gpt-oss`) rather than the generic tiers — see [Antigravity 2.0 Models](#antigravity-20-models) below.
 
 > **Last verified:** 2026-06-09 against official provider documentation.
-> Tier mappings are defaults. Override them per-provider using `${var.model-default}` in `project.<provider>.vars` or `agent.<provider>.xcaf` overrides.
+> Tier mappings are defaults. Override them per-provider using `model-tier-<alias>` entries in `project.<provider>.vars`, or use `agent.<provider>.xcaf` overrides for individual agents.
 
 ## Literal Model IDs (Pass-Through)
 
@@ -91,6 +91,29 @@ model-deep = gpt-5.5
 # project.claude.vars
 model-deep = claude-opus-4-7
 ```
+
+## User-Configurable Tier Mapping
+
+To override what a tier alias resolves to for a specific provider, add `model-tier-<alias>` entries to the target's variable file:
+
+`xcaf/project.cursor.vars`:
+```ini
+model-tier-balanced = composer-2.5-custom
+model-tier-flagship = gpt-5.5
+model-tier-fast = composer-2.5-turbo
+```
+
+When present, these override the built-in alias map for the compilation target. Any agent using `model: balanced` compiles to `composer-2.5-custom` on Cursor instead of the default. When absent, the built-in defaults apply.
+
+This is useful when a team wants to standardize model selection across all agents without per-agent overrides or variable references.
+
+| Variable | Overrides Alias |
+|----------|----------------|
+| `model-tier-balanced` | `balanced` |
+| `model-tier-flagship` | `flagship` |
+| `model-tier-fast` | `fast` |
+
+Tier overrides apply only to the three canonical aliases. Literal model IDs and provider-native aliases are unaffected.
 
 ## Cursor Model Catalog
 
