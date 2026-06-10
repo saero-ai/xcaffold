@@ -8,7 +8,7 @@ description: "Reference context exercising every ContextConfig field."
 default: false
 
 # Group: Targeting — omit to compile for all providers
-targets: [claude, gemini, antigravity, cursor, copilot]
+targets: [claude, gemini, antigravity, antigravity2, cursor, copilot]
 ---
 # Golden Context
 

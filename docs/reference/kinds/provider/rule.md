@@ -5,7 +5,7 @@ description: "Defines a constraint. Source: xcaf/rules/<name>/rule.xcaf. Compile
 
 # `kind: rule`
 
-Defines a constraint the agent must follow at all times, or only when working within specific file paths. Compiled to provider-native rule files for all five targets.
+Defines a constraint the agent must follow at all times, or only when working within specific file paths. Compiled to provider-native rule files for all registered providers except Codex.
 
 > **Required:** `kind`, `version`, `name`
 
@@ -232,7 +232,9 @@ Never import from modules marked `server-only`…
 
 > Gemini scoping is implemented via a two-line entry in the root `GEMINI.md`: a plain-text path constraint on the first line, followed by the `@-import` directive on the second. The individual rule file contains only the rule body — no path comment or frontmatter. Nested per-directory `GEMINI.md` files are not used.
 
-### Antigravity
+### Antigravity (deprecated)
+
+> **Deprecated.** Antigravity (v1) is superseded by Antigravity 2. New projects should target `antigravity2`. The v1 target remains supported for backwards compatibility.
 
 **Always-apply** → `.agents/rules/react-conventions.md`
 
@@ -258,7 +260,7 @@ globs: src/components/**,src/hooks/**
 …
 ```
 
-Path-scoped rules emit `trigger: glob` and `globs: <comma-joined-patterns>` in the frontmatter. Always-apply rules emit no activation key.
+Path-scoped rules emit `trigger: glob` and `globs: <comma-joined-patterns>` in the frontmatter. Always-apply rules emit no activation key. Antigravity v1 supports three activation modes: `always`, `path-glob`, and `model-decided`. Manual-mention activation is not supported and produces a fidelity note.
 
 **Model-decided** → `.agents/rules/react-conventions.md`
 
@@ -272,10 +274,66 @@ trigger: model_decision
 …
 ```
 
-Antigravity is the only provider that natively supports `model-decided` activation. Rules compiled with this activation emit `trigger: model_decision` in the frontmatter.
-
 > [!NOTE]
-> **model-decided** and **explicit-invoke**: These activation modes are not natively supported by Claude Code, Cursor, Copilot, or Gemini. Rules compiled with these modes include a fidelity note explaining the limitation. Antigravity natively supports `model-decided`.
+> **model-decided** and **explicit-invoke**: These activation modes are not natively supported by Claude Code, Cursor, Copilot, or Gemini. Rules compiled with these modes include a fidelity note explaining the limitation. Both Antigravity v1 and Antigravity 2 natively support `model-decided`.
+
+### Antigravity 2
+
+Antigravity 2 supports four activation modes: `always`, `path-glob`, `model-decided`, and `manual-mention`. Rules are written to `.agents/rules/<name>.md` with YAML frontmatter encoding the activation mode.
+
+**Always-apply** → `.agents/rules/react-conventions.md`
+
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+---
+
+# React Conventions
+…
+```
+
+Always-apply rules emit only the `description` in the frontmatter. No activation key is emitted.
+
+**Path-scoped** → `.agents/rules/no-server-imports-in-ui.md`
+
+```markdown
+---
+description: "Prevents server-only modules from being imported inside client components."
+trigger: glob
+globs: src/components/**,src/hooks/**
+---
+
+# No Server Imports in UI
+…
+```
+
+**Model-decided** → `.agents/rules/react-conventions.md`
+
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+trigger: model_decision
+---
+
+# React Conventions
+…
+```
+
+Rules compiled with `activation: model-decided` emit `trigger: model_decision` in the frontmatter.
+
+**Manual-mention** → `.agents/rules/react-conventions.md`
+
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+trigger: manual_mention
+---
+
+# React Conventions
+…
+```
+
+Rules compiled with `activation: manual-mention` emit `trigger: manual_mention` in the frontmatter. This is supported natively by Antigravity 2 and not available in v1.
 
 ### Codex (Preview)
 

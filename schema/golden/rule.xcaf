@@ -21,6 +21,8 @@ targets:
       custom-key: "claude-rule-value"
   antigravity:
     suppress-fidelity-warnings: true
+  antigravity2:
+    suppress-fidelity-warnings: true
 ---
 # Golden Rule
 

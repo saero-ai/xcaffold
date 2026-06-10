@@ -41,7 +41,7 @@ xcaf-doc-test-getting-started  .  never applied
   Includes Xaff agent, xcaffold skill, and xcaf-conventions rule.
 ```
 
-xcaffold detects the first available agent runtime on your `$PATH` and uses it as the suggested default target. All five targets — `claude`, `cursor`, `antigravity`, `copilot`, and `gemini` — are fully supported and selected via `--target` on apply.
+xcaffold detects the first available agent runtime on your `$PATH` and uses it as the suggested default target. All targets — `antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, and `gemini` — are fully supported and selected via `--target` on apply.
 
 The `init` command generates a scalable multi-file directory layout for your project. This prevents configuration bloat as your agent ecosystem grows:
 
@@ -51,8 +51,8 @@ my-project/
   xcaf/
     agents/
       xaff/
-        agent.xcaf           # kind: agent (base)
-        agent.antigravity.xcaf  # provider override
+        agent.xcaf            # kind: agent (base)
+        agent.antigravity2.xcaf  # provider override (antigravity2 target)
     rules/
       xcaf-conventions/
         rule.xcaf            # kind: rule
@@ -170,7 +170,7 @@ Every line maps back to `xcaf/agents/xaff/agent.xcaf`:
 | `skills:` list | `skills:` array |
 | Body text | File body (below the `---` separator) |
 
-> **Note on fidelity:** Different targets support different fields. The `claude` target preserves all fields. Targets with a narrower feature set drop fields they have no equivalent for. The `agent.antigravity.xcaf` file in `xcaf/agents/xaff/` provides a provider-specific override that is merged in automatically when compiling for the `antigravity` target.
+> **Note on fidelity:** Different targets support different fields. The `claude` target preserves all fields. Targets with a narrower feature set drop fields they have no equivalent for. The `agent.antigravity2.xcaf` file in `xcaf/agents/xaff/` provides a provider-specific override that is merged in automatically when compiling for the `antigravity2` target. Antigravity v1 (`antigravity`) is deprecated; `antigravity2` is its successor.
 
 ---
 
@@ -190,7 +190,7 @@ xcaffold-version: 0.2.0-dev
 source-files:
     - path: project.xcaf
       hash: sha256:ac46b79d...
-    - path: xcaf/agents/xaff/agent.antigravity.xcaf
+    - path: xcaf/agents/xaff/agent.antigravity2.xcaf
       hash: sha256:b670e087...
     - path: xcaf/agents/xaff/agent.xcaf
       hash: sha256:cd12527d...
@@ -278,4 +278,4 @@ You initialized a project with `xcaffold init`, producing a multi-file `xcaf/` l
 - **Multi-agent workspaces** — define multiple agents, skills, and rules: [`multi-agent-workspace.md`](../advanced/multi-agent-workspace.md)
 - **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [Project Structure](../../best-practices/project-structure.md)
 - **Import existing config** — adopt xcaffold on an existing `.claude/` project: [import command reference](../../reference/commands/lifecycle/import.md)
-- **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity`) without changing `project.xcaf`.
+- **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity2`) without changing `project.xcaf`.

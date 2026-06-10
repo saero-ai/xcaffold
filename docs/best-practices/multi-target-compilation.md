@@ -5,7 +5,7 @@ description: "How to manage a single set of .xcaf manifests that compiles cleanl
 
 # Multi-Target Compilation
 
-xcaffold compiles one set of `.xcaf` manifests into provider-native output for every provider you list in your project configuration. A single `xcaffold apply` run produces output for Claude, Cursor, Gemini, Copilot, and Antigravity — or any subset you choose.
+xcaffold compiles one set of `.xcaf` manifests into provider-native output for every provider you list in your project configuration. A single `xcaffold apply` run produces output for Claude, Cursor, Gemini, Copilot, Antigravity 2 (and the deprecated Antigravity v1) — or any subset you choose.
 
 This guide covers how to structure and maintain a multi-target project: declaring targets, writing resources that work across all providers, scoping resources to specific providers when needed, customizing per-provider behavior through override files, and interpreting fidelity notes when a field or resource is not fully supported.
 
@@ -23,11 +23,11 @@ targets:
   - cursor
   - gemini
   - copilot
-  - antigravity
+  - antigravity2
   - codex
 ```
 
-`xcaffold apply` processes each target in sequence and writes provider-native output to the corresponding output directory (`.claude/`, `.cursor/`, `.gemini/`, `.github/`, `.agents/`). All targets must be listed here — there is no separate per-target project file.
+`xcaffold apply` processes each target in sequence and writes provider-native output to the corresponding output directory (`.claude/`, `.cursor/`, `.gemini/`, `.github/`, `.agents/`). Both `antigravity` and `antigravity2` share the `.agents/` output directory. All targets must be listed here — there is no separate per-target project file.
 
 To apply a single target without modifying your project declaration, use the `--target` flag:
 
@@ -62,7 +62,7 @@ allowed-tools: [Bash, Read, Write, Edit]
 Follow the Red-Green-Refactor cycle. Write a failing test before writing implementation code.
 ```
 
-These resources compile for all six providers without any additional configuration. Fields that a provider cannot represent are dropped; xcaffold tells you exactly which ones and why.
+These resources compile for all declared providers without any additional configuration. Fields that a provider cannot represent are dropped; xcaffold tells you exactly which ones and why.
 
 ### Fidelity Notes as Feedback
 
@@ -134,7 +134,7 @@ targets:
   cursor: {}
 ```
 
-This skill compiles only for Claude and Cursor. Gemini, Copilot, and Antigravity receive an info note and skip it.
+This skill compiles only for Claude and Cursor. Gemini, Copilot, Antigravity, and Antigravity 2 receive an info note and skip it.
 
 ## Provider-Specific Overrides
 
@@ -291,6 +291,7 @@ targets:
   gemini: {}
   copilot: {}
   antigravity: {}
+  antigravity2: {}
 ---
 Your project-level instructions here.
 ```
@@ -317,7 +318,7 @@ targets:
 Your project-level instructions here.
 ```
 
-**Shared `.agents/skills/` directory.** Codex and Antigravity both read skills from `.agents/skills/*/SKILL.md`. This is not a conflict — the output format is identical. A single compile pass that targets both providers writes skills once to `.agents/skills/` and both providers consume them. No additional configuration is needed.
+**Shared `.agents/skills/` directory.** Codex, Antigravity, and Antigravity 2 all read skills from `.agents/skills/*/SKILL.md`. This is not a conflict — the output format is identical. A single compile pass that targets multiple of these providers writes skills once to `.agents/skills/` and all consume them. No additional configuration is needed.
 
 **Rules gap.** Codex does not support rule compilation. xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note for each rule when Codex is a target. Rules defined in your `.xcaf` manifests are compiled for all other declared targets and skipped for Codex. If a rule is required behavior for your workflow, scope it explicitly to the providers that support it using `targets:` so the note is suppressed.
 

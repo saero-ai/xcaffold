@@ -363,6 +363,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Normalize --target flag to canonical name if set
+	if targetFlag != "" {
+		if canonical, ok := providers.CanonicalName(targetFlag); ok {
+			targetFlag = canonical
+		}
+	}
+
 	if applyBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
 	}

@@ -56,7 +56,7 @@ All top-level commands accept the following persistent flags:
 ### Provider Targets
 
 ```
-antigravity  claude  copilot  cursor  gemini
+antigravity (deprecated)  antigravity2  claude  copilot  cursor  gemini
 ```
 
 ### Exit Codes

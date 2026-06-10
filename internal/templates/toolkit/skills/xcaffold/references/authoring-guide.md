@@ -80,7 +80,7 @@ kind: agent
 version: \"1.0\"
 name: reviewer
 description: \"Short description (required).\"
-model: \"claude-sonnet-4-6\"     # claude, gemini, antigravity only
+model: \"claude-sonnet-4-6\"     # claude, gemini, antigravity, antigravity2 only
 effort: \"high\"                 # claude only
 tools: [Read, Write, Edit, Bash]
 skills: [tdd, reviewing]
@@ -174,18 +174,19 @@ permissions: {}
 
 ## Field support matrix (cross-provider)
 
-| Field | claude | cursor | gemini | copilot | antigravity |
-|---|---|---|---|---|---|
-| `description` | YES | YES | YES | YES | YES |
-| `instructions` | YES | YES | YES | YES | YES |
-| `allowed-tools` | YES | YES | YES | YES | YES |
-| `model` | YES | dropped | YES | dropped | YES |
-| `effort` | YES | dropped | dropped | dropped | dropped |
-| `permission-mode` | YES | dropped | dropped | dropped | dropped |
-| `hooks` | YES | dropped | dropped | dropped | dropped |
-| `memory` | YES | dropped | dropped | dropped | dropped |
+| Field | claude | cursor | gemini | copilot | antigravity | antigravity2 |
+|---|---|---|---|---|---|---|
+| `description` | YES | YES | YES | YES | YES | YES |
+| `instructions` | YES | YES | YES | YES | YES | YES |
+| `allowed-tools` | YES | YES | YES | YES | dropped | YES |
+| `model` | YES | dropped | YES | dropped | YES | YES |
+| `effort` | YES | dropped | dropped | dropped | dropped | dropped |
+| `permission-mode` | YES | dropped | dropped | dropped | dropped | dropped |
+| `hooks` | YES | dropped | dropped | dropped | dropped | dropped |
+| `memory` | YES | dropped | dropped | dropped | dropped | dropped |
 
 Fields marked 'dropped' remain in `xcaf/` source. xcaffold removes them at compile time.
+The v1 antigravity provider (deprecated) supports only `description`.
 
 ## Common validation errors
 

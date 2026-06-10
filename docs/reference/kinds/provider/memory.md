@@ -78,7 +78,8 @@ Memory content is synthesized based on the target provider's capabilities.
 | :--- | :--- | :--- |
 | **Claude Code** | `memory: user` scalar in agent frontmatter; content written to `agent-memory/<agentRef>/<name>.md`; entries indexed in `MEMORY.md` | Full support |
 | **Gemini CLI** | No output | Emits a fidelity note; memory compilation is not activated for Gemini (`capabilities.Memory = false`) |
-| **Antigravity** | No output | Emits a fidelity note; memory compilation is not activated for Antigravity (`capabilities.Memory = false`) |
+| **Antigravity (deprecated)** | No output | Emits a fidelity note; memory compilation is not activated for Antigravity v1 (`capabilities.Memory = false`) |
+| **Antigravity 2** | `knowledge/<name>.md` | Each memory entry is compiled to a Knowledge Item file with YAML frontmatter (`title`, `description`, `tags`) and the entry body. Files round-trip on `xcaffold import`. |
 | **Cursor** | No output | Emits a fidelity note; memory is not supported by the Cursor agent format |
 | **Copilot** | No output | Emits a fidelity note; memory is not supported by the Copilot agent format |
 | **Codex (Preview)** | No output | Emits a fidelity note; memory is API-managed in Codex and cannot be seeded via static files |
@@ -87,12 +88,12 @@ Memory is excluded from the override inheritance system. Memory files are not me
 
 ## Cross-Provider Memory Patterns
 
-For providers that do not compile `kind: memory` natively (Gemini, Cursor, Copilot, Antigravity), persistent agent context can be delivered through other xcaffold kinds:
+For providers that do not compile `kind: memory` natively (Gemini, Cursor, Copilot, Antigravity v1), persistent agent context can be delivered through other xcaffold kinds:
 
 | Pattern | Kind | How It Works |
 |---------|------|--------------|
 | Ambient instructions | [`context`](./context.md) | Body compiled into the root instruction file (GEMINI.md, `.cursor/rules/`, etc.). The agent or subagent reads it every session. |
 | Scoped rule | [`rule`](./rule.md) | Memory content authored as a rule body. Use `activation: always` for global access, or attach to a specific agent via its `rules:` reference list. |
-| Session bootstrap | [`hooks`](./hooks.md) | A `SessionStart` hook script that reads memory files from disk and injects content into the session. Not available for Antigravity (no hook support). |
+| Session bootstrap | [`hooks`](./hooks.md) | A `SessionStart` hook script that reads memory files from disk and injects content into the session. Not available for Antigravity v1 (no hook support). Antigravity 2 supports hooks but the runtime caveat in that provider's section applies. |
 
 > These patterns deliver the *content* of memory to the agent but do not provide the read/write persistence that Claude Code's native memory system offers. The agent receives the information but cannot update it across sessions.

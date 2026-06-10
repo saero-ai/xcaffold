@@ -64,6 +64,12 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 		return nil, nil, err
 	}
 
+	if warn, depErr := providers.CheckDeprecation(target); depErr != nil {
+		return nil, nil, depErr
+	} else if warn != "" {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
+	}
+
 	r, err := ResolveRenderer(target)
 	if err != nil {
 		return nil, nil, err

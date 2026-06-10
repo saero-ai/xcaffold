@@ -24,22 +24,22 @@ description: "..."          # Optional. What this rule enforces.
 #   manual-mention  — user must explicitly mention the rule
 #   explicit-invoke — programmatic invocation only
 #
-activation: always          # claude: YES, cursor: YES, gemini: YES, copilot: YES, antigravity: YES
+activation: always          # claude: YES, cursor: YES, gemini: YES, copilot: YES, antigravity (v1, deprecated): YES, antigravity2: YES
 
 # paths: required when activation is path-glob.
-# paths:                    # claude: YES, cursor: YES, gemini: dropped, copilot: YES, antigravity: YES
+# paths:                    # claude: YES, cursor: YES, gemini: dropped, copilot: YES, antigravity (deprecated): YES, antigravity2: YES
 #   - "src/**"
 #   - "lib/**"
 
 # always-apply: LEGACY — prefer activation: always for new manifests.
 # Pointer type: omitting differs from false.
-# always-apply: true        # claude: YES, cursor: YES, gemini: YES, copilot: YES, antigravity: YES
+# always-apply: true        # claude: YES, cursor: YES, gemini: YES, copilot: YES, antigravity (deprecated): YES, antigravity2: unsupported
 
 # ── Provider-Specific ────────────────────────────────────────
 # exclude-agents: Copilot only. List of agent types that should NOT receive this rule.
 # Silently ignored by all non-Copilot renderers.
 # enum: code-review | cloud-agent
-# exclude-agents:           # claude: dropped, cursor: dropped, gemini: dropped, copilot: YES, antigravity: dropped
+# exclude-agents:           # claude: dropped, cursor: dropped, gemini: dropped, copilot: YES, antigravity (deprecated): dropped, antigravity2: dropped
 #   - code-review
 
 # ── Multi-Target (per-provider overrides) ────────────────────
