@@ -77,9 +77,9 @@ The skill `Content` is the step's `Instructions` field, falling back to `Descrip
 
 This strategy emits a `renderer.FidelityNote` at `LevelWarning` with code `CodeWorkflowLoweredToRulePlusSkill`, informing the caller that the target has no native workflow primitive.
 
-### native workflow (Antigravity)
+### native workflow (Antigravity v1, deprecated; Antigravity 2)
 
-Antigravity always renders a native workflow primitive (`Kind: "workflow"`, `ID: "<name>"`). Unlike other providers, Antigravity does not go through the `rule-plus-skill` or basic lowering paths. The primitive's `Content` concatenates each step's instructions under a `## <step-name>` heading.
+Both Antigravity v1 (deprecated) and Antigravity 2 always render a native workflow primitive (`Kind: "workflow"`, `ID: "<name>"`). Unlike other providers, neither goes through the `rule-plus-skill` or basic lowering paths. The primitive's `Content` concatenates each step's instructions under a `## <step-name>` heading.
 
 This path emits a `renderer.FidelityNote` at `LevelInfo` with code `CodeWorkflowLoweredToNative`.
 

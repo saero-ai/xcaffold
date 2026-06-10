@@ -12,11 +12,12 @@ In xcaffold, workspace-level instructions — the root prompt read by all AI pro
 | Claude Code | `CLAUDE.md` | project root |
 | Cursor | `AGENTS.md` | project root |
 | Gemini CLI | `GEMINI.md` | project root |
-| Antigravity | `GEMINI.md` | project root |
+| Antigravity (deprecated) | `GEMINI.md` | project root |
+| Antigravity 2 | `GEMINI.md` | project root |
 | GitHub Copilot | `copilot-instructions.md` | `.github/` |
 
 > [!NOTE]
-> Antigravity reads `GEMINI.md` from the project root for project context — it does not have its own separate context file. Both `gemini` and `antigravity` targets write to the same `GEMINI.md`. If targeting both, be aware that the latter target compiled will overwrite the file.
+> Both Antigravity v1 and Antigravity 2 read `GEMINI.md` from the project root for project context — they do not have their own separate context files. The `gemini`, `antigravity`, and `antigravity2` targets all write to the same `GEMINI.md`. If targeting more than one of these, be aware that the latter target compiled will overwrite the file.
 
 Because these files are loaded on **every interaction** (check with the provider for any changes), their token cost is unconditional — paid regardless of which agent is active or what task is being performed. Keep them short and focused on absolute invariants.
 
@@ -33,7 +34,7 @@ targets:
   - claude
   - cursor
   - gemini
-  - antigravity
+  - antigravity2
   - copilot
 ---
 
@@ -154,7 +155,7 @@ version: "1.0"
 name: root-claude
 targets:
   - claude
-  - antigravity
+  - antigravity2
 ---
 
 ## Repository Invariants

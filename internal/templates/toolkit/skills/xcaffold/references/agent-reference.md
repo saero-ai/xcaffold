@@ -21,29 +21,29 @@ max-turns: 10                # Max agentic turns. Gemini default: 30.
 mode: ""                    # Execution mode (xcaffold-specific).
 
 # ── Tool Access ──────────────────────────────────────────────
-tools: [Read, Grep, Glob]   # Allowed tools. Omit to inherit all.
-disallowed-tools: []         # Denylist. Applied before tools allowlist (Claude).
-readonly: false             # Restrict to read-only tools (Cursor/Antigravity).
+tools: [Read, Grep, Glob]   # Allowed tools. Omit to inherit all. Supported: claude, cursor, gemini, copilot, antigravity2.
+disallowed-tools: []         # Denylist. Applied before tools allowlist (Claude). Supported: claude, cursor, gemini, copilot, antigravity2.
+readonly: false             # Restrict to read-only tools (Cursor/Antigravity2).
 
 # ── Permissions & Invocation Control ─────────────────────────
-permission-mode: default     # default | acceptEdits | auto | dontAsk | bypassPermissions | plan (Claude).
-disable-model-invocation: false  # Prevent automatic agent selection (Copilot/Cursor).
-user-invocable: true         # false = programmatic-only access (Copilot).
+permission-mode: default     # default | acceptEdits | auto | dontAsk | bypassPermissions | plan (Claude). Not supported by Antigravity2.
+disable-model-invocation: false  # Prevent automatic agent selection (Copilot/Cursor). Not supported by Antigravity2.
+user-invocable: true         # false = programmatic-only access (Copilot). Supported: claude, cursor, copilot, antigravity2.
 
 # ── Lifecycle ────────────────────────────────────────────────
-background: false           # Run as background task (Claude/Cursor/Antigravity).
-isolation: ""               # "worktree" for git worktree isolation (Claude).
+background: false           # Run as background task (Claude/Cursor). Not supported by Antigravity2.
+isolation: ""               # "worktree" for git worktree isolation (Claude). Not supported by Antigravity2.
 when: ""                    # Compile-time conditional (xcaffold-specific).
 
 # ── Memory & Context ─────────────────────────────────────────
-memory: ""                  # Claude memory scope: user | project | local.
-color: ""                   # Display color (Claude): red/blue/green/yellow/purple/orange/pink/cyan.
-initial-prompt: ""           # Auto-submitted first turn (Claude).
+memory: ""                  # Claude memory scope: user | project | local. Not supported by Antigravity2.
+color: ""                   # Display color (Claude): red/blue/green/yellow/purple/orange/pink/cyan. Not supported by Antigravity2.
+initial-prompt: ""           # Auto-submitted first turn. Supported: claude, cursor, gemini, antigravity2.
 
 # ── Composition (references) ─────────────────────────────────
-skills: []                  # Skills loaded into agent context.
-rules: []                   # Rules applied to this agent.
-mcp: []                     # MCP server references (by name).
+skills: []                  # Skills loaded into agent context. Supported: claude, cursor, gemini, copilot, antigravity2.
+rules: []                   # Rules applied to this agent. Supported: claude, cursor, gemini, copilot, antigravity2.
+mcp: []                     # MCP server references (by name). Not supported by Antigravity2.
 
 # ── Inline Composition ───────────────────────────────────────
 # mcp-servers:                 # Inline MCP server definitions.

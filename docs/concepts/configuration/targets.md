@@ -21,7 +21,7 @@ targets:
   - gemini
 ```
 
-Valid provider names are: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`.
+Valid provider names are: `antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`.
 
 ## Resource-Level Targets
 

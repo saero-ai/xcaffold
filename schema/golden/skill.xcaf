@@ -28,6 +28,8 @@ targets:
       custom-key: "claude-skill-value"
   antigravity:
     suppress-fidelity-warnings: true
+  antigravity2:
+    suppress-fidelity-warnings: true
 ---
 # Golden Skill
 

@@ -81,7 +81,8 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
 | `gemini` | `GEMINI.md` (project root) |
 | `cursor` | `AGENTS.md` (project root) |
 | `copilot` | `.github/copilot-instructions.md` |
-| `antigravity` | `GEMINI.md` (project root) |
+| `antigravity` (deprecated) | `GEMINI.md` (project root) |
+| `antigravity2` | `GEMINI.md` (project root) |
 | `codex` | `AGENTS.md` (project root) |
 
 ## Default Import Naming
@@ -95,6 +96,7 @@ When running `xcaffold import`, xcaffold creates context files using these defau
 | `AGENTS.md` (Codex) | `xcaf/context/codex/context.xcaf` | `name: codex` / `targets: [codex]` |
 | `GEMINI.md` (Gemini CLI) | `xcaf/context/gemini/context.xcaf` | `name: gemini` / `targets: [gemini]` |
 | `GEMINI.md` (Antigravity) | `xcaf/context/antigravity/context.xcaf` | `name: antigravity` / `targets: [antigravity]` |
+| `GEMINI.md` (Antigravity 2) | `xcaf/context/antigravity2/context.xcaf` | `name: antigravity2` / `targets: [antigravity2]` |
 | `.github/copilot-instructions.md` (Github Copilot) | `xcaf/context/copilot/context.xcaf` | `name: copilot` / `targets: [copilot]` |
 
 You can rename the file and change the `name:` field freely — the `name` is a human identifier only.

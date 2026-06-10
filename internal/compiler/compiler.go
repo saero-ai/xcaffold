@@ -59,9 +59,18 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 		return nil, nil, err
 	}
 
+	renderer.SetTierOverrides(extractTierOverrides(vars))
+	defer renderer.ClearTierOverrides()
+
 	config, err = applyBlueprintPhase(config, blueprintName)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if warn, depErr := providers.CheckDeprecation(target); depErr != nil {
+		return nil, nil, depErr
+	} else if warn != "" {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", warn)
 	}
 
 	r, err := ResolveRenderer(target)
@@ -93,6 +102,27 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*out
 		return nil, nil, err
 	}
 	return out, append(overrideNotes, fidelityNotes...), nil
+}
+
+const tierVarPrefix = "model-tier-"
+
+// extractTierOverrides scans the variable map for model-tier-* entries and
+// returns a map suitable for renderer.SetTierOverrides. For example,
+// "model-tier-balanced" = "composer-2.5-fast" yields {"balanced": "composer-2.5-fast"}.
+func extractTierOverrides(vars map[string]interface{}) map[string]string {
+	overrides := make(map[string]string)
+	for k, v := range vars {
+		if len(k) > len(tierVarPrefix) && k[:len(tierVarPrefix)] == tierVarPrefix {
+			alias := k[len(tierVarPrefix):]
+			if s, ok := v.(string); ok && s != "" {
+				overrides[alias] = s
+			}
+		}
+	}
+	if len(overrides) == 0 {
+		return nil
+	}
+	return overrides
 }
 
 // loadVarsAndEnvs loads the variable stack and environment variables for a

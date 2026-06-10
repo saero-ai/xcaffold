@@ -107,6 +107,7 @@ type globalDocument struct {
 	Kind      string                        `yaml:"kind"`
 	Version   string                        `yaml:"version"`
 	Extends   string                        `yaml:"extends,omitempty"`
+	Targets   []string                      `yaml:"targets,omitempty"`
 	Settings  ast.SettingsConfig            `yaml:"settings,omitempty"`
 	Agents    map[string]ast.AgentConfig    `yaml:"agents,omitempty"`
 	Skills    map[string]ast.SkillConfig    `yaml:"skills,omitempty"`

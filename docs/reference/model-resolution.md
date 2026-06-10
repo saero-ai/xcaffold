@@ -15,12 +15,14 @@ Tier aliases let you write provider-agnostic `.xcaf` files. Each provider maps t
 |-------|--------|-------------|--------|---------|------------|-------|
 | `balanced` | General-purpose default | `sonnet` | `claude-sonnet-4-6` | `claude-sonnet-4-6` | `gemini-3.5-flash` | `gpt-5.4` |
 | `flagship` | Most capable model | `opus` | `gpt-5.5` | `claude-opus-4-8` | `gemini-2.5-pro` | `gpt-5.5` |
-| `fast` | Fastest / cheapest | `haiku` | `composer-2.5` | `claude-haiku-4-5` | `gemini-2.5-flash` | `gpt-5.4-mini` |
+| `fast` | Fastest / cheapest | `haiku` | `composer-2.5` | `claude-haiku-4-5` | `gemini-3.5-flash` | `gpt-5.4-mini` |
 
 Claude Code uses bare aliases (`sonnet`, `opus`, `haiku`) that resolve at runtime to the latest version. This means the compiled output always targets the current model without needing resolver updates.
 
+Antigravity 2.0 uses its own short aliases (`flash`, `pro`, `pro-low`, `sonnet-thinking`, `opus-thinking`, `gpt-oss`) rather than the generic tiers — see [Antigravity 2.0 Models](#antigravity-20-models) below.
+
 > **Last verified:** 2026-06-09 against official provider documentation.
-> Tier mappings are defaults. Override them per-provider using `${var.model-default}` in `project.<provider>.vars` or `agent.<provider>.xcaf` overrides.
+> Tier mappings are defaults. Override them per-provider using `model-tier-<alias>` entries in `project.<provider>.vars`, or use `agent.<provider>.xcaf` overrides for individual agents.
 
 ## Literal Model IDs (Pass-Through)
 
@@ -33,11 +35,31 @@ When the `model` field contains a literal model ID instead of a tier alias, each
 | Copilot | `claude-`, `gpt-` |
 | Gemini CLI | `gemini-` |
 | Codex | `gpt-` |
-| Antigravity | *(no model support)* |
+| Antigravity 2.0 | Known model IDs and aliases only — see [Antigravity 2.0 Models](#antigravity-20-models) |
+| Antigravity (deprecated) | *(no model support)* |
 
 Pass-through is case-insensitive. `Claude-Sonnet-4-6` resolves to `claude-sonnet-4-6`.
 
 Unrecognized model IDs (no matching prefix) produce an `AGENT_MODEL_UNMAPPED` warning and are omitted from output.
+
+## Antigravity 2.0 Models
+
+> Antigravity 2.0 supports multi-vendor model selection — Gemini, Claude, and GPT-OSS models are all valid targets.
+
+| Alias | Resolves To | Vendor |
+|-------|------------|--------|
+| `flash` | `gemini-3.5-flash` | Gemini |
+| `pro` | `gemini-3.1-pro-high` | Gemini |
+| `pro-low` | `gemini-3.1-pro-low` | Gemini |
+| `sonnet-thinking` | `claude-sonnet-4-6-thinking` | Claude |
+| `opus-thinking` | `claude-opus-4-6-thinking` | Claude |
+| `gpt-oss` | `gpt-oss-120b` | GPT-OSS |
+
+Full model IDs accepted unchanged: `gemini-3.5-flash`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low`, `gemini-3-flash`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`, `nano-banana-2` (image generation, UI-only).
+
+Default model: `gemini-3.5-flash`.
+
+> **Deprecated:** the `antigravity` (v1) target does not compile the `model` field at all. New projects should target `antigravity2`. See [Supported Providers](supported-providers.md).
 
 ## Fidelity Notes
 
@@ -69,6 +91,29 @@ model-deep = gpt-5.5
 # project.claude.vars
 model-deep = claude-opus-4-7
 ```
+
+## User-Configurable Tier Mapping
+
+To override what a tier alias resolves to for a specific provider, add `model-tier-<alias>` entries to the target's variable file:
+
+`xcaf/project.cursor.vars`:
+```ini
+model-tier-balanced = composer-2.5-custom
+model-tier-flagship = gpt-5.5
+model-tier-fast = composer-2.5-turbo
+```
+
+When present, these override the built-in alias map for the compilation target. Any agent using `model: balanced` compiles to `composer-2.5-custom` on Cursor instead of the default. When absent, the built-in defaults apply.
+
+This is useful when a team wants to standardize model selection across all agents without per-agent overrides or variable references.
+
+| Variable | Overrides Alias |
+|----------|----------------|
+| `model-tier-balanced` | `balanced` |
+| `model-tier-flagship` | `flagship` |
+| `model-tier-fast` | `fast` |
+
+Tier overrides apply only to the three canonical aliases. Literal model IDs and provider-native aliases are unaffected.
 
 ## Cursor Model Catalog
 

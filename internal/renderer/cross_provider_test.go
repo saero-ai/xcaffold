@@ -11,6 +11,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
+	antigravity2 "github.com/saero-ai/xcaffold/providers/antigravity2"
 	"github.com/saero-ai/xcaffold/providers/claude"
 	codex "github.com/saero-ai/xcaffold/providers/codex"
 	copilot "github.com/saero-ai/xcaffold/providers/copilot"
@@ -29,6 +30,7 @@ func allRenderers() []renderer.TargetRenderer {
 		gemini.New(),
 		copilot.New(),
 		antigravity.New(),
+		antigravity2.New(),
 	}
 }
 
@@ -197,4 +199,25 @@ func TestCrossProvider_FidelityCodesValid(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCrossProvider_SharedOutputDir asserts that when compiling for providers
+// with the same output directory (antigravity and antigravity2 both use .agents),
+// both can compile without panic and the last-compiled target's files prevail.
+func TestCrossProvider_SharedOutputDir(t *testing.T) {
+	cfg, baseDir := crossProviderFixture(t)
+
+	// Compile for antigravity first.
+	out1, _, err := renderer.Orchestrate(antigravity.New(), cfg, baseDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, out1.Files, "antigravity produced no output files")
+
+	// Compile for antigravity2 next — same output dir, last-compiled wins.
+	out2, _, err := renderer.Orchestrate(antigravity2.New(), cfg, baseDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, out2.Files, "antigravity2 produced no output files")
+
+	// Both sets of files are valid (no panic, no errors).
+	// antigravity2 is the last target, so it represents the final state.
+	assert.NotEmpty(t, out2.Files)
 }

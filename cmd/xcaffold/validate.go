@@ -168,7 +168,7 @@ func validateBlueprintExtends(cfg *ast.XcaffoldConfig, hasErrors bool) error {
 
 // validateSyntax checks YAML syntax, schema, and cross-references.
 func validateSyntax(parseRoot, validatePath string) (*ast.XcaffoldConfig, []parser.CrossReferenceIssue, bool, error) {
-	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal(), parser.WithVarFile(validateVarFileFlag))
+	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal(), parser.WithVarFile(validateVarFileFlag), parser.WithTarget(targetFlag))
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
@@ -339,13 +339,16 @@ func validatePolicies(hasErrors bool, cfg *ast.XcaffoldConfig, parseRoot string)
 }
 
 // resolveValidateTargets returns the list of validation targets.
-// Priority: --target flag (if set) > project targets > nil.
+// Priority: --target flag (if set) > project/global targets > nil.
 func resolveValidateTargets(cfg *ast.XcaffoldConfig) []string {
 	if targetFlag != "" {
 		return []string{targetFlag}
 	}
 	if cfg.Project != nil && len(cfg.Project.Targets) > 0 {
 		return cfg.Project.Targets
+	}
+	if len(cfg.GlobalTargets) > 0 {
+		return cfg.GlobalTargets
 	}
 	return nil
 }

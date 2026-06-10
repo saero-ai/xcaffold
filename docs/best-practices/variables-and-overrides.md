@@ -57,6 +57,17 @@ When compiling for the Claude target, `model` resolves to `sonnet-4` (from the t
 
 Add `xcaf/project.vars.local` to your `.gitignore` to keep local overrides out of version control.
 
+## Tier Mapping Overrides
+
+Variable files can override xcaffold's built-in tier-to-model mapping using `model-tier-*` entries. This lets you change what `balanced`, `flagship`, or `fast` resolve to for a specific provider:
+
+`xcaf/project.cursor.vars`:
+```ini
+model-tier-balanced = composer-2.5-custom
+```
+
+Now any agent with `model: balanced` compiles to `composer-2.5-custom` on Cursor, without touching the agent's `.xcaf` file. See [Model Resolution](../reference/model-resolution.md) for the full tier mapping table.
+
 ## Variable Syntax and Types
 
 Each line in a variable file follows `key = value` format:

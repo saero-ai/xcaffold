@@ -100,13 +100,33 @@ func IsRegistered(name string) bool {
 	return ok
 }
 
+// CheckDeprecation returns a non-empty warning if the named provider is
+// deprecated, or an error if it has reached sunset. Active providers
+// return ("", nil).
+func CheckDeprecation(target string) (warning string, err error) {
+	m, ok := ManifestFor(target)
+	if !ok {
+		return "", nil
+	}
+	switch m.Status {
+	case "deprecated":
+		return fmt.Sprintf("Provider %q is deprecated; use %q instead.", m.Name, m.DeprecatedBy), nil
+	case "sunset":
+		return "", fmt.Errorf("Provider %q reached sunset on %s. Migrate to %q.", m.Name, m.SunsetDate, m.DeprecatedBy)
+	}
+	return "", nil
+}
+
 // ResolveRenderer returns a new TargetRenderer for the given target name or
 // alias. It returns an error when the target is unknown or its NewRenderer
-// factory is nil.
+// factory is nil. Returns ErrSunset for sunset providers.
 func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 	m, ok := ManifestFor(target)
 	if !ok {
 		return nil, fmt.Errorf("providers: unknown target %q", target)
+	}
+	if m.Status == "sunset" {
+		return nil, fmt.Errorf("providers: %q reached sunset on %s; migrate to %q", m.Name, m.SunsetDate, m.DeprecatedBy)
 	}
 	if m.NewRenderer == nil {
 		return nil, fmt.Errorf("providers: %q has no renderer factory", m.Name)
@@ -165,6 +185,38 @@ func RegisteredContextFiles() []string {
 		}
 	}
 	return files
+}
+
+// CanonicalName resolves any valid provider name or alias to the provider's
+// canonical Name. It returns the canonical name and true when found, or an
+// empty string and false when no registered provider matches.
+func CanonicalName(name string) (string, bool) {
+	m, ok := ManifestFor(name)
+	if !ok {
+		return "", false
+	}
+	return m.Name, true
+}
+
+// PreferActiveProviders returns a filtered slice that excludes providers whose
+// Status is "deprecated" or "sunset", but only when at least one non-deprecated
+// descriptor remains. If every descriptor in the input is deprecated or sunset,
+// the input is returned unchanged so behavior degrades gracefully. A nil or
+// empty input is returned as-is.
+func PreferActiveProviders(manifests []ProviderManifest) []ProviderManifest {
+	if len(manifests) == 0 {
+		return manifests
+	}
+	active := manifests[:0:0] // same backing array but zero len, avoids alloc on empty result
+	for _, m := range manifests {
+		if m.Status != "deprecated" && m.Status != "sunset" {
+			active = append(active, m)
+		}
+	}
+	if len(active) == 0 {
+		return manifests
+	}
+	return active
 }
 
 // SwapRegistryForTest atomically replaces the global registry with next and

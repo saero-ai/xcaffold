@@ -24,7 +24,7 @@ xcaffold import [flags]
 
 | Flag | Type | Default | Description |
 |---|---|---|---|
-| `--target` | string | (auto-detect) | Import from a specific provider: `claude`, `gemini`, `cursor`, `antigravity`, `copilot`. Without this flag, auto-detects all available providers. |
+| `--target` | string | (auto-detect) | Import from a specific provider: `antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`. Without this flag, auto-detects all available providers. |
 | `--agent` | string | (all) | Import agents. Optionally filter by name. |
 | `--skill` | string | (all) | Import skills. Optionally filter by name. |
 | `--rule` | string | (all) | Import rules. Optionally filter by name. |

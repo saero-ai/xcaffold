@@ -12,6 +12,7 @@ Information-oriented documentation that provides exhaustive, definitive facts ab
 - [Resource Kinds](kinds/index.md) — Comprehensive reference of all `.xcaf` YAML fields, valid types, and schemas organized by kind taxonomy.
 - [CLI Reference](commands/index.md) — Detailed breakdown of every `xcaffold` command, argument, and flag.
 - [Supported Providers](supported-providers.md) — Registered providers, compilation scopes, input/output directories, and kind support matrix.
+- [Model Resolution](model-resolution.md) — Per-provider model alias resolution: how xcaffold maps short model identifiers to canonical provider model IDs.
 
 
 ## Next Steps

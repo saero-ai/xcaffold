@@ -26,7 +26,7 @@ xcaffold apply [flags]
 | `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/xcaf/global.xcaf`). |
 | `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
-| `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
+| `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
 | `--output-dir <path>` | — | `string` | `""` | Redirect compiled output to a directory (relative to CWD or absolute). Provider files write to `<path>/.claude/`, root files to `<path>/CLAUDE.md`. State remains at project root. |
 | `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
@@ -139,6 +139,7 @@ xcaffold apply --backup
 ## Notes
 
 - `--global` compiles the user-wide global config at `~/.xcaffold/xcaf/global.xcaf`. State is stored at `~/.xcaffold/state/`.
+- When `targets:` is declared in `global.xcaf`, `--global` compiles all listed targets automatically. Pass `--target` to override.
 - `--blueprint` and `--global` cannot be combined. Blueprints are project-scoped.
 - The state file is written to `.xcaffold/project.xcaf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). When `--output-dir` is specified, the output directory is encoded in the state filename (e.g., `.xcaffold/project@custom-out.xcaf.state`), preventing state collisions between different output locations. See [State Files and Drift Detection](../../../concepts/execution/state-and-drift.md) for schema details.
 - Blueprint switching (cross-scope cleanup) only affects blueprints targeting the same output directory. Applying a different blueprint with a different `--output-dir` does not remove the previous blueprint's artifacts.
