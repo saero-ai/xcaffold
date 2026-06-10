@@ -187,6 +187,38 @@ func RegisteredContextFiles() []string {
 	return files
 }
 
+// CanonicalName resolves any valid provider name or alias to the provider's
+// canonical Name. It returns the canonical name and true when found, or an
+// empty string and false when no registered provider matches.
+func CanonicalName(name string) (string, bool) {
+	m, ok := ManifestFor(name)
+	if !ok {
+		return "", false
+	}
+	return m.Name, true
+}
+
+// PreferActiveProviders returns a filtered slice that excludes providers whose
+// Status is "deprecated" or "sunset", but only when at least one non-deprecated
+// descriptor remains. If every descriptor in the input is deprecated or sunset,
+// the input is returned unchanged so behavior degrades gracefully. A nil or
+// empty input is returned as-is.
+func PreferActiveProviders(manifests []ProviderManifest) []ProviderManifest {
+	if len(manifests) == 0 {
+		return manifests
+	}
+	active := manifests[:0:0] // same backing array but zero len, avoids alloc on empty result
+	for _, m := range manifests {
+		if m.Status != "deprecated" && m.Status != "sunset" {
+			active = append(active, m)
+		}
+	}
+	if len(active) == 0 {
+		return manifests
+	}
+	return active
+}
+
 // SwapRegistryForTest atomically replaces the global registry with next and
 // returns the previous contents. This is exported only for testing — call it
 // only inside test files via the _test package. Callers should defer the
