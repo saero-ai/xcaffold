@@ -620,7 +620,7 @@ func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
 
 // parseApplyConfig parses and validates the configuration for the apply scope.
 func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast.XcaffoldConfig, error) {
-	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag))
+	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag), parser.WithTarget(targetFlag))
 	if err != nil {
 		fmt.Println(formatHeader(headerInfo{
 			project:     projectName,

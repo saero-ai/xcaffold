@@ -71,6 +71,11 @@ func WithVarFile(path string) ParseDirOption {
 	return func(c *parseDirConfig) { c.VarFile = path }
 }
 
+// WithTarget sets the compilation target for target-specific variable loading.
+func WithTarget(target string) ParseDirOption {
+	return func(c *parseDirConfig) { c.Target = target }
+}
+
 func resolveParseDirOptions(opts []ParseDirOption) parseDirConfig {
 	var cfg parseDirConfig
 	for _, fn := range opts {

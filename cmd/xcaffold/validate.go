@@ -168,7 +168,7 @@ func validateBlueprintExtends(cfg *ast.XcaffoldConfig, hasErrors bool) error {
 
 // validateSyntax checks YAML syntax, schema, and cross-references.
 func validateSyntax(parseRoot, validatePath string) (*ast.XcaffoldConfig, []parser.CrossReferenceIssue, bool, error) {
-	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal(), parser.WithVarFile(validateVarFileFlag))
+	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal(), parser.WithVarFile(validateVarFileFlag), parser.WithTarget(targetFlag))
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
