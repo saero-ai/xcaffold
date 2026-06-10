@@ -5,7 +5,7 @@ description: "Defines a reusable procedure. Source: xcaf/skills/<name>/skill.xca
 
 # `kind: skill`
 
-Defines a reusable procedure that agents invoke on-demand. Compiled to `skills/<id>/SKILL.md` with YAML frontmatter for all five target providers.
+Defines a reusable procedure that agents invoke on-demand. Compiled to `skills/<id>/SKILL.md` with YAML frontmatter for all registered providers.
 
 > **Required:** `kind`, `version`, `name`
 
@@ -266,45 +266,55 @@ Emits `name`, `description`, and `license` in the frontmatter. Artifact subdirec
 
 Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Artifact subdirectories are seeded at `.gemini/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
-### Antigravity
+### Antigravity (deprecated)
+
+> **Deprecated.** Antigravity (v1) is superseded by Antigravity 2. New projects should target `antigravity2`. The v1 target remains supported for backwards compatibility.
 
 **Output path**: `.agents/skills/component-patterns/SKILL.md`
 
-Antigravity emits only `name` and `description` in the frontmatter. All other frontmatter fields (`when-to-use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are stripped. The markdown body is preserved.
+Antigravity v1 emits only `name` and `description` in the frontmatter. All other frontmatter fields (`when-to-use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are stripped. The markdown body is preserved.
+
+### Antigravity 2
+
+**Output path**: `.agents/skills/component-patterns/SKILL.md`
+
+Antigravity 2 emits `name`, `description`, `when-to-use`, `argument-hint`, and `allowed-tools` in the frontmatter. Provider-specific fields (`license`, `disable-model-invocation`, `user-invocable`) are stripped. The markdown body is preserved.
+
+When `artifacts` are declared, files discovered in each artifact subdirectory are placed alongside `SKILL.md` with the Antigravity 2 directory remapping applied (see the artifact path remapping table below).
 
 ### Codex (Preview)
 
 **Output path**: `.agents/skills/component-patterns/SKILL.md`
 
-Codex shares the Antigravity skill output path (`.agents/skills/`). Xcaffold emits `name` and `description` in the frontmatter; all other frontmatter fields are stripped. The markdown body is preserved. Artifact subdirectories are placed as-is alongside `SKILL.md`.
+Codex shares the `.agents/skills/` output path with the Antigravity family. Xcaffold emits `name` and `description` in the frontmatter; all other frontmatter fields are stripped. The markdown body is preserved. Artifact subdirectories are placed as-is alongside `SKILL.md`.
 
 ### Artifact path remapping
 
 Some providers remap artifact directory names during compilation:
 
-| Source directory | Claude | Cursor | Copilot | Gemini | Antigravity | Codex |
-|------------------|--------|--------|---------|--------|-------------|-------|
-| `references/` | `references/` | `references/` | `references/` | `references/` | `examples/` | `references/` |
-| `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` |
-| `assets/` | `assets/` | `assets/` | `assets/` | `assets/` | `resources/` | `assets/` |
-| `examples/` | `examples/` | `references/` | `examples/` | `references/` | `examples/` | `examples/` |
+| Source directory | Claude | Cursor | Copilot | Gemini | Antigravity (deprecated) | Antigravity 2 | Codex |
+|------------------|--------|--------|---------|--------|--------------------------|---------------|-------|
+| `references/` | `references/` | `references/` | `references/` | `references/` | `examples/` | `examples/` | `references/` |
+| `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | `assets/` | `resources/` | `resources/` | `assets/` |
+| `examples/` | `examples/` | `references/` | `examples/` | `references/` | `examples/` | `examples/` | `examples/` |
 
 ## Provider Fidelity
 
 Skill output is not uniform across providers. The table below summarises what each provider preserves.
 
-| Field | Claude | Cursor | Copilot | Gemini | Antigravity | Codex (Preview) |
-|-------|--------|--------|---------|--------|-------------|-----------------|
-| `name` | yes | yes | yes | yes | yes | yes |
-| `description` | yes | yes | yes | yes | yes | yes |
-| `when-to-use` | yes (`when_to_use`) | no | no | no | no | no |
-| `license` | yes | no | yes | no | no | no |
-| `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no | no |
-| `disable-model-invocation` | yes | no | no | no | no | no |
-| `user-invocable` | yes | no | no | no | no | no |
-| `argument-hint` | yes | no | no | no | no | no |
-| Markdown body | yes | yes | yes | yes | yes | yes |
-| `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` | yes |
-| `examples/` placement | skill root | `references/` | `examples/` | `references/` | `examples/` | `examples/` |
-| `scripts/` subdirectory | yes | yes | yes | yes | yes | yes |
-| `assets/` subdirectory | yes | yes | yes | yes | compiled to `resources/` | yes |
+| Field | Claude | Cursor | Copilot | Gemini | Antigravity (deprecated) | Antigravity 2 | Codex (Preview) |
+|-------|--------|--------|---------|--------|--------------------------|---------------|-----------------|
+| `name` | yes | yes | yes | yes | yes | yes | yes |
+| `description` | yes | yes | yes | yes | yes | yes | yes |
+| `when-to-use` | yes (`when_to_use`) | no | no | no | no | yes (`when-to-use`) | no |
+| `license` | yes | no | yes | no | no | no | no |
+| `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no | yes (bracket list) | no |
+| `argument-hint` | yes | no | no | no | no | yes | no |
+| `disable-model-invocation` | yes | no | no | no | no | no | no |
+| `user-invocable` | yes | no | no | no | no | no | no |
+| Markdown body | yes | yes | yes | yes | yes | yes | yes |
+| `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` | compiled to `examples/` | yes |
+| `examples/` placement | skill root | `references/` | `examples/` | `references/` | `examples/` | `examples/` | `examples/` |
+| `scripts/` subdirectory | yes | yes | yes | yes | yes | yes | yes |
+| `assets/` subdirectory | yes | yes | yes | yes | compiled to `resources/` | compiled to `resources/` | yes |
