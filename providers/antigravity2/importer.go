@@ -35,6 +35,7 @@ var antigravity2Mappings = []importer.KindMapping{
 	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/examples/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
+	{Pattern: "knowledge/*.md", Kind: importer.KindMemory, Layout: importer.FlatFile},
 	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
 	{Pattern: "mcp_config.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
@@ -68,6 +69,8 @@ func (a *Antigravity2Importer) Extract(rel string, data []byte, config *ast.Xcaf
 		return extractHooksJSON(rel, data, config)
 	case importer.KindRule:
 		return importer.DefaultExtractRule(rel, data, a.Provider(), config)
+	case importer.KindMemory:
+		return extractMemory2(rel, data, config)
 	case importer.KindMCP:
 		return extractMCPConfig(rel, data, config)
 	case importer.KindWorkflow:
@@ -228,6 +231,38 @@ func extractMCPConfig(_ string, data []byte, config *ast.XcaffoldConfig) error {
 			DisabledTools:  v.DisabledTools,
 			SourceProvider: "antigravity2",
 		}
+	}
+	return nil
+}
+
+// extractMemory2 parses a knowledge/<id>.md file into a MemoryConfig.
+// The file is expected to have YAML frontmatter with title and description fields,
+// followed by the memory content in the body.
+func extractMemory2(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var front struct {
+		Title       string   `yaml:"title"`
+		Description string   `yaml:"description"`
+		Tags        []string `yaml:"tags"`
+	}
+
+	body, err := importer.ParseFrontmatter(data, &front)
+	if err != nil {
+		return fmt.Errorf("antigravity2: memory %q: %w", rel, err)
+	}
+
+	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	name := front.Title
+	if name == "" {
+		name = id
+	}
+
+	if config.Memory == nil {
+		config.Memory = make(map[string]ast.MemoryConfig)
+	}
+	config.Memory[id] = ast.MemoryConfig{
+		Name:        name,
+		Description: front.Description,
+		Content:     body,
 	}
 	return nil
 }

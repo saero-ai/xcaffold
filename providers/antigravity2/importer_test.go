@@ -252,6 +252,38 @@ This is the workflow body with step definitions.
 	assert.Contains(t, workflow.Steps[0].Instructions, "This is the workflow body")
 }
 
+// TestImport_Antigravity2_Memory verifies that knowledge/*.md files with YAML
+// frontmatter (title, description, tags) are correctly imported as memory resources.
+func TestImport_Antigravity2_Memory(t *testing.T) {
+	tmpdir := t.TempDir()
+	knowledgeDir := filepath.Join(tmpdir, ".agents", "knowledge")
+	require.NoError(t, os.MkdirAll(knowledgeDir, 0755))
+
+	memoryData := `---
+title: test-memory
+description: A test memory entry
+tags:
+  - memory
+---
+
+This is the memory content with important context.
+It can span multiple lines.
+`
+	memoryPath := filepath.Join(knowledgeDir, "test-memory.md")
+	require.NoError(t, os.WriteFile(memoryPath, []byte(memoryData), 0644))
+
+	config := &ast.XcaffoldConfig{}
+	imp := NewImporter()
+	require.NoError(t, imp.Import(filepath.Join(tmpdir, ".agents"), config))
+
+	memory, ok := config.Memory["test-memory"]
+	require.True(t, ok, "memory 'test-memory' should be present")
+	assert.Equal(t, "test-memory", memory.Name)
+	assert.Equal(t, "A test memory entry", memory.Description)
+	assert.Contains(t, memory.Content, "This is the memory content")
+	assert.Contains(t, memory.Content, "It can span multiple lines")
+}
+
 // TestImport_Antigravity2_Classify verifies that the classifier correctly routes
 // paths to their respective kinds.
 func TestImport_Antigravity2_Classify(t *testing.T) {
@@ -269,6 +301,7 @@ func TestImport_Antigravity2_Classify(t *testing.T) {
 		{"hooks.json", importer.KindHook, "hooks configuration"},
 		{"mcp_config.json", importer.KindMCP, "MCP configuration"},
 		{"workflows/test-workflow.md", importer.KindWorkflow, "workflow markdown file"},
+		{"knowledge/test-memory.md", importer.KindMemory, "knowledge file"},
 		{"random.txt", importer.KindUnknown, "unmatched file"},
 	}
 
@@ -361,6 +394,33 @@ Test rule content
 	assert.Equal(t, "roundtrip-rule", importedRule.Name)
 	assert.Equal(t, "A round-trip test rule", importedRule.Description)
 	assert.Contains(t, importedRule.Body, "Test rule content")
+
+	// Create a memory file matching what the renderer produces
+	knowledgeDir := filepath.Join(tmpdir, ".agents", "knowledge")
+	require.NoError(t, os.MkdirAll(knowledgeDir, 0755))
+
+	memoryMD := `---
+title: roundtrip-memory
+description: A round-trip test memory
+tags:
+  - memory
+---
+
+Test memory content stored in knowledge base.
+`
+	memoryPath := filepath.Join(knowledgeDir, "roundtrip-memory.md")
+	require.NoError(t, os.WriteFile(memoryPath, []byte(memoryMD), 0644))
+
+	// Re-import to pick up the memory
+	importedConfig2 := &ast.XcaffoldConfig{}
+	require.NoError(t, importer.Import(filepath.Join(tmpdir, ".agents"), importedConfig2))
+
+	// Verify memory round-trip
+	importedMemory, ok := importedConfig2.Memory["roundtrip-memory"]
+	require.True(t, ok, "imported memory should exist")
+	assert.Equal(t, "roundtrip-memory", importedMemory.Name)
+	assert.Equal(t, "A round-trip test memory", importedMemory.Description)
+	assert.Contains(t, importedMemory.Content, "Test memory content")
 }
 
 // TestImporter_Provider verifies that the importer identifies itself correctly.
