@@ -51,6 +51,18 @@ version: "1.0"
 
 This is what `xcaffold init --global` creates. All projects on the machine inherit any resources placed under `~/.xcaffold/xcaf/` as separate files.
 
+### Global config with default targets
+
+```yaml
+kind: global
+version: "1.0"
+targets:
+  - claude
+  - cursor
+```
+
+When targets are declared, `xcaffold apply --global` compiles all listed targets. `--target` overrides when set.
+
 ### Global config with settings and hooks
 
 ```yaml
@@ -86,6 +98,7 @@ None beyond the envelope fields `kind` and `version`.
 | Field | Type | Description |
 |:------|:-----|:------------|
 | `extends` | `string` | Path to a parent config to inherit from. Used for explicit config chaining (separate from the implicit global inheritance). |
+| `targets` | `[]string` | Default compilation targets for global scope. When `--target` is not passed to `apply --global` or `validate --global`, these targets are used. |
 | `settings` | `SettingsConfig` | Settings block (model, permissions, shell, etc.). See [`kind: settings`](../provider/settings). |
 | `hooks` | `HookConfig` | Hook definitions keyed by event name (`PreToolUse`, `PostToolUse`, etc.). See [`kind: hooks`](../provider/hooks). |
 | `agents` | `map[string]AgentConfig` | Inline agent definitions. Keys are agent IDs. |
@@ -117,11 +130,13 @@ This happens without any `extends:` declaration in `project.xcaf`. The `extends:
 
 `xcaffold apply --global` compiles the global scope and writes output to user-wide provider directories. The output directory is derived from `~/.xcaffold/` — for example, global Claude output goes to `~/.claude/`. Global output is independent of any project's output.
 
+When `targets:` is declared in `global.xcaf`, `apply --global` compiles all listed targets without requiring `--target` on every run. Passing `--target` explicitly overrides the declared list and compiles only that single platform.
+
 If `--target` is specified with `--global`, the renderer must support global scope (`SupportsGlobalScope()`). Renderers that do not support global scope produce an error.
 
 ### Global Validate
 
-`xcaffold validate --global` validates the global config at `~/.xcaffold/xcaf/` independently. No project root is required — the parse root is set to `~/.xcaffold/xcaf/` directly.
+`xcaffold validate --global` validates the global config at `~/.xcaffold/xcaf/` independently. No project root is required — the parse root is set to `~/.xcaffold/xcaf/` directly. When `targets:` is declared in `global.xcaf`, `validate --global` uses those targets for field validation without requiring `--target`.
 
 ## Notes
 
