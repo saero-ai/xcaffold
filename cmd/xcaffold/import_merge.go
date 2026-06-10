@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	providerspkg "github.com/saero-ai/xcaffold/providers"
 )
 
 // mergeImportDirs consolidates multiple platform directories into a single project.xcaf.
@@ -119,15 +121,27 @@ func createMergeImportConfig(projectName string) *ast.XcaffoldConfig {
 	}
 }
 
-// detectAndSetTargets detects compilation targets and sets them on the config.
+// detectAndSetTargets detects compilation targets from providers and sets them on the config.
+// For multi-provider imports, collect the canonical provider names directly.
 func detectAndSetTargets(providers []importer.ProviderImporter, config *ast.XcaffoldConfig) {
-	var dirNames []string
+	if config.Project == nil {
+		return
+	}
+	targetMap := make(map[string]bool)
 	for _, imp := range providers {
-		dirNames = append(dirNames, imp.InputDir())
+		canonical, ok := providerspkg.CanonicalName(imp.Provider())
+		if ok {
+			targetMap[canonical] = true
+		} else {
+			targetMap[imp.Provider()] = true
+		}
 	}
-	if config.Project != nil {
-		config.Project.Targets = detectTargets(dirNames...)
+	targets := make([]string, 0, len(targetMap))
+	for t := range targetMap {
+		targets = append(targets, t)
 	}
+	sort.Strings(targets)
+	config.Project.Targets = targets
 }
 
 // printMergeImportPlan outputs the dry-run preview.
