@@ -385,20 +385,43 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalFlag {
-		// Enforce SupportsGlobalScope for explicit target flag
+		// Resolve global targets: --target flag > global.xcaf targets > error
+		var globalTargets []string
 		if targetFlag != "" {
-			r, err := compiler.ResolveRenderer(targetFlag)
+			globalTargets = []string{targetFlag}
+		} else {
+			// Parse global config to read targets
+			config, err := parser.ParseDirectory(globalXcafHome, parser.WithVarFile(varFileFlag))
 			if err != nil {
-				return fmt.Errorf("target %q: %w", targetFlag, err)
+				return fmt.Errorf("failed to parse global config: %w", err)
+			}
+			globalTargets = config.GlobalTargets
+		}
+		if len(globalTargets) == 0 {
+			return fmt.Errorf("no compilation targets configured; set targets in global.xcaf or pass --target")
+		}
+
+		// Validate all targets support global scope
+		for _, t := range globalTargets {
+			r, err := compiler.ResolveRenderer(t)
+			if err != nil {
+				return fmt.Errorf("target %q: %w", t, err)
 			}
 			if !r.SupportsGlobalScope() {
-				return fmt.Errorf("target %q does not support global (user-level) scope compilation", targetFlag)
+				return fmt.Errorf("target %q does not support global (user-level) scope compilation", t)
 			}
 		}
-		// globalXcafHome is ~/.xcaffold/ — the source directory.
-		// Global artifacts are written one level up (~/), into ~/.claude/ etc.
-		globalOutDir := filepath.Join(filepath.Dir(globalXcafHome), compiler.OutputDir(targetFlag))
-		return applyScope(globalXcafPath, globalOutDir, globalXcafHome, scopeGlobal)
+
+		// Compile each target
+		homeDir := filepath.Dir(globalXcafHome)
+		for _, t := range globalTargets {
+			targetFlag = t
+			globalOutDir := filepath.Join(homeDir, compiler.OutputDir(t))
+			if err := applyScope(globalXcafPath, globalOutDir, globalXcafHome, scopeGlobal); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	// projectRoot is the canonical CWD-level project directory, always set by

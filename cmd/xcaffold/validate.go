@@ -339,13 +339,16 @@ func validatePolicies(hasErrors bool, cfg *ast.XcaffoldConfig, parseRoot string)
 }
 
 // resolveValidateTargets returns the list of validation targets.
-// Priority: --target flag (if set) > project targets > nil.
+// Priority: --target flag (if set) > project/global targets > nil.
 func resolveValidateTargets(cfg *ast.XcaffoldConfig) []string {
 	if targetFlag != "" {
 		return []string{targetFlag}
 	}
 	if cfg.Project != nil && len(cfg.Project.Targets) > 0 {
 		return cfg.Project.Targets
+	}
+	if len(cfg.GlobalTargets) > 0 {
+		return cfg.GlobalTargets
 	}
 	return nil
 }

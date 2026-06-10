@@ -397,6 +397,10 @@ func mergeFileIntoAll(merged *ast.XcaffoldConfig, pf ParsedFile, origins *mergeO
 
 	mergeTestAndWarnings(merged, p)
 
+	if len(p.GlobalTargets) > 0 {
+		merged.GlobalTargets = p.GlobalTargets
+	}
+
 	// Track which file first contributed non-empty settings.
 	if origins.Settings == "" && len(p.Settings) > 0 {
 		origins.Settings = f
@@ -643,6 +647,13 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 
 	// Preserve parse warnings from the child (project-level); base (global) warnings are discarded.
 	merged.ParseWarnings = append(merged.ParseWarnings, child.ParseWarnings...)
+
+	// Preserve global targets from whichever side declared them (child wins).
+	if len(child.GlobalTargets) > 0 {
+		merged.GlobalTargets = child.GlobalTargets
+	} else if len(base.GlobalTargets) > 0 {
+		merged.GlobalTargets = base.GlobalTargets
+	}
 
 	return merged
 }
