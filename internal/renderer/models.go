@@ -10,6 +10,9 @@ import (
 var (
 	modelResolverMu sync.RWMutex
 	modelResolvers  = make(map[string]ModelResolver)
+
+	tierOverrideMu sync.RWMutex
+	tierOverrides  map[string]string
 )
 
 // RegisterModelResolver registers a ModelResolver for a provider.
@@ -28,20 +31,38 @@ func LookupModelResolver(providerName string) ModelResolver {
 	return modelResolvers[providerName]
 }
 
+// SetTierOverrides installs user-defined tier mappings for the current
+// compilation. The compiler calls this before rendering so that
+// project.<target>.vars entries like model-tier-balanced override
+// the built-in alias map. Pass nil to clear.
+func SetTierOverrides(overrides map[string]string) {
+	tierOverrideMu.Lock()
+	defer tierOverrideMu.Unlock()
+	tierOverrides = overrides
+}
+
+// ClearTierOverrides removes any active tier overrides.
+func ClearTierOverrides() { SetTierOverrides(nil) }
+
 // ResolveModel takes an alias from the Xcaffold configuration and a target name.
 // It returns the target-specific model string and a boolean indicating if the target expects one.
 // If the target doesn't support models or the alias cannot be resolved, it returns ("", false).
-// Delegates to the provider's ModelResolver for the actual translation.
+// User-defined tier overrides (via SetTierOverrides) take precedence over built-in mappings.
 func ResolveModel(alias, target string) (string, bool) {
+	tierOverrideMu.RLock()
+	if override, ok := tierOverrides[alias]; ok {
+		tierOverrideMu.RUnlock()
+		return override, true
+	}
+	tierOverrideMu.RUnlock()
+
 	resolver := LookupModelResolver(target)
 	if resolver == nil {
-		// Provider does not support model selection (e.g., antigravity)
 		return "", false
 	}
 
 	modelID, ok := resolver.ResolveAlias(alias)
 	if !ok {
-		// The alias could not be resolved by this provider's resolver
 		return "", false
 	}
 
@@ -58,9 +79,15 @@ func IsMappedModel(alias, target string) bool {
 		"fast":     true,
 	}
 
-	// Only the canonical xcaffold aliases are "mapped"
 	if !xcaffoldAliases[alias] {
 		return false
+	}
+
+	tierOverrideMu.RLock()
+	_, hasOverride := tierOverrides[alias]
+	tierOverrideMu.RUnlock()
+	if hasOverride {
+		return true
 	}
 
 	resolver := LookupModelResolver(target)
