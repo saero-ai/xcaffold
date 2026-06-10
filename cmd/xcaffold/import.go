@@ -259,13 +259,16 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return importScope(globalDetected[0].InputDir(), globalXcafPath, "global", globalDetected[0].Provider())
 	}
 
-	// Validate --target if set
+	// Validate and normalize --target if set
 	if importTargetFlag != "" {
 		if !providerspkg.IsRegistered(importTargetFlag) {
 			validTargets := providerspkg.RegisteredNames()
 			sort.Strings(validTargets)
 			return fmt.Errorf("unknown target %q; valid targets: %s", importTargetFlag, strings.Join(validTargets, ", "))
 		}
+		// Normalize alias to canonical name for consistent state tracking
+		canonical, _ := providerspkg.CanonicalName(importTargetFlag)
+		importTargetFlag = canonical
 	}
 
 	// project (default) — detect providers via ProviderImporter registry.
@@ -290,7 +293,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return importScope(imp.InputDir(), "project.xcaf", "project", imp.Provider())
 	}
 
-	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
+	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: %s", describeSupportedProviders())
 }
 
 // importScope scans a platform directory and writes a xcaf file to xcafDest.
@@ -298,6 +301,11 @@ func runImport(cmd *cobra.Command, args []string) error {
 // hooks, project-instruction files, and memory. The provider name must match
 // a registered provider (see providers.RegisteredNames()).
 func importScope(platformDir, xcafDest, scopeName, provider string) error {
+	// Check if the provider is deprecated and emit warning
+	if deprecationWarning, _ := providerspkg.CheckDeprecation(provider); deprecationWarning != "" {
+		fmt.Fprintf(os.Stderr, "\n%s %s\n", colorYellow("⚠"), deprecationWarning)
+	}
+
 	if shouldPromptForceDelete(xcafDest) {
 		fmt.Fprintf(os.Stderr, "\n  %s  --force will DELETE project.xcaf and xcaf/ directory.\n", colorYellow(glyphSrc()))
 		fmt.Fprintf(os.Stderr, "     All manual edits to xcaf files will be lost.\n\n")
@@ -339,7 +347,7 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 	}
 
 	if config.Project != nil {
-		config.Project.Targets = detectTargets(platformDir)
+		config.Project.Targets = detectTargets(platformDir, provider)
 	}
 
 	return finalizeImportScope(importScopeContext{xcafDest, scopeName, provider}, config, &warnings)
@@ -368,6 +376,25 @@ func deriveProjectDir(platformDir string) (string, error) {
 }
 
 // newImportConfig creates a new XcaffoldConfig for import.
+// describeSupportedProviders returns a human-readable list of supported providers
+// with display labels, appending "(deprecated)" for non-active providers.
+func describeSupportedProviders() string {
+	manifests := providerspkg.Manifests()
+	var descriptions []string
+	for _, m := range manifests {
+		label := m.DisplayLabel
+		if label == "" {
+			label = m.Name
+		}
+		if m.Status == "deprecated" || m.Status == "sunset" {
+			label += " (deprecated)"
+		}
+		descriptions = append(descriptions, label)
+	}
+	sort.Strings(descriptions)
+	return strings.Join(descriptions, ", ")
+}
+
 func newImportConfig() *ast.XcaffoldConfig {
 	return &ast.XcaffoldConfig{
 		Version: "1.0",
@@ -413,6 +440,12 @@ func importMCPServers(raw map[string]interface{}, config *ast.XcaffoldConfig, co
 			if !ok {
 				continue
 			}
+			// Skip if this MCP server was already extracted by the main importer.
+			// This guard prevents the post-import pass from overwriting a richer
+			// resource with a poorer one (e.g., one with serverUrl and disabledTools).
+			if _, exists := config.MCP[id]; exists {
+				continue
+			}
 			mc := ast.MCPConfig{}
 			if cmdStr, ok := serverMap["command"].(string); ok {
 				mc.Command = cmdStr
@@ -429,6 +462,16 @@ func importMCPServers(raw map[string]interface{}, config *ast.XcaffoldConfig, co
 				for k, v := range envRaw {
 					if vStr, ok := v.(string); ok {
 						mc.Env[k] = vStr
+					}
+				}
+			}
+			if urlStr, ok := serverMap["serverUrl"].(string); ok {
+				mc.URL = urlStr
+			}
+			if disabledToolsRaw, ok := serverMap["disabledTools"].([]interface{}); ok {
+				for _, t := range disabledToolsRaw {
+					if toolStr, ok := t.(string); ok {
+						mc.DisabledTools = append(mc.DisabledTools, toolStr)
 					}
 				}
 			}
@@ -479,21 +522,22 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 
 // detectTargets derives compilation target names from platform directory base names
 // by consulting the importer registry. It maps InputDir() names to Provider() names.
-// The result is sorted for deterministic output.
-func detectTargets(baseDirs ...string) []string {
-	targetMap := map[string]bool{}
-	importers := importer.DefaultImporters()
-
-	for _, dir := range baseDirs {
-		dirBase := filepath.Base(filepath.Clean(dir))
-		// Reverse-lookup: find which importer has InputDir() == dirBase.
-		for _, imp := range importers {
-			if filepath.Base(filepath.Clean(imp.InputDir())) == dirBase {
-				targetMap[imp.Provider()] = true
-				break
-			}
+// When an explicit provider is set (e.g., --target antigravity2), that provider is
+// returned after canonicalization. Otherwise, all matching providers are detected,
+// filtered to prefer active (non-deprecated/non-sunset) ones when multiple share
+// an input dir, and returned sorted.
+func detectTargets(platformDir, explicitProvider string) []string {
+	// If an explicit provider was passed (via --target), return only that (canonicalized)
+	if explicitProvider != "" {
+		if canonical, ok := providerspkg.CanonicalName(explicitProvider); ok {
+			return []string{canonical}
 		}
+		return []string{explicitProvider}
 	}
+
+	dirBase := filepath.Base(filepath.Clean(platformDir))
+	matchedImporters := findImportersForDir(dirBase)
+	targetMap := filterProvidersForDetection(matchedImporters)
 
 	targets := make([]string, 0, len(targetMap))
 	for t := range targetMap {
@@ -501,6 +545,52 @@ func detectTargets(baseDirs ...string) []string {
 	}
 	sort.Strings(targets)
 	return targets
+}
+
+// findImportersForDir returns all importers whose InputDir matches the base name.
+func findImportersForDir(dirBase string) []importer.ProviderImporter {
+	var matched []importer.ProviderImporter
+	for _, imp := range importer.DefaultImporters() {
+		if filepath.Base(filepath.Clean(imp.InputDir())) == dirBase {
+			matched = append(matched, imp)
+		}
+	}
+	return matched
+}
+
+// filterProvidersForDetection filters matched importers to a target map,
+// preferring active providers when multiple share the same input dir.
+func filterProvidersForDetection(matched []importer.ProviderImporter) map[string]bool {
+	targetMap := make(map[string]bool)
+
+	if len(matched) <= 1 {
+		for _, imp := range matched {
+			targetMap[imp.Provider()] = true
+		}
+		return targetMap
+	}
+
+	// Multiple importers matched — collect and filter to active providers
+	var manifests []providerspkg.ProviderManifest
+	for _, imp := range matched {
+		if m, ok := providerspkg.ManifestFor(imp.Provider()); ok {
+			manifests = append(manifests, m)
+		}
+	}
+
+	activeManifests := providerspkg.PreferActiveProviders(manifests)
+	if len(activeManifests) > 0 {
+		for _, m := range activeManifests {
+			targetMap[m.Name] = true
+		}
+		return targetMap
+	}
+
+	// Fall back to all matches if all were deprecated/sunset
+	for _, imp := range matched {
+		targetMap[imp.Provider()] = true
+	}
+	return targetMap
 }
 
 // finalizeImportScope handles memory file writing, resource tagging, filtering, and success messages.
