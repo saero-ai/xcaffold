@@ -15,15 +15,15 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 | Feature / Primitive | Claude Code <br>`(.claude/)` | Cursor <br>`(.cursor/)` | Gemini CLI <br>`(.gemini/)` | GitHub Copilot <br>`(.github/)` | Antigravity (deprecated) <br>`(.agents/)` | Antigravity 2 <br>`(.agents/)` | Codex (Preview) <br>`(.codex/)` |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Agents** | `agents/*.md` | `agents/*.md` | `agents/*.md` | `agents/*.md` or `agents/*.agent.md` | `agents/*.md` ⁴ | `agents/agent.json` ⁶ | `agents/*.toml` |
+| **Agents** | `agents/*.md` | `agents/*.md` | `agents/*.md` | `agents/*.md` or `agents/*.agent.md` | `agents/*.md` ⁴ | `agents/<name>/agent.json` ⁶ | `agents/*.toml` |
 | **Skills** | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `.agents/skills/*/SKILL.md` |
 | **Rules** | `rules/*.md` | `rules/*.md` or `rules/*.mdc` | `rules/*.md` | `instructions/*.instructions.md` | `rules/*.md` | `rules/*.md` | *Not supported* ⁵ |
-| **Workflows** | *via Rules & Skills* | *via Rules* | *via Rules & Skills* | *via Rules & Skills* | `workflows/*.md` | *via Rules & Skills* | *Not supported* |
-| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | `hooks/xcaffold-hooks.json` | *N/A* | *N/A* | `hooks.json` |
-| **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ | `.agents/mcp.json` ⁷ | `config.toml` |
-| **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | *N/A* | `settings.json` | *Not supported* |
+| **Workflows** | *via Rules & Skills* | *via Rules* | *via Rules & Skills* | *via Rules & Skills* | `workflows/*.md` | `workflows/*.md` | *Not supported* |
+| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | `hooks/xcaffold-hooks.json` | *N/A* | `hooks.json` ⁸ | `hooks.json` |
+| **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ | `.agents/mcp_config.json` ⁷ | `config.toml` |
+| **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | *N/A* | *N/A* | *Not supported* |
 | **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `GEMINI.md` | `.github/copilot-instructions.md` | `GEMINI.md` | `GEMINI.md` | `AGENTS.md` (nested) |
-| **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported | Not supported | *Not supported* |
+| **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported | `knowledge/*.md` | *Not supported* |
 
 ---
 
@@ -39,7 +39,7 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ⁵ **Codex rules** — Codex uses Starlark `.rules` files, a fundamentally different paradigm that cannot be compiled from `.xcaf` rule declarations. A `RENDERER_KIND_UNSUPPORTED` fidelity note is emitted.
 
-⁶ **Antigravity 2 agents** are compiled to `agents/agent.json` as structured JSON agent definitions. See [Antigravity 2.0 Runtime Behavior](#antigravity-20-runtime-behavior) for known discovery limitations.
+⁶ **Antigravity 2 agents** are compiled to `agents/<name>/agent.json` — one directory per agent. See [Antigravity 2.0 Runtime Behavior](#antigravity-20-runtime-behavior) for known discovery limitations.
 
 ⁷ **Antigravity 2 MCP** — Unlike v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration at `.agents/mcp_config.json`.
 
@@ -56,12 +56,14 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 | Kind | Claude | Cursor | Gemini | Copilot | Antigravity (deprecated) | Antigravity 2 | Codex (Preview) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | `.agents/prompts/*.md` | `.agents/agents/agent.json` | `.codex/agents/*.toml` |
+| **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | `.agents/prompts/*.md` | `.agents/agents/*/agent.json` | `.codex/agents/*.toml` |
 | **skill** | `.claude/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.gemini/skills/*/SKILL.md` | `.github/skills/*.md` | `.agents/skills/*/SKILL.md` | `.agents/skills/*/SKILL.md` | — (imported from `.agents/skills/`) |
 | **rule** | `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `.gemini/rules/*.md` | `.github/instructions/*.instructions.md` | `.agents/rules/*.md` | `.agents/rules/*.md` | — (Starlark, not supported) |
-| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | — | — | — | `.codex/hooks.json` |
-| **mcp** | `.claude/mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | `.github/copilot/mcp-config.json` | `.agents/mcp_config.json` | `.agents/mcp.json` | — (config.toml not yet supported for import) |
-| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | — | `.agents/settings.json` | — |
+| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | — | — | `.agents/hooks.json` | `.codex/hooks.json` |
+| **mcp** | `.claude/mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | `.github/copilot/mcp-config.json` | `.agents/mcp_config.json` | `.agents/mcp_config.json` | — (config.toml not yet supported for import) |
+| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | — | — | — |
+| **memory** | `.claude/agent-memory/**` | — | — | — | — | `.agents/knowledge/*.md` | — |
+| **workflow** | `.claude/workflows/*.md` | — | — | `.github/workflows/copilot-setup-steps.yml` | `.agents/workflows/*.md` | `.agents/workflows/*.md` | — |
 | **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files | unrecognised `.agents/` files | unrecognised `.codex/` files |
 
 `SourceProvider` is recorded on every imported resource so `xcaffold apply` can emit targeted fidelity notes when a resource cannot be faithfully translated to a different provider.
@@ -74,9 +76,9 @@ Skills may declare `references/`, `scripts/`, `assets/`, and `examples/` subdire
 
 | Subdirectory | Claude Code | Cursor | Gemini CLI | GitHub Copilot | Antigravity (deprecated) | Antigravity 2 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `references/` | `references/` | `references/` | `references/` | `references/` | &rarr; `examples/` | `references/` |
+| `references/` | `references/` | `references/` | `references/` | `references/` | &rarr; `examples/` | &rarr; `examples/` |
 | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` |
-| `assets/` | `assets/` | `assets/` | `assets/` | `assets/` | &rarr; `resources/` | `assets/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | `assets/` | &rarr; `resources/` | &rarr; `resources/` |
 | `examples/` | flat | &rarr; `references/` | &rarr; `references/` | `examples/` | `examples/` | `examples/` |
 
 - **&rarr;** — Directory name is translated to the provider-native equivalent.
@@ -104,7 +106,7 @@ xcaffold compiles structurally correct output for Antigravity 2.0 across all sup
 
 ### ⁸ Hooks Runtime Path
 
-The Antigravity 2.0 documentation describes `.agents/hooks.json` as the workspace-level hooks configuration. In practice (agy v1.0.6), the runtime loads hooks from the Gemini-format settings config rather than the standalone hooks.json file. xcaffold compiles hooks.json with the correct schema (PreToolUse, PostToolUse, etc.), and the file will be consumed if/when the runtime adds direct hooks.json loading. Until then, hooks should also be configured via the antigravity2 settings path.
+The Antigravity 2.0 documentation describes `.agents/hooks.json` as the workspace-level hooks configuration. In practice (agy v1.0.6), the runtime loads hooks from the Gemini-format settings config rather than the standalone hooks.json file. xcaffold compiles hooks.json with the correct schema (PreToolUse, PostToolUse, etc.), and the file will be consumed if/when the runtime adds direct hooks.json loading. Until then, hooks must be configured in the runtime's own Gemini-format settings, which the user manages directly; xcaffold emits no settings file for this provider.
 
 ### ⁹ Agent Auto-Discovery
 

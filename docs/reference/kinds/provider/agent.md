@@ -7,7 +7,7 @@ description: "Defines a named subagent/specialist delegated to by the main AI se
 
 Defines a named subagent that the main AI session delegates to. Each agent carries its own system prompt, tool access, and optional skill, rule, and MCP bindings. xcaffold compiles it to `agents/<id>.md` with YAML frontmatter for each supported target provider.
 
-In every provider, the compiled output lands in that provider's agents directory — `.claude/agents/`, `.cursor/agents/`, `.github/agents/`, `.gemini/agents/`, `.codex/agents/` — where the main session picks it up and dispatches to it by name.
+In every provider, the compiled output lands in that provider's agents directory — `.claude/agents/`, `.cursor/agents/`, `.github/agents/`, `.gemini/agents/`, `.agents/agents/`, `.codex/agents/` — where the main session picks it up and dispatches to it by name.
 
 > **Required:** `kind`, `version`, `name`
 
@@ -165,21 +165,22 @@ Not all fields survive compilation to every provider. The table below shows whic
 | `description` | yes | yes | yes | yes | body only | yes | yes |
 | `model` | yes (resolved) | mapped only ¹ | yes (resolved) | yes (resolved) | body only | yes (resolved) | yes (resolved) |
 | `effort` | yes | — | — | — | — | — | — |
-| `max-turns` | yes | — | — | `max_turns` ² | — | — | — |
+| `max-turns` | yes | — | — | `max_turns` ² | — | yes (`maxTurns`) | — |
 | `tools` | yes (inline) | — | yes (YAML list) | yes (YAML list) | — | yes (JSON array) | yes (TOML array) |
-| `disallowed-tools` | yes | — | — | — | — | — | — |
-| `readonly` | transforms ³ | yes | — | — | — | — | — |
+| `disallowed-tools` | yes | — | — | — | — | yes (`disabledTools`) | — |
+| `readonly` | transforms ³ | yes | — | — | — | yes | — |
 | `permission-mode` | yes | — | — | — | — | — | — |
 | `disable-model-invocation` | — | — | yes | — | — | — | — |
-| `user-invocable` | — | — | yes | — | — | — | — |
+| `user-invocable` | — | — | yes | — | — | yes (`userInvocable`) | — |
 | `background` | yes | `is_background` ² | — | — | — | — | — |
 | `isolation` | yes | — | — | — | — | — | — |
 | `memory` | yes | — | — | — | — | — | — |
 | `color` | yes | — | — | — | — | — | — |
 | `initial-prompt` | yes | — | — | — | — | yes | yes (`system_prompt`) |
-| `skills` | yes (inline) | — | — | — | — | — | — |
+| `skills` | yes (inline) | — | — | — | — | yes | — |
+| `rules` | — | — | — | — | — | yes | — |
 | `hooks` | yes (YAML) | — | — | — | — | — | — |
-| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | — | yes (JSON) | — |
+| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | — | — | — |
 
 **Footnotes**
 
@@ -320,9 +321,9 @@ Agent compiled as a specialist note (persona profile). Fidelity note `RENDERER_K
 
 ### Antigravity 2
 
-**Output path**: `.agents/agents/agent.json`
+**Output path**: `.agents/agents/<name>/agent.json`
 
-Antigravity 2.0 compiles agents to a structured JSON format (`agent.json`). `name`, `description`, `model` (resolved), `tools` (JSON array), `initial-prompt`, and `mcp-servers` (JSON) are emitted. Fields without an Antigravity 2 equivalent — `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `readonly`, `background`, `isolation`, `color`, `hooks` — are dropped.
+Antigravity 2.0 compiles agents to a structured JSON format (`agent.json`). `name`, `description`, `model` (resolved), `tools` (JSON array), `disallowed-tools` (as `disabledTools`), `max-turns` (as `maxTurns`), `readonly`, `user-invocable` (as `userInvocable`), `initial-prompt`, `skills`, and `rules` are emitted. Fields without an Antigravity 2 equivalent — `memory`, `mcp-servers`, `mcp`, `effort`, `permission-mode`, `background`, `isolation`, `color`, `hooks` — are dropped.
 
 ### Codex (Preview)
 

@@ -161,9 +161,9 @@ No project-local file is written. MCP servers must be configured globally at `~/
 
 ### Antigravity 2
 
-**Output path**: `.agents/mcp.json`
+**Output path**: `.agents/mcp_config.json`
 
-Unlike Antigravity v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration. MCP server declarations are compiled to `.agents/mcp.json` with the same `mcpServers` structure as Gemini CLI. Multiple MCP declarations are merged into a single file.
+Unlike Antigravity v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration. MCP server declarations are compiled to `.agents/mcp_config.json` with the same `mcpServers` structure as Gemini CLI. Multiple MCP declarations are merged into a single file.
 
 ```json
 {
@@ -191,6 +191,6 @@ args = ["@agentdeskai/browser-tools-mcp@latest"]
 Import of existing `.codex/config.toml` MCP sections is not yet supported. Existing Codex MCP configuration must be migrated manually to `kind: mcp` declarations.
 
 > [!WARNING]
-> **Antigravity (v1)** does not support project-local MCP configuration. MCP servers must be registered globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time; no project file is written. **Antigravity 2** supports workspace-local MCP at `.agents/mcp.json` — new projects should use `antigravity2`.
+> **Antigravity (v1)** does not support project-local MCP configuration. MCP servers must be registered globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time; no project file is written. **Antigravity 2** supports workspace-local MCP at `.agents/mcp_config.json` — new projects should use `antigravity2`.
 >
 > **Settings merge**: If your `kind: settings` block also declares `mcp-servers`, those are merged with `kind: mcp` declarations at compile time. The `kind: settings` values win on conflict.
