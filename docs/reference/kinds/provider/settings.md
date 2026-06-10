@@ -219,21 +219,15 @@ Each provider serializes the merged result into its native format:
 }
 ```
 
-### Antigravity
+### Antigravity (deprecated)
 
-```json
-{
-  "model": "claude-sonnet-4-5-20250514",
-  "effortLevel": "medium",
-  "autoMemoryEnabled": true,
-  "mcpServers": {
-    "linear": {
-      "command": "node",
-      "args": ["..."]
-    }
-  }
-}
-```
+> **Deprecated.** The `antigravity` target is deprecated in favor of `antigravity2` (Antigravity 2.0). Existing configurations continue to work but new projects should use `antigravity2`. See [Supported Providers](../../supported-providers.md).
+
+Antigravity v1 does not support `kind: settings`. No settings file is produced. `permissions` and `sandbox` declarations each emit a `SETTINGS_FIELD_UNSUPPORTED` fidelity note; all other settings fields are silently dropped.
+
+### Antigravity 2
+
+Antigravity 2.0 does not support `kind: settings`. No settings file is produced. `CompileSettings` returns fidelity notes for any `permissions` or `sandbox` declarations, indicating those fields are dropped. All other settings fields are silently ignored for this target.
 
 ### Codex (Preview)
 

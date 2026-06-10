@@ -187,11 +187,28 @@ func initProject(cmd *cobra.Command) error {
 
 // copyToolkitFiles copies files from the embedded toolkit FS to disk.
 // paths maps embed paths (under "toolkit/") to disk paths (relative to baseDir).
+// When a provider variant is missing, falls back to the base file (without provider suffix).
 func copyToolkitFiles(baseDir string, paths map[string]string) error {
 	for embedPath, diskRel := range paths {
 		data, err := templates.ToolkitFS.ReadFile(embedPath)
 		if err != nil {
-			return fmt.Errorf("reading embedded %s: %w", embedPath, err)
+			// If this is a provider-specific variant (ends with .{provider}.xcaf),
+			// fall back to the base file (agent.xcaf, skill.xcaf, etc.)
+			if strings.Contains(embedPath, ".") && strings.HasSuffix(embedPath, ".xcaf") {
+				parts := strings.Split(embedPath, ".")
+				if len(parts) >= 3 {
+					// Reconstruct path without provider: "agent.claude.xcaf" -> "agent.xcaf"
+					baseEmbedPath := parts[0] + ".xcaf"
+					baseData, baseErr := templates.ToolkitFS.ReadFile(baseEmbedPath)
+					if baseErr == nil {
+						data = baseData
+						err = nil
+					}
+				}
+			}
+			if err != nil {
+				return fmt.Errorf("reading embedded %s: %w", embedPath, err)
+			}
 		}
 		outPath := filepath.Join(baseDir, diskRel)
 		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
@@ -317,16 +334,30 @@ type wizardAnswers struct {
 	targets []string
 }
 
-// detectDefaultTarget returns the target for the first CLI binary found on PATH.
-// Returns an empty string if no CLI is found.
+// detectDefaultTarget returns the target for the first active (non-deprecated)
+// CLI binary found on PATH. Returns an empty string if no CLI is found.
 func detectDefaultTarget() string {
+	// Collect all manifests with CLIs found on PATH
+	var matches []providers.ProviderManifest
 	for _, m := range providers.Manifests() {
 		if m.CLIBinary != "" {
 			if _, err := exec.LookPath(m.CLIBinary); err == nil {
-				return m.Name
+				matches = append(matches, m)
 			}
 		}
 	}
+
+	// Filter to prefer active providers, excluding deprecated/sunset
+	active := providers.PreferActiveProviders(matches)
+	if len(active) > 0 {
+		return active[0].Name
+	}
+
+	// Fallback: if all matches are deprecated, use the first match
+	if len(matches) > 0 {
+		return matches[0].Name
+	}
+
 	return ""
 }
 
@@ -696,6 +727,15 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 			err = fmt.Errorf("--target is required with --yes when no CLI is detected on PATH")
 			return
 		}
+		// Check deprecation for --yes mode targets
+		if !jsonManifestFlag {
+			for _, target := range ans.targets {
+				warning, _ := providers.CheckDeprecation(target)
+				if warning != "" {
+					fmt.Printf("\n  %s %s\n", colorYellow(glyphSrc()), warning)
+				}
+			}
+		}
 		return
 	}
 
@@ -711,6 +751,10 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 			label := m.DisplayLabel
 			if label == "" {
 				label = m.Name
+			}
+			// Add (deprecated) suffix to deprecated providers
+			if m.Status == "deprecated" || m.Status == "sunset" {
+				label = label + " (deprecated)"
 			}
 			options = append(options, prompt.SelectOption{
 				Label:    label,
@@ -729,6 +773,15 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 		}
 		if len(selected) > 0 {
 			ans.targets = selected
+			// Print deprecation warnings for selected targets
+			if !jsonManifestFlag {
+				for _, target := range ans.targets {
+					warning, _ := providers.CheckDeprecation(target)
+					if warning != "" {
+						fmt.Printf("\n  %s %s\n", colorYellow(glyphSrc()), warning)
+					}
+				}
+			}
 		} else {
 			err = fmt.Errorf("no target platforms selected — at least one is required")
 			return

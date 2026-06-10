@@ -15,11 +15,12 @@
 `xcaffold` gives you `.xcaf` manifests as your single source of truth — compiling deterministically into native configuration for every provider your team uses.
 
 ```
-project.xcaf  ──►  xcaffold apply  ──►  claude       ──►  .claude/
-                                   ──►  cursor       ──►  .cursor/
-                                   ──►  gemini       ──►  .gemini/
-                                   ──►  copilot      ──►  .github/
-                                   ──►  antigravity  ──►  .agents/
+project.xcaf  ──►  xcaffold apply  ──►  claude        ──►  .claude/
+                                   ──►  cursor        ──►  .cursor/
+                                   ──►  gemini        ──►  .gemini/
+                                   ──►  copilot       ──►  .github/
+                                   ──►  antigravity2  ──►  .agents/
+                                   ──►  codex         ──►  .codex/
 ```
 
 This is **Harness-as-Code**: the complete agent harness — system prompts, tools, rules, memory, hooks, MCP servers, and policies — declared once in version-controlled `.xcaf` manifests, compiled deterministically, with drift detection and compile-time policy enforcement.
@@ -218,19 +219,21 @@ xcaffold apply                       # recompile from the updated manifests
 
 ## Provider Support
 
-| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity | Codex (Preview) |
-|----------|:-----------:|:------:|:--------------:|:----------:|:-----------:|:---------------:|
-| Agents | ✓ | ✓ | ✓ | ✓ | — | ✓ |
-| Skills | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Rules | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ | — |
-| Hooks | ✓ | ✓ | ✓ | ✓ | — | ✓ |
-| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Memory | ✓ | —** | —** | —** | —** | — |
-| Settings | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity (deprecated) | Antigravity 2 (Preview) | Codex (Preview) |
+|----------|:-----------:|:------:|:--------------:|:----------:|:------------------------:|:-----------------------:|:---------------:|
+| Agents | ✓ | ✓ | ✓ | ✓ | —† | ✓ | ✓ |
+| Skills | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Rules | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ | ✓ | — |
+| Hooks | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ |
+| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓‡ | ✓ | ✓ |
+| Memory | ✓ | —** | —** | —** | — | ✓ | — |
+| Settings | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 
 *Compiled as rules + skills for providers without a native workflow format.
 **Persistent context can be delivered through `context`, `rule`, or `hooks` kinds. See [memory reference](docs/reference/kinds/provider/memory.md#cross-provider-memory-patterns).
+†Antigravity v1 agents are compiled as downgraded specialist profiles (Markdown notes), not native agent definitions.
+‡Antigravity v1 reads MCP configuration from the global file only (`~/.gemini/antigravity/mcp_config.json`); no project-local file is written.
 
 When a feature cannot be expressed in a target's native format, xcaffold emits a structured fidelity report rather than silently dropping configuration. You always know exactly what was and was not applied.
 

@@ -85,6 +85,9 @@ targets:
   antigravity:
     suppress-fidelity-warnings: true
     skip-synthesis: true
+  antigravity2:
+    suppress-fidelity-warnings: true
+    skip-synthesis: true
 ---
 You are a golden reference agent. This body text becomes the agent's instructions when no `instructions:` key is set in frontmatter.
 

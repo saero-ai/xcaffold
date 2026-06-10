@@ -16,7 +16,7 @@ func (r *geminiModelResolver) ResolveAlias(alias string) (modelID string, ok boo
 	aliasMap := map[string]string{
 		"balanced": "gemini-3.5-flash",
 		"flagship": "gemini-2.5-pro",
-		"fast":     "gemini-2.5-flash",
+		"fast":     "gemini-3.5-flash",
 	}
 
 	if id, found := aliasMap[alias]; found {

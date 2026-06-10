@@ -28,7 +28,8 @@
 #   xcaffold apply --target cursor
 #   xcaffold apply --target gemini
 #   xcaffold apply --target copilot
-#   xcaffold apply --target antigravity
+#   xcaffold apply --target antigravity2
+#   xcaffold apply --target antigravity    # deprecated
 #   xcaffold apply --dry-run              # preview changes without writing
 #   xcaffold apply --force                # overwrite customized files
 #   xcaffold apply --backup               # backup target directory first

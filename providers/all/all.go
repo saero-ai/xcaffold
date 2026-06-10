@@ -3,6 +3,7 @@ package all
 
 import (
 	_ "github.com/saero-ai/xcaffold/providers/antigravity"
+	_ "github.com/saero-ai/xcaffold/providers/antigravity2"
 	_ "github.com/saero-ai/xcaffold/providers/claude"
 	_ "github.com/saero-ai/xcaffold/providers/codex"
 	_ "github.com/saero-ai/xcaffold/providers/copilot"
