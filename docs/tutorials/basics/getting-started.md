@@ -51,8 +51,8 @@ my-project/
   xcaf/
     agents/
       xaff/
-        agent.xcaf           # kind: agent (base)
-        agent.antigravity.xcaf  # provider override
+        agent.xcaf            # kind: agent (base)
+        agent.antigravity2.xcaf  # provider override (antigravity2 target)
     rules/
       xcaf-conventions/
         rule.xcaf            # kind: rule
@@ -170,7 +170,7 @@ Every line maps back to `xcaf/agents/xaff/agent.xcaf`:
 | `skills:` list | `skills:` array |
 | Body text | File body (below the `---` separator) |
 
-> **Note on fidelity:** Different targets support different fields. The `claude` target preserves all fields. Targets with a narrower feature set drop fields they have no equivalent for. The `agent.antigravity.xcaf` file in `xcaf/agents/xaff/` provides a provider-specific override that is merged in automatically when compiling for the `antigravity` target.
+> **Note on fidelity:** Different targets support different fields. The `claude` target preserves all fields. Targets with a narrower feature set drop fields they have no equivalent for. The `agent.antigravity2.xcaf` file in `xcaf/agents/xaff/` provides a provider-specific override that is merged in automatically when compiling for the `antigravity2` target. Antigravity v1 (`antigravity`) is deprecated; `antigravity2` is its successor.
 
 ---
 
@@ -190,7 +190,7 @@ xcaffold-version: 0.2.0-dev
 source-files:
     - path: project.xcaf
       hash: sha256:ac46b79d...
-    - path: xcaf/agents/xaff/agent.antigravity.xcaf
+    - path: xcaf/agents/xaff/agent.antigravity2.xcaf
       hash: sha256:b670e087...
     - path: xcaf/agents/xaff/agent.xcaf
       hash: sha256:cd12527d...
