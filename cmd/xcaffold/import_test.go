@@ -492,51 +492,58 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 func TestDetectTargets(t *testing.T) {
 	tests := []struct {
 		name     string
-		dirs     []string
+		dir      string
+		explicit string
 		expected []string
 	}{
 		{
-			name:     "claude dir",
-			dirs:     []string{".claude"},
+			name:     "claude dir with no explicit provider",
+			dir:      ".claude",
+			explicit: "",
 			expected: []string{"claude"},
 		},
 		{
-			name:     "agents dir",
-			dirs:     []string{".agents"},
-			expected: []string{"antigravity"},
+			name:     "agents dir with no explicit provider returns active (antigravity2)",
+			dir:      ".agents",
+			explicit: "",
+			expected: []string{"antigravity2"},
 		},
 		{
-			name:     "cursor dir",
-			dirs:     []string{".cursor"},
+			name:     "cursor dir with no explicit provider",
+			dir:      ".cursor",
+			explicit: "",
 			expected: []string{"cursor"},
 		},
 		{
-			name:     "multiple dirs sorted",
-			dirs:     []string{".claude", ".agents"},
-			expected: []string{"antigravity", "claude"},
-		},
-		{
-			name:     "unknown dir ignored",
-			dirs:     []string{".unknown"},
+			name:     "unknown dir returns empty",
+			dir:      ".unknown",
+			explicit: "",
 			expected: []string{},
 		},
 		{
-			name:     "empty",
-			dirs:     []string{},
-			expected: []string{},
+			name:     "agents dir with explicit antigravity2",
+			dir:      ".agents",
+			explicit: "antigravity2",
+			expected: []string{"antigravity2"},
+		},
+		{
+			name:     "agents dir with explicit antigravity (deprecated alias)",
+			dir:      ".agents",
+			explicit: "antigravity",
+			expected: []string{"antigravity"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := detectTargets(tc.dirs...)
+			got := detectTargets(tc.dir, tc.explicit)
 			if len(got) != len(tc.expected) {
-				t.Errorf("detectTargets(%v) = %v, want %v", tc.dirs, got, tc.expected)
+				t.Errorf("detectTargets(%q, %q) = %v, want %v", tc.dir, tc.explicit, got, tc.expected)
 				return
 			}
 			for i, v := range got {
 				if v != tc.expected[i] {
-					t.Errorf("detectTargets(%v)[%d] = %q, want %q", tc.dirs, i, v, tc.expected[i])
+					t.Errorf("detectTargets(%q, %q)[%d] = %q, want %q", tc.dir, tc.explicit, i, v, tc.expected[i])
 				}
 			}
 		})
@@ -2361,4 +2368,91 @@ func TestTagResourcesWithProvider_AllKinds(t *testing.T) {
 			t.Errorf("tagResourcesWithProvider did not tag %s with Targets", c.kind)
 		}
 	}
+}
+
+// TestDetectTargets_PreferActiveWhenMultipleMatch tests that when multiple
+// providers share an input dir (e.g. antigravity and antigravity2 both
+// use .agents), detectTargets with no explicit provider filters to active providers.
+func TestDetectTargets_PreferActiveWhenMultipleMatch(t *testing.T) {
+	// When detectTargets is called with .agents and no explicit provider,
+	// it should detect both antigravity and antigravity2, then filter to active.
+	// Since antigravity is deprecated and antigravity2 is active,
+	// the result should be antigravity2 only.
+	targets := detectTargets(".agents", "")
+	require.NotNil(t, targets)
+	assert.Contains(t, targets, "antigravity2", "detectTargets should prefer active antigravity2 over deprecated antigravity")
+	assert.NotContains(t, targets, "antigravity", "detectTargets should filter out deprecated antigravity when antigravity2 is present")
+}
+
+// TestDetectTargets_ExplicitTargetBypassesDeduplication tests that when
+// an explicit provider is passed, detectTargets returns exactly that (canonicalized).
+func TestDetectTargets_ExplicitTargetBypassesDeduplication(t *testing.T) {
+	// When an explicit provider is passed, detectTargets returns only that,
+	// regardless of what's actually on disk.
+	targets := detectTargets(".agents", "antigravity2")
+	require.NotNil(t, targets)
+	require.Len(t, targets, 1)
+	assert.Equal(t, "antigravity2", targets[0])
+}
+
+// TestImportTargetAlias_NormalizesAliasToCanonical tests that
+// xcaffold import --target agy normalizes to antigravity2 internally.
+func TestImportTargetAlias_NormalizesAliasToCanonical(t *testing.T) {
+	// Verify that providers.CanonicalName handles the alias
+	canonical, ok := providerspkg.CanonicalName("agy")
+	require.True(t, ok, "agy should be a valid alias for antigravity2")
+	require.Equal(t, "antigravity2", canonical, "agy alias should map to antigravity2")
+
+	// Verify that antigravity2 and agy both resolve to the same manifest
+	m1, ok1 := providerspkg.ManifestFor("antigravity2")
+	m2, ok2 := providerspkg.ManifestFor("agy")
+	require.True(t, ok1 && ok2, "both antigravity2 and agy should be valid")
+	require.Equal(t, m1.Name, m2.Name, "both names should resolve to the same canonical manifest")
+}
+
+// TestPreserveRemoteMCPServersOnImport tests that after importing,
+// MCP servers with serverUrl and disabledTools are preserved.
+func TestPreserveRemoteMCPServersOnImport(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// Create .agents/ with a basic agent so import has content
+	require.NoError(t, os.MkdirAll(".agents/agents", 0755))
+	require.NoError(t, os.WriteFile(".agents/agents/test.md",
+		[]byte("---\nname: test\ndescription: Test agent\n---\n"), 0644))
+
+	// Create mcp_config.json with a remote server (serverUrl + disabledTools)
+	require.NoError(t, os.MkdirAll(".agents", 0755))
+	mcpConfig := `{
+  "mcpServers": {
+    "my-remote-server": {
+      "command": "echo",
+      "args": ["test"],
+      "serverUrl": "sse://example.com/mcp",
+      "disabledTools": ["write_file"]
+    }
+  }
+}`
+	require.NoError(t, os.WriteFile(".agents/mcp_config.json", []byte(mcpConfig), 0644))
+
+	// Run import
+	err = importScope(".agents", "project.xcaf", "project", "antigravity2")
+	require.NoError(t, err, "import should succeed with remote MCP servers")
+
+	// Verify the generated MCP resource preserves serverUrl and disabledTools
+	mcpXcafPath := filepath.Join(tmpDir, "xcaf", "mcp", "my-remote-server", "mcp.xcaf")
+	require.FileExists(t, mcpXcafPath, "MCP xcaf file should be created")
+
+	content, err := os.ReadFile(mcpXcafPath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	// The MCP resource must contain url and disabled-tools
+	assert.Contains(t, contentStr, "url: sse://example.com/mcp", "MCP resource should preserve serverUrl in url field")
+	assert.Contains(t, contentStr, "disabled-tools:", "MCP resource should preserve disabledTools")
 }
