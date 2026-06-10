@@ -2,7 +2,7 @@
 kind: skill
 version: "1.0"
 name: xcaffold
-description: Scaffolds, compiles, and validates AI agent configurations using xcaffold — the deterministic agent configuration compiler. Invoke when the user asks to create agents, skills, rules, or policies; when they want to target Claude Code, Cursor, Gemini CLI, GitHub Copilot, or Antigravity; when setting up a new xcaffold project; or when validating or applying existing xcaf configurations.
+description: Scaffolds, compiles, and validates AI agent configurations using xcaffold — the deterministic agent configuration compiler. Invoke when the user asks to create agents, skills, rules, or policies; when they want to target Claude Code, Cursor, Gemini CLI, GitHub Copilot, Antigravity 2.0, or Antigravity (deprecated); when setting up a new xcaffold project; or when validating or applying existing xcaf configurations.
 allowed-tools:
   - Read
   - Write
