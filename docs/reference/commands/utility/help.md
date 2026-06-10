@@ -151,34 +151,35 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Identity
     name                      string          required  Unique identifier for this agent within the project.
+                                                        Providers: Antigravity2 Codex(required)
                                                         Pattern: ^[a-z0-9-]+$
     description               string          required  Human-readable purpose of this agent.
-                                                        Providers: Antigravity Claude(required) Copilot(required) Cursor Gemini(required)
+                                                        Providers: Antigravity Antigravity2 Claude(required) Codex(required) Copilot(required) Cursor Gemini(required)
 
   Model & Execution
     model                     string          optional  LLM model identifier or alias resolved at compile time.
-                                                        Providers: Antigravity Claude Copilot Cursor Gemini
+                                                        Providers: Antigravity Antigravity2 Claude Codex Copilot Cursor Gemini
                                                         Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
-                                                        Providers: Claude Cursor
-    max-turns                 int             optional  Maximum conversation turns before the agent exits.
-                                                        Providers: Claude Gemini
+                                                        Providers: Claude Codex Cursor
+    max-turns                 integer         optional  Maximum conversation turns before the agent exits.
+                                                        Providers: Antigravity2 Claude Gemini
 
   Tool Access
     tools                     []string        optional  Ordered list of tools this agent may invoke.
-                                                        Providers: Claude Copilot Gemini
+                                                        Providers: Antigravity2 Claude Copilot Gemini
     disallowed-tools          []string        optional  Tools explicitly denied to this agent.
-                                                        Providers: Claude
+                                                        Providers: Antigravity2 Claude
     readonly                  boolean         optional  When true, restricts the agent to read-only tool access.
-                                                        Providers: Claude Cursor
+                                                        Providers: Antigravity2 Claude Cursor
 
   Permissions & Invocation
     permission-mode           string          optional  Security mode controlling tool authorization behavior.
                                                         Providers: Claude
     disable-model-invocation  boolean         optional  Prevents the agent from spawning sub-agents.
-                                                        Providers: Claude
+                                                        Providers: Copilot
     user-invocable            boolean         optional  Whether users can invoke this agent directly via slash command.
-                                                        Providers: Claude
+                                                        Providers: Antigravity2 Copilot
 
   Lifecycle
     background                boolean         optional  Runs the agent in background mode without interactive prompts.
@@ -190,24 +191,27 @@ kind: agent . version 1.0 . format: frontmatter+body
     memory                    []string        optional  Named memory banks attached to this agent.
                                                         Providers: Claude
     color                     string          optional  Display color for terminal output differentiation.
-    initial-prompt            string          optional  System prompt prepended to every conversation.
                                                         Providers: Claude
+    initial-prompt            string          optional  System prompt prepended to every conversation.
+                                                        Providers: Antigravity2 Claude
 
   Composition
     skills                    []string        optional  Skill resource IDs attached to this agent.
-                                                        Providers: Claude
+                                                        Providers: Antigravity2 Claude Codex
     rules                     []string        optional  Rule resource IDs governing this agent.
+                                                        Providers: Antigravity2
     mcp                       []string        optional  MCP server resource IDs available to this agent.
     assertions                []string        optional  Policy assertion IDs evaluated post-compilation.
 
   Inline Composition
     mcp-servers               map             optional  Inline MCP server definitions keyed by server name.
-                                                        Providers: Claude Copilot Gemini
+                                                        Providers: Claude Codex Copilot Gemini
     hooks                     HookConfig      optional  Inline lifecycle hook definitions for this agent.
                                                         Providers: Claude
 
   Multi-Target
     targets                   map             optional  Per-provider override configuration keyed by provider name.
+                                                        Providers: Antigravity2
 
 -> Run 'xcaffold help --xcaf agent --out' to generate a template.
 ```

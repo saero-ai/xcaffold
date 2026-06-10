@@ -318,9 +318,50 @@ The `command` field is mapped to `bash`. Timeout is converted from milliseconds 
 }
 ```
 
-### Antigravity
+### Antigravity (deprecated)
 
-Antigravity does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no hook output for that target.
+> **Deprecated.** The `antigravity` target is deprecated in favor of `antigravity2` (Antigravity 2.0). Existing configurations continue to work but new projects should use `antigravity2`. See [Supported Providers](../../supported-providers.md).
+
+Antigravity v1 does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no hook output for that target.
+
+### Antigravity 2
+
+**Output path**: `.agents/hooks.json`
+
+Hook declarations are serialized to a standalone `hooks.json` file in the `.agents/` output directory. All hook event names pass through unchanged (the xcaffold schema mirrors the Antigravity 2.0 format — no translation is applied).
+
+```json
+{
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "./xcaf/hooks/project-hooks/scripts/validate-bash.sh",
+          "timeout": 10,
+          "statusMessage": "Validating bash command"
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "./xcaf/hooks/project-hooks/scripts/post-edit-lint.sh",
+          "async": true,
+          "timeout": 15
+        }
+      ]
+    }
+  ]
+}
+```
+
+> **Runtime caveat.** As of `agy` CLI v1.0.6, the Antigravity 2.0 runtime reads hooks from its own Gemini-format settings configuration rather than from `.agents/hooks.json`. The compiled file is structurally correct and will be consumed if/when the runtime adds direct `hooks.json` loading. Until then, hooks must be configured in the runtime's own settings directly. See the [Antigravity 2.0 Runtime Behavior](../../supported-providers.md#antigravity-20-runtime-behavior) section for details.
 
 ### Codex (Preview)
 
@@ -358,26 +399,29 @@ Codex hooks are compiled to a JSON file with camelCase event keys. The format su
 | Gemini | Yes | `.gemini/settings.json` (`hooks` key) | Translated (`BeforeTool`, `AfterTool`) |
 | Cursor | Yes | `.cursor/hooks.json` | camelCase (`preToolUse`) |
 | Copilot | Yes | `.github/hooks/xcaffold-hooks.json` | camelCase (`preToolUse`) |
-| Antigravity | No | — | — |
+| Antigravity (deprecated) | No | — | — |
+| Antigravity 2 | Yes | `.agents/hooks.json` | PascalCase (pass-through) |
 | Codex (Preview) | Yes | `.codex/hooks.json` | camelCase (`preToolUse`) |
 
 ### Provider event name mappings
 
-| xcaffold event | Claude | Gemini | Cursor | Copilot | Codex (Preview) |
-|----------------|--------|--------|--------|---------|-----------------|
-| `PreToolUse` | `PreToolUse` | `BeforeTool` | `preToolUse` | `preToolUse` | `preToolUse` |
-| `PostToolUse` | `PostToolUse` | `AfterTool` | `postToolUse` | `postToolUse` | `postToolUse` |
-| `SessionStart` | `SessionStart` | `SessionStart` | `sessionStart` | `sessionStart` | `sessionStart` |
-| `Stop` | `Stop` | —¹ | `stop` | `agentStop` | `stop` |
-| `SubagentStop` | `SubagentStop` | —¹ | `subagentStop` | `subagentStop` | —¹ |
-| `InstructionsLoaded` | `InstructionsLoaded` | —¹ | camelCase fallback² | —¹ | —¹ |
-| `PreCompact` | `PreCompact` | —¹ | camelCase fallback² | —¹ | —¹ |
-| `ConfigChange` | `ConfigChange` | —¹ | camelCase fallback² | —¹ | —¹ |
-| `Notification` | `Notification` | `Notification` | camelCase fallback² | —¹ | —¹ |
+| xcaffold event | Claude | Gemini | Cursor | Copilot | Antigravity 2 | Codex (Preview) |
+|----------------|--------|--------|--------|---------|---------------|-----------------|
+| `PreToolUse` | `PreToolUse` | `BeforeTool` | `preToolUse` | `preToolUse` | `PreToolUse` | `preToolUse` |
+| `PostToolUse` | `PostToolUse` | `AfterTool` | `postToolUse` | `postToolUse` | `PostToolUse` | `postToolUse` |
+| `SessionStart` | `SessionStart` | `SessionStart` | `sessionStart` | `sessionStart` | `SessionStart` | `sessionStart` |
+| `Stop` | `Stop` | —¹ | `stop` | `agentStop` | `Stop` | `stop` |
+| `SubagentStop` | `SubagentStop` | —¹ | `subagentStop` | `subagentStop` | `SubagentStop` | —¹ |
+| `InstructionsLoaded` | `InstructionsLoaded` | —¹ | camelCase fallback² | —¹ | `InstructionsLoaded` | —¹ |
+| `PreCompact` | `PreCompact` | —¹ | camelCase fallback² | —¹ | `PreCompact` | —¹ |
+| `ConfigChange` | `ConfigChange` | —¹ | camelCase fallback² | —¹ | `ConfigChange` | —¹ |
+| `Notification` | `Notification` | `Notification` | camelCase fallback² | —¹ | `Notification` | —¹ |
 
 ¹ Event is dropped and xcaffold emits a `CodeFieldUnsupported` fidelity warning. The event does not appear in the compiled output.
 
 ² Cursor has no verified mapping for this event. Xcaffold emits the event name in camelCase with a `CodeFieldUnsupported` fidelity warning advising verification against Cursor documentation.
+
+Antigravity 2 event names pass through unchanged — `CompileHooks` marshals the `ast.HookConfig` map directly to JSON without translation.
 
 > [!WARNING]
 > Hook scripts referenced in `command` are **not** created by xcaffold. You must author and commit them to your repository. If a referenced script is absent, the provider will error at runtime.
