@@ -399,6 +399,9 @@ func parseGlobalDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, infer
 		return err
 	}
 	config.Extends = doc.Extends
+	if len(doc.Targets) > 0 {
+		config.GlobalTargets = doc.Targets
+	}
 
 	mergeGlobalSettings(config, doc.Settings)
 	mergeGlobalHooks(config, doc.Hooks)

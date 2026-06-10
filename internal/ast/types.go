@@ -48,6 +48,10 @@ type XcaffoldConfig struct {
 	// Never serialized; callers decide how (or whether) to display these.
 	ParseWarnings []string `yaml:"-" json:"-"`
 
+	// GlobalTargets lists the default compilation targets for global scope.
+	// Populated by the parser when decoding kind: global documents with targets.
+	GlobalTargets []string `yaml:"-" json:"-"`
+
 	ResourceScope `yaml:",inline"` // Global-level resources
 
 	Project *ProjectConfig `yaml:"project,omitempty"` // nil for global configs
