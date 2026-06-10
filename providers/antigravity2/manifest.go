@@ -17,7 +17,6 @@ var Manifest = providers.ProviderManifest{
 	Name:           "antigravity2",
 	OutputDir:      ".agents",
 	ValidNames:     []string{"antigravity2", "antigravity-2.0", "antigravity-2", "agy"},
-	RootMCPPaths:   []string{".agents/mcp_config.json"},
 	RequiredPasses: []string{"flatten-scopes", "inline-imports"},
 	DefaultBudget:  16000,
 	BudgetKind:     "bytes",

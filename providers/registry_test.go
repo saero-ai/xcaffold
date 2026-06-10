@@ -466,3 +466,128 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+// --- Task 1: CanonicalName ---
+
+func TestCanonicalName_AliasResolvesToCanonical(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:       "antigravity2",
+		OutputDir:  ".agents",
+		ValidNames: []string{"antigravity2", "antigravity-2.0", "antigravity-2", "agy"},
+	})
+
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"agy", "antigravity2"},
+		{"antigravity-2", "antigravity2"},
+		{"antigravity-2.0", "antigravity2"},
+		{"antigravity2", "antigravity2"},
+	}
+	for _, tc := range cases {
+		got, ok := providers.CanonicalName(tc.input)
+		if !ok {
+			t.Errorf("CanonicalName(%q) returned ok=false, want ok=true", tc.input)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("CanonicalName(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestCanonicalName_UnknownReturnsFalse(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	providers.Register(providers.ProviderManifest{
+		Name:       "claude",
+		OutputDir:  ".claude",
+		ValidNames: []string{"claude", "claude-code"},
+	})
+
+	got, ok := providers.CanonicalName("no-such-provider")
+	if ok {
+		t.Errorf("CanonicalName(%q) returned ok=true, want ok=false", "no-such-provider")
+	}
+	if got != "" {
+		t.Errorf("CanonicalName unknown returned %q, want empty string", got)
+	}
+}
+
+// --- Task 2: PreferActiveProviders ---
+
+func TestPreferActiveProviders_FiltersDeprecated(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	deprecated := providers.ProviderManifest{
+		Name:         "antigravity",
+		OutputDir:    ".agents",
+		ValidNames:   []string{"antigravity"},
+		Status:       "deprecated",
+		DeprecatedBy: "antigravity2",
+	}
+	active := providers.ProviderManifest{
+		Name:       "antigravity2",
+		OutputDir:  ".agents",
+		ValidNames: []string{"antigravity2", "antigravity-2.0", "antigravity-2", "agy"},
+	}
+
+	got := providers.PreferActiveProviders([]providers.ProviderManifest{deprecated, active})
+	if len(got) != 1 {
+		t.Fatalf("PreferActiveProviders returned %d items, want 1", len(got))
+	}
+	if got[0].Name != "antigravity2" {
+		t.Errorf("PreferActiveProviders returned %q, want %q", got[0].Name, "antigravity2")
+	}
+}
+
+func TestPreferActiveProviders_AllDeprecatedPassThrough(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	d1 := providers.ProviderManifest{Name: "old1", ValidNames: []string{"old1"}, Status: "deprecated"}
+	d2 := providers.ProviderManifest{Name: "old2", ValidNames: []string{"old2"}, Status: "sunset"}
+
+	got := providers.PreferActiveProviders([]providers.ProviderManifest{d1, d2})
+	if len(got) != 2 {
+		t.Fatalf("PreferActiveProviders all-deprecated returned %d items, want 2 (pass-through)", len(got))
+	}
+}
+
+func TestPreferActiveProviders_EmptyInput(t *testing.T) {
+	got := providers.PreferActiveProviders(nil)
+	if got != nil {
+		t.Errorf("PreferActiveProviders(nil) = %v, want nil", got)
+	}
+	got = providers.PreferActiveProviders([]providers.ProviderManifest{})
+	if len(got) != 0 {
+		t.Errorf("PreferActiveProviders(empty) returned %d items, want 0", len(got))
+	}
+}
+
+func TestPreferActiveProviders_SunsetFiltered(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	sunset := providers.ProviderManifest{Name: "old", ValidNames: []string{"old"}, Status: "sunset"}
+	active := providers.ProviderManifest{Name: "new", ValidNames: []string{"new"}}
+
+	got := providers.PreferActiveProviders([]providers.ProviderManifest{sunset, active})
+	if len(got) != 1 || got[0].Name != "new" {
+		t.Errorf("PreferActiveProviders with sunset+active = %v, want only active", got)
+	}
+}
+
+// --- Task 3: Antigravity2 RootMCPPaths is empty ---
+
+func TestAntigravity2_RootMCPPathsEmpty(t *testing.T) {
+	// Uses the real registry populated by init().
+	m, ok := providers.ManifestFor("antigravity2")
+	if !ok {
+		t.Fatal("antigravity2 not registered")
+	}
+	if len(m.RootMCPPaths) != 0 {
+		t.Errorf("antigravity2 RootMCPPaths = %v, want empty (in-directory MCP config must not appear here)", m.RootMCPPaths)
+	}
+}
