@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/saero-ai/xcaffold/compare/v0.10.0...v0.11.0) (2026-06-10)
+
+
+### Features
+
+* **cli:** support default targets in global scope ([2d26e17](https://github.com/saero-ai/xcaffold/commit/2d26e1794ea87cef4a703276e6e1b50a8687e6de)), closes [#108](https://github.com/saero-ai/xcaffold/issues/108)
+* **compiler:** user-configurable tier mapping overrides ([2cd0984](https://github.com/saero-ai/xcaffold/commit/2cd0984fbc8defd3adc245370940667b4179c1b5)), closes [#106](https://github.com/saero-ai/xcaffold/issues/106)
+* **importer:** import antigravity2 knowledge files as memory ([006d61c](https://github.com/saero-ai/xcaffold/commit/006d61ce66e947229451e2e9bbda4105c28f4fa5))
+* **renderer:** add alias resolution and active-provider selection ([3874ea1](https://github.com/saero-ai/xcaffold/commit/3874ea1d8f579d2eceba8529ae85cafeabbf4480))
+
+
+### Bug Fixes
+
+* **cli:** collect canonical provider names in multi-provider import ([5bbb386](https://github.com/saero-ai/xcaffold/commit/5bbb38625f59101d81b75814eaf3e6e75df23555))
+* **cli:** fall back to base toolkit agent when no provider variant ([df7b6ff](https://github.com/saero-ai/xcaffold/commit/df7b6ffcf0316e186fcafef00ada8cc76e1e3f7f))
+* **cli:** normalize provider aliases for apply and import targets ([9e372b8](https://github.com/saero-ai/xcaffold/commit/9e372b82de3025f9fcc54a6e2834287dd82e7967))
+* **cli:** prefer active providers when import detects a shared directory ([8689092](https://github.com/saero-ai/xcaffold/commit/868909287881ea4b13fee541c3d6a05e35b68212))
+* **importer:** remove redundant RootMCPPath from antigravity2 ([2a9f80d](https://github.com/saero-ai/xcaffold/commit/2a9f80df8654a0a321e4860080a79733be93043f))
+* **parser:** wire target into variable loading ([df801df](https://github.com/saero-ai/xcaffold/commit/df801df902bd0959b2eeec9372ae79b5da94ccdb)), closes [#107](https://github.com/saero-ai/xcaffold/issues/107)
+* **providers:** remove internal reference from Status field comment ([20c20bd](https://github.com/saero-ai/xcaffold/commit/20c20bd125715f56be405e4af621bedf51ac4466))
+
 ## [0.10.0](https://github.com/saero-ai/xcaffold/compare/v0.9.4...v0.10.0) (2026-06-09)
 
 
