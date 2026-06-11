@@ -156,13 +156,13 @@ func (d ResourceDiff) TotalXcafOnly() int {
 // copyResource copies a single resource from src to dst by kind and name.
 func copyResource(dst, src *ast.XcaffoldConfig, kind, name string) {
 	switch kind {
-	case "agent":
+	case kindAgent:
 		copyAgentResource(dst, src, name)
-	case "skill":
+	case kindSkill:
 		copySkillResource(dst, src, name)
-	case "rule":
+	case kindRule:
 		copyRuleResource(dst, src, name)
-	case "workflow":
+	case kindWorkflow:
 		copyWorkflowResource(dst, src, name)
 	case kindMCP:
 		copyMCPResource(dst, src, name)
