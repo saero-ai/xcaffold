@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/saero-ai/xcaffold/compare/v0.11.0...v0.12.0) (2026-06-11)
+
+
+### Features
+
+* **cli:** add --json output flag to xcaffold list ([272be85](https://github.com/saero-ai/xcaffold/commit/272be859696189fccc85a1c62d24b77ba05cb381))
+
 ## [0.11.0](https://github.com/saero-ai/xcaffold/compare/v0.10.0...v0.11.0) (2026-06-10)
 
 
