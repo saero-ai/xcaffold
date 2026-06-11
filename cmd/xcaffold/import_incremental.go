@@ -184,27 +184,27 @@ func applySourceFilesForChangedResources(scannedConfig *ast.XcaffoldConfig, diff
 			key := entry.Kind + ":" + entry.Name
 			if srcFile, ok := savedFiles[key]; ok {
 				switch entry.Kind {
-				case "rule":
+				case kindRule:
 					if r, ok := scannedConfig.Rules[entry.Name]; ok {
 						r.SourceFile = srcFile
 						scannedConfig.Rules[entry.Name] = r
 					}
-				case "agent":
+				case kindAgent:
 					if a, ok := scannedConfig.Agents[entry.Name]; ok {
 						a.SourceFile = srcFile
 						scannedConfig.Agents[entry.Name] = a
 					}
-				case "skill":
+				case kindSkill:
 					if s, ok := scannedConfig.Skills[entry.Name]; ok {
 						s.SourceFile = srcFile
 						scannedConfig.Skills[entry.Name] = s
 					}
-				case "workflow":
+				case kindWorkflow:
 					if w, ok := scannedConfig.Workflows[entry.Name]; ok {
 						w.SourceFile = srcFile
 						scannedConfig.Workflows[entry.Name] = w
 					}
-				case "mcp":
+				case kindMCP:
 					if m, ok := scannedConfig.MCP[entry.Name]; ok {
 						m.SourceFile = srcFile
 						scannedConfig.MCP[entry.Name] = m
@@ -243,19 +243,19 @@ func refreshStateAfterImport(cfg *ast.XcaffoldConfig, diff ResourceDiff, target 
 	for kind, entries := range diff.Changed {
 		for _, entry := range entries {
 			switch kind {
-			case "rule":
+			case kindRule:
 				if r, ok := cfg.Rules[entry.Name]; ok && r.SourceFile != "" {
 					updateResourceHashes(manifest, r.SourceFile, entry.Name, target)
 				}
-			case "agent":
+			case kindAgent:
 				if a, ok := cfg.Agents[entry.Name]; ok && a.SourceFile != "" {
 					updateResourceHashes(manifest, a.SourceFile, entry.Name, target)
 				}
-			case "skill":
+			case kindSkill:
 				if s, ok := cfg.Skills[entry.Name]; ok && s.SourceFile != "" {
 					updateResourceHashes(manifest, s.SourceFile, entry.Name, target)
 				}
-			case "workflow":
+			case kindWorkflow:
 				if w, ok := cfg.Workflows[entry.Name]; ok && w.SourceFile != "" {
 					updateResourceHashes(manifest, w.SourceFile, entry.Name, target)
 				}
@@ -421,15 +421,15 @@ type rewriteOpts struct {
 
 func rewriteResourceInPlace(cfg *ast.XcaffoldConfig, kind, name string, opts rewriteOpts, outputRoot string) error {
 	switch kind {
-	case "rule":
+	case kindRule:
 		return rewriteRuleInPlace(cfg, name, opts.layout, opts.target, outputRoot)
-	case "agent":
+	case kindAgent:
 		return rewriteAgentInPlace(cfg, name, opts.layout, opts.target, outputRoot)
-	case "skill":
+	case kindSkill:
 		return rewriteSkillInPlace(cfg, name, opts.layout, opts.target, outputRoot)
-	case "workflow":
+	case kindWorkflow:
 		return rewriteWorkflowInPlace(cfg, name, opts.layout, opts.target, outputRoot)
-	case "mcp":
+	case kindMCP:
 		return rewriteMCPInPlace(cfg, name, opts.layout, opts.target, outputRoot)
 	case "context":
 		return rewriteContextInPlace(cfg, name, opts.layout, opts.target, outputRoot)
@@ -494,7 +494,7 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode,
 
 		body := rule.Body
 		doc := ruleDoc{
-			Kind:       "rule",
+			Kind:       kindRule,
 			Version:    "1.0",
 			RuleConfig: rule,
 		}
@@ -506,7 +506,7 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode,
 	// TODO: Apply override routing based on target parameter
 	body := rule.Body
 	doc := ruleDoc{
-		Kind:       "rule",
+		Kind:       kindRule,
 		Version:    "1.0",
 		RuleConfig: rule,
 	}
@@ -543,7 +543,7 @@ func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 	if agent.SourceFile != "" {
 		body := agent.Body
 		doc := agentDoc{
-			Kind:        "agent",
+			Kind:        kindAgent,
 			Version:     "1.0",
 			AgentConfig: agent,
 		}
@@ -555,7 +555,7 @@ func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 	// TODO: Apply override routing based on target parameter
 	body := agent.Body
 	doc := agentDoc{
-		Kind:        "agent",
+		Kind:        kindAgent,
 		Version:     "1.0",
 		AgentConfig: agent,
 	}
@@ -591,7 +591,7 @@ func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 	if skill.SourceFile != "" {
 		body := skill.Body
 		doc := skillDoc{
-			Kind:        "skill",
+			Kind:        kindSkill,
 			Version:     "1.0",
 			SkillConfig: skill,
 		}
@@ -603,7 +603,7 @@ func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode
 	// TODO: Apply override routing based on target parameter
 	body := skill.Body
 	doc := skillDoc{
-		Kind:        "skill",
+		Kind:        kindSkill,
 		Version:     "1.0",
 		SkillConfig: skill,
 	}
@@ -639,7 +639,7 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutM
 	if workflow.SourceFile != "" {
 		// Workflows don't have a Body field; write pure YAML
 		doc := workflowDoc{
-			Kind:           "workflow",
+			Kind:           kindWorkflow,
 			Version:        "1.0",
 			WorkflowConfig: workflow,
 		}
@@ -650,7 +650,7 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutM
 	// For new resources without SourceFile, use the detected layout
 	// TODO: Apply override routing based on target parameter
 	doc := workflowDoc{
-		Kind:           "workflow",
+		Kind:           kindWorkflow,
 		Version:        "1.0",
 		WorkflowConfig: workflow,
 	}
@@ -658,7 +658,7 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutM
 
 	if layout == layoutFlat {
 		// Write to flat location: xcaf/workflows/<name>.xcaf
-		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural("workflow"), name+".xcaf")
+		filePath := filepath.Join(outputRoot, "xcaf", kindToPlural(kindWorkflow), name+".xcaf")
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
@@ -686,7 +686,7 @@ func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, 
 	if mcp.SourceFile != "" {
 		// MCP configs don't have a Body field; write pure YAML
 		doc := mcpDoc{
-			Kind:      "mcp",
+			Kind:      kindMCP,
 			Version:   "1.0",
 			MCPConfig: mcp,
 		}
@@ -697,7 +697,7 @@ func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, 
 	// For new resources without SourceFile, use the detected layout
 	// TODO: Apply override routing based on target parameter
 	doc := mcpDoc{
-		Kind:      "mcp",
+		Kind:      kindMCP,
 		Version:   "1.0",
 		MCPConfig: mcp,
 	}

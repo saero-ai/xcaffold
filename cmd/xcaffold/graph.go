@@ -26,11 +26,12 @@ var graphAll bool
 var graphBlueprintFlag string
 
 const (
-	kindAgent  = "agent"
-	kindSkill  = "skill"
-	kindRule   = "rule"
-	kindMCP    = "mcp"
-	kindPolicy = "policy"
+	kindAgent    = "agent"
+	kindSkill    = "skill"
+	kindRule     = "rule"
+	kindWorkflow = "workflow"
+	kindMCP      = "mcp"
+	kindPolicy   = "policy"
 )
 
 var graphCmd = &cobra.Command{
