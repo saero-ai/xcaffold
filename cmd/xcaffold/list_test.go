@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -420,4 +421,82 @@ func TestListCmd_BlueprintFlagsVisible(t *testing.T) {
 	res := f.Lookup("resolved")
 	require.NotNil(t, res, "--resolved flag must exist")
 	assert.False(t, res.Hidden, "--resolved should not be hidden")
+}
+
+func TestListCmd_JSONOutput(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "agents", "dev"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: test
+targets: [claude]
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "agents", "dev", "agent.xcaf"), []byte(`kind: agent
+name: dev
+description: dev agent
+`), 0o600))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Description: "dev agent"},
+			},
+		},
+		Project: &ast.ProjectConfig{
+			Name:    "test",
+			Targets: []string{"claude"},
+		},
+	}
+
+	var buf bytes.Buffer
+	listCmd.SetOut(&buf)
+	require.NoError(t, printListJSON(listCmd, config, dir))
+
+	var entries []listResourceJSON
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	assert.Equal(t, "agent", entries[0].Kind)
+	assert.Equal(t, "dev", entries[0].Name)
+	assert.Equal(t, "claude", entries[0].Target)
+	assert.Equal(t, "xcaf/agents/dev/agent.xcaf", entries[0].Source)
+}
+
+func TestListCmd_JSONOutputEmptyResources(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+
+	var buf bytes.Buffer
+	listCmd.SetOut(&buf)
+	require.NoError(t, printListJSON(listCmd, config, t.TempDir()))
+
+	assert.Equal(t, "[]\n", buf.String())
+}
+
+func TestListCmd_JSONOutputInlineResourceHasEmptySource(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Description: "dev agent"},
+			},
+		},
+		Project: &ast.ProjectConfig{
+			Name:    "test",
+			Targets: []string{"claude"},
+		},
+	}
+
+	var buf bytes.Buffer
+	listCmd.SetOut(&buf)
+	require.NoError(t, printListJSON(listCmd, config, t.TempDir()))
+
+	var entries []listResourceJSON
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entries))
+	require.Len(t, entries, 1)
+	assert.Equal(t, "agent", entries[0].Kind)
+	assert.Equal(t, "dev", entries[0].Name)
+	assert.Equal(t, "claude", entries[0].Target)
+	assert.Empty(t, entries[0].Source)
+}
+
+func TestListCmd_JSONFlagRegistered(t *testing.T) {
+	assert.NotNil(t, listCmd.Flag("json"))
 }
