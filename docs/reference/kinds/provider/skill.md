@@ -210,7 +210,7 @@ If any check fails, follow `references/rollback-playbook.md`.
 | `when-to-use` | `string` | Guidance for the model on when to invoke this skill. Emitted only for Claude (as `when_to_use` in SKILL.md frontmatter); ignored by other providers. |
 | `license` | `string` | SPDX license identifier (e.g. `"MIT"`, `"Apache-2.0"`). Emitted for Claude and Copilot; ignored by other providers. |
 | `allowed-tools` | `[]string` | Tools the skill is permitted to use. Claude emits as a space-separated string. Copilot emits as a YAML list. Gemini drops this field with a fidelity warning. Cursor and Antigravity do not emit this field. |
-| `disable-model-invocation` | `bool` | When `true`, prevents the skill from spawning a sub-agent. Claude-only. |
+| `disable-model-invocation` | `bool` | When `true`, prevents the skill from spawning a sub-agent. Supported by Claude and Cursor. |
 | `user-invocable` | `bool` | When `true`, exposes the skill as a slash command the user can invoke directly. Claude-only. |
 | `argument-hint` | `string` | Hint text shown during slash-command invocation. Has effect only when `user-invocable: true`. Claude-only. |
 | `artifacts` | `[]string` | Named subdirectories to compose with the skill. Valid canonical names: `references`, `scripts`, `assets`, `examples`. Custom names also accepted. Files within each subdirectory are discovered automatically from the filesystem. |
@@ -252,7 +252,7 @@ When `artifacts` are declared, files discovered in each artifact subdirectory ar
 
 **Output path**: `.cursor/skills/component-patterns/SKILL.md`
 
-Frontmatter is limited to `name` and `description`. Provider-specific fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are omitted. Artifact subdirectories are seeded at `.cursor/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
+Frontmatter emits `name`, `description`, and `disable-model-invocation`. Provider-specific fields (`when-to-use`, `license`, `user-invocable`, `argument-hint`, `allowed-tools`) are omitted with fidelity warnings. Artifact subdirectories are seeded at `.cursor/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
 ### Copilot
 
@@ -311,7 +311,7 @@ Skill output is not uniform across providers. The table below summarises what ea
 | `license` | yes | no | yes | no | no | no | no |
 | `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no | yes (bracket list) | no |
 | `argument-hint` | yes | no | no | no | no | yes | no |
-| `disable-model-invocation` | yes | no | no | no | no | no | no |
+| `disable-model-invocation` | yes | yes | no | no | no | no | no |
 | `user-invocable` | yes | no | no | no | no | no | no |
 | Markdown body | yes | yes | yes | yes | yes | yes | yes |
 | `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` | compiled to `examples/` | yes |
