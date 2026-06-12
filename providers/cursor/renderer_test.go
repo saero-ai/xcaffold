@@ -484,11 +484,12 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"rich-skill": {
-					Name:         "Rich Skill",
-					Description:  "Has many fields.",
-					Body:         "Do something.",
-					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
-					Artifacts:    []string{"references"},
+					Name:                   "Rich Skill",
+					Description:            "Has many fields.",
+					Body:                   "Do something.",
+					AllowedTools:           ast.ClearableList{Values: []string{"Bash"}},
+					Artifacts:              []string{"references"},
+					DisableModelInvocation: boolPtr(true),
 				},
 			},
 		},
@@ -508,6 +509,8 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	// Cursor-compatible fields MUST appear.
 	assert.Contains(t, content, "name: Rich Skill")
 	assert.Contains(t, content, "description: Has many fields.")
+	// disable-model-invocation IS supported by Cursor — must appear.
+	assert.Contains(t, content, "disable-model-invocation: true", "disable-model-invocation must be emitted for Cursor")
 }
 
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
@@ -1509,4 +1512,123 @@ func TestSupportsGlobalScope_Cursor(t *testing.T) {
 	if !r.SupportsGlobalScope() {
 		t.Error("expected Cursor renderer to support global scope")
 	}
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+func TestCompile_Skill_DisableModelInvocation(t *testing.T) {
+	r := cursor.New()
+
+	t.Run("true", func(t *testing.T) {
+		config := &ast.XcaffoldConfig{
+			ResourceScope: ast.ResourceScope{
+				Skills: map[string]ast.SkillConfig{
+					"my-skill": {
+						Name:                   "My Skill",
+						Description:            "A skill",
+						DisableModelInvocation: boolPtr(true),
+					},
+				},
+			},
+		}
+
+		out, _, err := renderer.Orchestrate(r, config, "")
+		require.NoError(t, err)
+
+		content := out.Files["skills/my-skill/SKILL.md"]
+		require.NotEmpty(t, content)
+		assert.Contains(t, content, "disable-model-invocation: true")
+	})
+
+	t.Run("false", func(t *testing.T) {
+		config := &ast.XcaffoldConfig{
+			ResourceScope: ast.ResourceScope{
+				Skills: map[string]ast.SkillConfig{
+					"my-skill": {
+						Name:                   "My Skill",
+						Description:            "A skill",
+						DisableModelInvocation: boolPtr(false),
+					},
+				},
+			},
+		}
+
+		out, _, err := renderer.Orchestrate(r, config, "")
+		require.NoError(t, err)
+
+		content := out.Files["skills/my-skill/SKILL.md"]
+		require.NotEmpty(t, content)
+		assert.Contains(t, content, "disable-model-invocation: false")
+	})
+}
+
+func TestCompile_Skill_UnsupportedFieldsFidelityNotes(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"full-skill": {
+					Name:          "Full Skill",
+					Description:   "Has many fields.",
+					WhenToUse:     "When you need to do things.",
+					AllowedTools:  ast.ClearableList{Values: []string{"Bash"}},
+					UserInvocable: boolPtr(true),
+					ArgumentHint:  "some hint",
+				},
+			},
+		},
+	}
+
+	_, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	unsupportedFields := make(map[string]bool)
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldUnsupported && n.Kind == "skill" {
+			unsupportedFields[n.Field] = true
+		}
+	}
+
+	for _, field := range []string{"when-to-use", "allowed-tools", "user-invocable", "argument-hint"} {
+		assert.True(t, unsupportedFields[field], "expected FIELD_UNSUPPORTED note for %q", field)
+	}
+	assert.Len(t, unsupportedFields, 4, "expected exactly 4 FIELD_UNSUPPORTED notes for skill")
+}
+
+func TestCompile_Skill_CCOnlyFieldsDropped_DisableModelInvocationKept(t *testing.T) {
+	r := cursor.New()
+
+	tmpDir := t.TempDir()
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "rich-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "references"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "references", "main.go"), []byte("package main"), 0o644))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"rich-skill": {
+					Name:                   "Rich Skill",
+					Description:            "Has many fields.",
+					Body:                   "Do something.",
+					AllowedTools:           ast.ClearableList{Values: []string{"Bash"}},
+					Artifacts:              []string{"references"},
+					DisableModelInvocation: boolPtr(true),
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, tmpDir)
+	require.NoError(t, err)
+
+	content := out.Files["skills/rich-skill/SKILL.md"]
+	require.NotEmpty(t, content)
+
+	// CC-only fields must NOT appear in the SKILL.md frontmatter.
+	for _, dropped := range []string{"tools:", "references:", "scripts:", "assets:"} {
+		assert.NotContains(t, content, dropped, "CC-only field %q must be dropped from frontmatter", dropped)
+	}
+
+	// disable-model-invocation IS supported by Cursor and must appear.
+	assert.Contains(t, content, "disable-model-invocation: true", "disable-model-invocation must be emitted for Cursor")
 }

@@ -258,7 +258,7 @@ type SkillConfig struct {
 	// Prevents the skill from spawning sub-agents.
 	// +xcaf:optional
 	// +xcaf:group=Permissions & Invocation
-	// +xcaf:provider=claude:optional
+	// +xcaf:provider=claude:optional,cursor:optional
 	// +xcaf:role=rendering
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
