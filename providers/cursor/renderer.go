@@ -101,6 +101,7 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	out := &output.Output{Files: make(map[string]string)}
 	caps := r.Capabilities()
+	var notes []renderer.FidelityNote
 	for id, skill := range skills {
 		md, err := compileCursorSkill(id, skill, baseDir)
 		if err != nil {
@@ -109,12 +110,14 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
+		notes = append(notes, cursorSkillFidelityNotes(id, skill)...)
+
 		skillSourceDir := filepath.Join("xcaf", "skills", id)
 		if err := compileSkillArtifacts(renderer.SkillArtifactContext{ID: id, Skill: skill, Caps: caps, BaseDir: baseDir, SkillSourceDir: skillSourceDir}, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q: %w", id, err)
 		}
 	}
-	return out.Files, nil, nil
+	return out.Files, notes, nil
 }
 
 // compileSkillArtifacts iterates ctx.Skill.Artifacts and dispatches each artifact
@@ -535,6 +538,21 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	if skill.Description != "" {
 		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(skill.Description))
 	}
+	if skill.DisableModelInvocation != nil {
+		fmt.Fprintf(&sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
+	}
+	if len(skill.Paths.Values) > 0 {
+		sb.WriteString("paths:\n")
+		for _, p := range skill.Paths.Values {
+			fmt.Fprintf(&sb, "- %s\n", renderer.YAMLScalar(p))
+		}
+	}
+	if len(skill.Metadata) > 0 {
+		sb.WriteString("metadata:\n")
+		for _, k := range renderer.SortedKeys(skill.Metadata) {
+			fmt.Fprintf(&sb, "  %s: %s\n", k, renderer.YAMLScalar(skill.Metadata[k]))
+		}
+	}
 
 	sb.WriteString("---\n")
 
@@ -545,6 +563,57 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	}
 
 	return sb.String(), nil
+}
+
+// cursorSkillFidelityNotes returns fidelity notes for Cursor-unsupported skill fields.
+func cursorSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
+	if skill.WhenToUse != "" {
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "skill",
+			Resource:   id,
+			Field:      "when-to-use",
+			Code:       renderer.CodeFieldUnsupported,
+			Reason:     fmt.Sprintf("skill %q field \"when-to-use\" has no Cursor equivalent and was dropped", id),
+			Mitigation: "Move when-to-use content into description",
+		})
+	}
+	if len(skill.AllowedTools.Values) > 0 {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "allowed-tools",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"allowed-tools\" has no Cursor skill equivalent and was dropped", id),
+		})
+	}
+	if skill.UserInvocable != nil {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "user-invocable",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"user-invocable\" has no Cursor skill equivalent and was dropped", id),
+		})
+	}
+	if skill.ArgumentHint != "" {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "argument-hint",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"argument-hint\" has no Cursor skill equivalent and was dropped", id),
+		})
+	}
+	return notes
 }
 
 // cursorMCPEntry is the Cursor-compatible MCP server entry shape.

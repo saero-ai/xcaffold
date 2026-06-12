@@ -300,7 +300,7 @@ If your agent body is growing past 20 lines, extract the repeating content into 
 | Use different model per provider | Per-target override | `targets:` |
 | Agent has large system prompt | Extract to skill | `kind: skill` + `skills:` |
 | Agent needs MCP server access | Reference or inline | `mcp:` or `mcp-servers:` |
-| Prevent spawning sub-agents | Block sub-invocation | `disable-model-invocation:` (Claude only) |
+| Prevent spawning sub-agents | Block sub-invocation | `disable-model-invocation:` (Claude and Cursor) |
 | Agent runs non-interactively | Headless mode | `background:` (Claude, Cursor) |
 | Expose agent as slash command | Slash invocation | `user-invocable:` (Claude only) |
 | Enforce compile-time constraints on agents | Governance | `kind: policy` targeting `agent` |

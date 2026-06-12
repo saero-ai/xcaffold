@@ -16,6 +16,16 @@ disable-model-invocation: false
 user-invocable: true
 argument-hint: "Provide a task description as the argument."
 
+# Group 5: Scoping
+paths:
+  - "**/*.go"
+  - "internal/**/*.go"
+
+# Group 6: Metadata
+metadata:
+  author: team-platform
+  category: development
+
 # Group 7: Composition / Supporting Files
 artifacts: [references, scripts, assets, examples]
 

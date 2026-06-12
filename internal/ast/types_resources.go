@@ -258,7 +258,7 @@ type SkillConfig struct {
 	// Prevents the skill from spawning sub-agents.
 	// +xcaf:optional
 	// +xcaf:group=Permissions & Invocation
-	// +xcaf:provider=claude:optional
+	// +xcaf:provider=claude:optional,cursor:optional
 	// +xcaf:role=rendering
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
@@ -275,6 +275,22 @@ type SkillConfig struct {
 	// +xcaf:provider=claude:optional
 	// +xcaf:role=metadata
 	ArgumentHint string `yaml:"argument-hint,omitempty"`
+
+	// Glob patterns that scope this skill to matching files.
+	// +xcaf:optional
+	// +xcaf:group=Scoping
+	// +xcaf:type=[]string
+	// +xcaf:provider=claude:optional,cursor:optional
+	// +xcaf:role=rendering
+	Paths ClearableList `yaml:"paths,omitempty"`
+
+	// Arbitrary key-value mapping for additional metadata.
+	// +xcaf:optional
+	// +xcaf:group=Metadata
+	// +xcaf:type=map[string]string
+	// +xcaf:provider=cursor:optional
+	// +xcaf:role=metadata
+	Metadata map[string]string `yaml:"metadata,omitempty"`
 
 	// Named subdirectories to copy from xcaf/skills/<id>/ to provider output.
 	// +xcaf:optional
