@@ -252,7 +252,7 @@ When `artifacts` are declared, files discovered in each artifact subdirectory ar
 
 **Output path**: `.cursor/skills/component-patterns/SKILL.md`
 
-Frontmatter emits `name`, `description`, and `disable-model-invocation`. Provider-specific fields (`when-to-use`, `license`, `user-invocable`, `argument-hint`, `allowed-tools`) are omitted with fidelity warnings. Artifact subdirectories are seeded at `.cursor/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
+Frontmatter emits `name`, `description`, `disable-model-invocation`, `paths`, and `metadata`. Provider-specific fields (`when-to-use`, `license`, `user-invocable`, `argument-hint`, `allowed-tools`) are omitted with fidelity warnings. Artifact subdirectories are seeded at `.cursor/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
 ### Copilot
 
@@ -312,6 +312,8 @@ Skill output is not uniform across providers. The table below summarises what ea
 | `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no | yes (bracket list) | no |
 | `argument-hint` | yes | no | no | no | no | yes | no |
 | `disable-model-invocation` | yes | yes | no | no | no | no | no |
+| `paths` | yes | yes | no | no | no | no | no |
+| `metadata` | no | yes | no | no | no | no | no |
 | `user-invocable` | yes | no | no | no | no | no | no |
 | Markdown body | yes | yes | yes | yes | yes | yes | yes |
 | `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` | compiled to `examples/` | yes |
