@@ -541,6 +541,18 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	if skill.DisableModelInvocation != nil {
 		fmt.Fprintf(&sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
 	}
+	if len(skill.Paths.Values) > 0 {
+		sb.WriteString("paths:\n")
+		for _, p := range skill.Paths.Values {
+			fmt.Fprintf(&sb, "- %s\n", renderer.YAMLScalar(p))
+		}
+	}
+	if len(skill.Metadata) > 0 {
+		sb.WriteString("metadata:\n")
+		for _, k := range renderer.SortedKeys(skill.Metadata) {
+			fmt.Fprintf(&sb, "  %s: %s\n", k, renderer.YAMLScalar(skill.Metadata[k]))
+		}
+	}
 
 	sb.WriteString("---\n")
 

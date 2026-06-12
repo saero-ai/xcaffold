@@ -276,6 +276,22 @@ type SkillConfig struct {
 	// +xcaf:role=metadata
 	ArgumentHint string `yaml:"argument-hint,omitempty"`
 
+	// Glob patterns that scope this skill to matching files.
+	// +xcaf:optional
+	// +xcaf:group=Scoping
+	// +xcaf:type=[]string
+	// +xcaf:provider=claude:optional,cursor:optional
+	// +xcaf:role=rendering
+	Paths ClearableList `yaml:"paths,omitempty"`
+
+	// Arbitrary key-value mapping for additional metadata.
+	// +xcaf:optional
+	// +xcaf:group=Metadata
+	// +xcaf:type=map[string]string
+	// +xcaf:provider=cursor:optional
+	// +xcaf:role=metadata
+	Metadata map[string]string `yaml:"metadata,omitempty"`
+
 	// Named subdirectories to copy from xcaf/skills/<id>/ to provider output.
 	// +xcaf:optional
 	// +xcaf:group=Composition

@@ -1516,6 +1516,85 @@ func TestSupportsGlobalScope_Cursor(t *testing.T) {
 
 func boolPtr(b bool) *bool { return &b }
 
+func TestCompile_Skill_Paths(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"path-skill": {
+					Name:        "Path Skill",
+					Description: "A skill with paths",
+					Paths:       ast.ClearableList{Values: []string{"**/*.tsx", "packages/ui/**/*.ts"}},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["skills/path-skill/SKILL.md"]
+	require.NotEmpty(t, content)
+
+	assert.Contains(t, content, "paths:")
+	assert.Contains(t, content, "**/*.tsx")
+	assert.Contains(t, content, "packages/ui/**/*.ts")
+}
+
+func TestCompile_Skill_Metadata(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"meta-skill": {
+					Name:        "Meta Skill",
+					Description: "A skill with metadata",
+					Metadata:    map[string]string{"author": "team-a", "version": "2"},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["skills/meta-skill/SKILL.md"]
+	require.NotEmpty(t, content)
+
+	assert.Contains(t, content, "metadata:")
+	assert.Contains(t, content, "author:")
+	assert.Contains(t, content, "version:")
+}
+
+func TestCompile_Skill_SupportedFieldsNoFidelityNotes(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"supported-skill": {
+					Name:                   "Supported Skill",
+					Description:            "All fields are Cursor-native",
+					Paths:                  ast.ClearableList{Values: []string{"**/*.go"}},
+					Metadata:               map[string]string{"owner": "platform"},
+					DisableModelInvocation: boolPtr(true),
+				},
+			},
+		},
+	}
+
+	_, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	for _, n := range notes {
+		if n.Kind != "skill" {
+			continue
+		}
+		for _, field := range []string{"paths", "metadata", "disable-model-invocation"} {
+			assert.NotEqual(t, field, n.Field, "supported field %q must not emit a fidelity note", field)
+		}
+	}
+}
+
 func TestCompile_Skill_DisableModelInvocation(t *testing.T) {
 	r := cursor.New()
 

@@ -584,6 +584,28 @@ func copilotSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.Fide
 			Reason:   fmt.Sprintf("skill %q field \"argument-hint\" has no Copilot skill equivalent and was dropped", id),
 		})
 	}
+	if len(skill.Paths.Values) > 0 {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "paths",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"paths\" has no Copilot skill equivalent and was dropped", id),
+		})
+	}
+	if len(skill.Metadata) > 0 {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "metadata",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"metadata\" has no Copilot skill equivalent and was dropped", id),
+		})
+	}
 	return notes
 }
 
