@@ -31,9 +31,11 @@ kinds:
     when-to-use: { support: unsupported }
     license: { support: unsupported }
     allowed-tools: { support: unsupported }
-    disable-model-invocation: { support: unsupported }
+    disable-model-invocation: { support: optional }
     user-invocable: { support: unsupported }
     argument-hint: { support: unsupported }
+    paths: { support: optional }
+    metadata: { support: optional }
     artifacts: { support: optional }
     targets: { support: unsupported }
   rule:

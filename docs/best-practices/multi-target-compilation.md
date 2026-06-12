@@ -248,7 +248,7 @@ targets:
 Follow the Red-Green-Refactor cycle.
 ```
 
-`disable-model-invocation` is a Claude-only field. Without suppression, Gemini and Copilot emit a warning. With `suppress-fidelity-warnings: true`, the warning is silenced for those targets. The field is still dropped; suppression only removes the stderr noise.
+`disable-model-invocation` is supported by Claude and Cursor. For Gemini and Copilot it is dropped with a fidelity warning. With `suppress-fidelity-warnings: true`, the warning is silenced for those targets. The field is still dropped; suppression only removes the stderr noise.
 
 ### Provider-native pass-through
 

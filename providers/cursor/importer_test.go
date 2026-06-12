@@ -160,6 +160,30 @@ func TestCursorExtract_SkillFrontmatter(t *testing.T) {
 	assert.Equal(t, "cursor", skill.SourceProvider)
 }
 
+func TestCursorExtract_SkillPaths(t *testing.T) {
+	data := []byte("---\nname: with-paths\ndescription: Skill with paths\npaths:\n  - \"**/*.tsx\"\n  - \"packages/ui/**/*.ts\"\n---\n\nThis skill applies to TypeScript files.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := cursorimp.NewImporter()
+	err := imp.Extract("skills/with-paths/SKILL.md", data, config)
+	require.NoError(t, err)
+	skill, ok := config.Skills["with-paths"]
+	require.True(t, ok, "expected skill 'with-paths' in config")
+	assert.Equal(t, ast.ClearableList{Values: []string{"**/*.tsx", "packages/ui/**/*.ts"}}, skill.Paths)
+	assert.Equal(t, "cursor", skill.SourceProvider)
+}
+
+func TestCursorExtract_SkillMetadata(t *testing.T) {
+	data := []byte("---\nname: with-metadata\ndescription: Skill with metadata\nmetadata:\n  author: team-a\n  version: \"2\"\n---\n\nThis skill has metadata.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := cursorimp.NewImporter()
+	err := imp.Extract("skills/with-metadata/SKILL.md", data, config)
+	require.NoError(t, err)
+	skill, ok := config.Skills["with-metadata"]
+	require.True(t, ok, "expected skill 'with-metadata' in config")
+	assert.Equal(t, map[string]string{"author": "team-a", "version": "2"}, skill.Metadata)
+	assert.Equal(t, "cursor", skill.SourceProvider)
+}
+
 func TestCursorExtract_AgentIsBackgroundField(t *testing.T) {
 	// Cursor renderer outputs 'is_background: true' (snake_case with 'is_' prefix)
 	data := []byte("---\nname: background-agent\nis_background: true\n---\nBackground agent body.\n")

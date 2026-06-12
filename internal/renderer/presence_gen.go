@@ -107,6 +107,12 @@ func ExtractSkillPresentFields(s ast.SkillConfig) map[string]string {
 	if s.ArgumentHint != "" {
 		m["argument-hint"] = s.ArgumentHint
 	}
+	if len(s.Paths.Values) > 0 {
+		m["paths"] = "set"
+	}
+	if len(s.Metadata) > 0 {
+		m["metadata"] = "set"
+	}
 	if len(s.Artifacts) > 0 {
 		m["artifacts"] = "set"
 	}

@@ -421,6 +421,28 @@ func geminiSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.Fidel
 			Reason:   "Gemini CLI skills do not support disable-model-invocation",
 		})
 	}
+	if len(skill.Paths.Values) > 0 {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "paths",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   "Gemini CLI skills do not support paths scoping",
+		})
+	}
+	if len(skill.Metadata) > 0 {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "metadata",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   "Gemini CLI skills do not support metadata",
+		})
+	}
 	return notes
 }
 
