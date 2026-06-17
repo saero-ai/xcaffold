@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -717,4 +718,247 @@ func hashFile(t *testing.T, path string) string {
 	}
 	h := sha256.Sum256(data)
 	return fmt.Sprintf("sha256:%x", h)
+}
+
+func TestStatus_JSON_ValidStructure(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory with matching artifact
+	claudeDir := filepath.Join(tmpDir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "reviewer.md"), content, 0644)
+
+	manifest := &state.StateManifest{
+		Blueprint: "default",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/reviewer.md", Hash: contentHashStr},
+				},
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return printStatusJSON(manifest, tmpDir, "default")
+	})
+
+	assert.NoError(t, err)
+
+	// Parse JSON to verify structure
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(out), &result)
+	assert.NoError(t, err, "output should be valid JSON")
+
+	// Check top-level fields
+	assert.Contains(t, result, "project")
+	assert.Contains(t, result, "blueprint")
+	assert.Contains(t, result, "providers")
+	assert.Contains(t, result, "sources")
+
+	// Verify providers is an array
+	providers, ok := result["providers"].([]interface{})
+	assert.True(t, ok, "providers should be an array")
+	assert.Greater(t, len(providers), 0, "providers array should not be empty")
+
+	// Verify provider entry structure
+	provider := providers[0].(map[string]interface{})
+	assert.Contains(t, provider, "name")
+	assert.Contains(t, provider, "displayLabel")
+	assert.Contains(t, provider, "fileCount")
+	assert.Contains(t, provider, "driftCount")
+}
+
+func TestStatus_JSON_EmptyState(t *testing.T) {
+	manifest := &state.StateManifest{
+		Blueprint:   "default",
+		Targets:     map[string]state.TargetState{},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return printStatusJSON(manifest, t.TempDir(), "default")
+	})
+
+	assert.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(out), &result)
+	assert.NoError(t, err)
+
+	// Verify structure even when empty
+	assert.Contains(t, result, "providers")
+	providers, ok := result["providers"].([]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, 0, len(providers))
+}
+
+func TestStatus_JSON_WithDeprecatedProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory
+	claudeDir := filepath.Join(tmpDir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "reviewer.md"), content, 0644)
+
+	manifest := &state.StateManifest{
+		Blueprint: "default",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/reviewer.md", Hash: contentHashStr},
+				},
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return printStatusJSON(manifest, tmpDir, "default")
+	})
+
+	assert.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(out), &result)
+	assert.NoError(t, err)
+
+	providers := result["providers"].([]interface{})
+	// Verify provider entry has deprecation fields
+	if len(providers) > 0 {
+		provider := providers[0].(map[string]interface{})
+		assert.Contains(t, provider, "deprecatedBy")
+		assert.Contains(t, provider, "sunsetDate")
+	}
+}
+
+func TestStatus_JSON_SourceCounts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create source files
+	xcafDir := filepath.Join(tmpDir, "xcaf")
+	os.MkdirAll(filepath.Join(xcafDir, "agents", "test"), 0755)
+	writeFile(t, filepath.Join(xcafDir, "agents", "test", "test.xcaf"), "kind: agent")
+
+	sourceContent := []byte("kind: agent")
+	sourceHash := sha256.Sum256(sourceContent)
+	sourceHashStr := fmt.Sprintf("sha256:%x", sourceHash)
+
+	manifest := &state.StateManifest{
+		Blueprint: "default",
+		SourceFiles: []state.SourceFile{
+			{Path: "xcaf/agents/test/test.xcaf", Hash: sourceHashStr},
+		},
+		Targets: map[string]state.TargetState{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return printStatusJSON(manifest, tmpDir, "default")
+	})
+
+	assert.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(out), &result)
+	assert.NoError(t, err)
+
+	sources := result["sources"].(map[string]interface{})
+	assert.Contains(t, sources, "total")
+	assert.Contains(t, sources, "changed")
+	assert.Equal(t, float64(1), sources["total"])
+}
+
+func TestStatus_TextOutput_NoJSONFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory
+	claudeDir := filepath.Join(tmpDir, ".claude")
+	agentDir := filepath.Join(claudeDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+
+	content := []byte("test content")
+	contentHash := sha256.Sum256(content)
+	contentHashStr := fmt.Sprintf("sha256:%x", contentHash)
+	os.WriteFile(filepath.Join(agentDir, "reviewer.md"), content, 0644)
+
+	manifest := &state.StateManifest{
+		Blueprint: "default",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts: []state.Artifact{
+					{Path: "agents/reviewer.md", Hash: contentHashStr},
+				},
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	// Ensure --json flag is not set
+	statusJSONFlag = false
+
+	out, err := captureStatusStdout(func() error {
+		return runStatusOverview(tmpDir, manifest, false)
+	})
+
+	assert.NoError(t, err)
+	// Text output should contain table headers, not JSON
+	assert.Contains(t, out, "PROVIDER")
+	assert.NotContains(t, out, "{")
+}
+
+func TestStatus_JSON_WithTargetFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	stateDir := filepath.Join(tmpDir, ".xcaffold")
+	os.MkdirAll(stateDir, 0755)
+
+	m := &state.StateManifest{
+		Blueprint: "default",
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts:   []state.Artifact{{Path: "agents/dev.md", Hash: "sha256:abc"}},
+			},
+			"cursor": {
+				LastApplied: time.Now().Format(time.RFC3339),
+				Artifacts:   []state.Artifact{{Path: "rules/style.md", Hash: "sha256:def"}},
+			},
+		},
+	}
+
+	state.WriteState(m, filepath.Join(stateDir, "default.xcaf.state"))
+
+	statusJSONFlag = true
+	statusTargetFlag = "claude"
+	statusBlueprintFlag = "default"
+	projectRoot = tmpDir
+
+	stdout, err := captureStatusStdout(func() error {
+		return runStatus(statusCmd, nil)
+	})
+
+	statusJSONFlag = false
+	statusTargetFlag = ""
+	statusBlueprintFlag = ""
+
+	assert.NoError(t, err)
+
+	var result statusOutputJSON
+	assert.NoError(t, json.Unmarshal([]byte(stdout), &result))
+	assert.Len(t, result.Providers, 1)
+	assert.Equal(t, "claude", result.Providers[0].Name)
 }

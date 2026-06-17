@@ -137,6 +137,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		statusBlueprintFlag = detectedBlueprint
 	}
 
+	if statusJSONFlag {
+		return printStatusJSON(manifest, dir, statusBlueprintFlag)
+	}
+
 	if statusTargetFlag != "" {
 		return runStatusTarget(dir, manifest, statusTargetFlag, statusAllFlag)
 	}
