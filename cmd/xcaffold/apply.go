@@ -412,15 +412,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Compile each target
 		homeDir := filepath.Dir(globalXcafHome)
-		for _, t := range globalTargets {
-			targetFlag = t
-			globalOutDir := filepath.Join(homeDir, compiler.OutputDir(t))
-			if err := applyScope(globalXcafPath, globalOutDir, globalXcafHome, scopeGlobal); err != nil {
-				return err
-			}
-		}
+		filesWritten := compileTargets(globalTargets, globalXcafPath, globalXcafHome, scopeGlobal, func(t string) string {
+			return filepath.Join(homeDir, compiler.OutputDir(t))
+		})
+		emitApplySummaryIfJSON(len(globalTargets), filesWritten)
 		return nil
 	}
 
@@ -447,20 +443,51 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no compilation targets configured; set targets in project.xcaf or pass --target")
 	}
 
-	for _, t := range targets {
-		targetFlag = t
-		var outDir string
+	filesWritten := compileTargets(targets, xcafPath, projectRoot, "project", func(t string) string {
 		if resolvedOutDir != "" {
-			outDir = filepath.Join(resolvedOutDir, compiler.OutputDir(t))
-		} else {
-			outDir = filepath.Join(projectRoot, compiler.OutputDir(t))
+			return filepath.Join(resolvedOutDir, compiler.OutputDir(t))
 		}
-		if err := applyScope(xcafPath, outDir, projectRoot, "project"); err != nil {
-			return err
-		}
-	}
+		return filepath.Join(projectRoot, compiler.OutputDir(t))
+	})
+	emitApplySummaryIfJSON(len(targets), filesWritten)
 	_ = registry.UpdateLastApplied(projectRoot)
 	return nil
+}
+
+func compileTargets(targets []string, configPath, baseDir, scopeName string, outDirFn func(string) string) int {
+	var total int
+	for _, t := range targets {
+		targetFlag = t
+		outDir := outDirFn(t)
+		if err := applyScope(configPath, outDir, baseDir, scopeName); err != nil {
+			continue
+		}
+		total += countFiles(outDir)
+	}
+	return total
+}
+
+func countFiles(dir string) int {
+	var n int
+	if _, err := os.Stat(dir); err == nil {
+		_ = filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				n++
+			}
+			return nil
+		})
+	}
+	return n
+}
+
+func emitApplySummaryIfJSON(providerCount, fileCount int) {
+	if applyJSON {
+		_ = emitJSONLine(summaryEvent{
+			Event:          "summary",
+			TotalProviders: providerCount,
+			TotalFiles:     fileCount,
+		})
+	}
 }
 
 // resolveTargets returns the list of compilation targets with 4-tier priority:
@@ -645,6 +672,23 @@ func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
 func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast.XcaffoldConfig, error) {
 	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag), parser.WithTarget(targetFlag))
 	if err != nil {
+		if !applyJSON {
+			fmt.Println(formatHeader(headerInfo{
+				project:     projectName,
+				blueprint:   applyBlueprintFlag,
+				isGlobal:    scopeName == scopeGlobal,
+				provider:    targetFlag,
+				lastApplied: lastApplied,
+			}))
+			fmt.Println()
+			fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
+			fmt.Println()
+			fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
+		}
+		return nil, &silentError{msg: err.Error()}
+	}
+
+	if !applyJSON {
 		fmt.Println(formatHeader(headerInfo{
 			project:     projectName,
 			blueprint:   applyBlueprintFlag,
@@ -653,20 +697,7 @@ func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast
 			lastApplied: lastApplied,
 		}))
 		fmt.Println()
-		fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
-		fmt.Println()
-		fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
-		return nil, &silentError{msg: err.Error()}
 	}
-
-	fmt.Println(formatHeader(headerInfo{
-		project:     projectName,
-		blueprint:   applyBlueprintFlag,
-		isGlobal:    scopeName == scopeGlobal,
-		provider:    targetFlag,
-		lastApplied: lastApplied,
-	}))
-	fmt.Println()
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
 		return nil, fmt.Errorf("project.xcaf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcaf", config.Version, currentSchemaVersion)
@@ -688,9 +719,30 @@ func (ctx *applyContext) completeApply() error {
 		return err
 	}
 
+	// Emit JSON provider event if enabled
+	if applyJSON {
+		var displayLabel string
+		if manifest, ok := providers.ManifestFor(targetFlag); ok {
+			displayLabel = manifest.DisplayLabel
+			if displayLabel == "" {
+				displayLabel = manifest.Name
+			}
+		}
+		evt := providerEvent{
+			Event:        "provider",
+			Provider:     targetFlag,
+			DisplayLabel: displayLabel,
+			FileCount:    filesWritten,
+			OutputDir:    ctx.outputDir,
+		}
+		_ = emitJSONLine(evt)
+	}
+
 	if applyDryRun {
 		if filesWritten == 0 && !hasChanges {
-			fmt.Printf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
+			if !applyJSON {
+				fmt.Printf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
+			}
 		}
 		return nil
 	}
@@ -699,7 +751,9 @@ func (ctx *applyContext) completeApply() error {
 		return err
 	}
 
-	printApplySummary(filesWritten, ctx.outputDir)
+	if !applyJSON {
+		printApplySummary(filesWritten, ctx.outputDir)
+	}
 	updateProjectRegistry(ctx.configPath, ctx.baseDir, ctx.projectName, ctx.config)
 
 	return nil
