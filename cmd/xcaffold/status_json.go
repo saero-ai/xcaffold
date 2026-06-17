@@ -29,10 +29,10 @@ type statusSourcesJSON struct {
 }
 
 type statusOutputJSON struct {
-	Project   string                `json:"project"`
-	Blueprint string                `json:"blueprint"`
-	Providers []statusProviderJSON  `json:"providers"`
-	Sources   statusSourcesJSON     `json:"sources"`
+	Project   string               `json:"project"`
+	Blueprint string               `json:"blueprint"`
+	Providers []statusProviderJSON `json:"providers"`
+	Sources   statusSourcesJSON    `json:"sources"`
 }
 
 func init() {

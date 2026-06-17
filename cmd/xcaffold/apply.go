@@ -412,33 +412,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Compile each target
 		homeDir := filepath.Dir(globalXcafHome)
-		var filesWrittenTotal int
-		for _, t := range globalTargets {
-			targetFlag = t
-			globalOutDir := filepath.Join(homeDir, compiler.OutputDir(t))
-			if err := applyScope(globalXcafPath, globalOutDir, globalXcafHome, scopeGlobal); err != nil {
-				return err
-			}
-			// Count files for summary
-			if _, statErr := os.Stat(globalOutDir); statErr == nil {
-				_ = filepath.Walk(globalOutDir, func(path string, info os.FileInfo, err error) error {
-					if err == nil && !info.IsDir() {
-						filesWrittenTotal++
-					}
-					return nil
-				})
-			}
-		}
-		if applyJSON {
-			evt := summaryEvent{
-				Event:          "summary",
-				TotalProviders: len(globalTargets),
-				TotalFiles:     filesWrittenTotal,
-			}
-			_ = emitJSONLine(evt)
-		}
+		filesWritten := compileTargets(globalTargets, globalXcafPath, globalXcafHome, scopeGlobal, func(t string) string {
+			return filepath.Join(homeDir, compiler.OutputDir(t))
+		})
+		emitApplySummaryIfJSON(len(globalTargets), filesWritten)
 		return nil
 	}
 
@@ -465,38 +443,51 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no compilation targets configured; set targets in project.xcaf or pass --target")
 	}
 
-	var filesWrittenTotal int
-	for _, t := range targets {
-		targetFlag = t
-		var outDir string
+	filesWritten := compileTargets(targets, xcafPath, projectRoot, "project", func(t string) string {
 		if resolvedOutDir != "" {
-			outDir = filepath.Join(resolvedOutDir, compiler.OutputDir(t))
-		} else {
-			outDir = filepath.Join(projectRoot, compiler.OutputDir(t))
+			return filepath.Join(resolvedOutDir, compiler.OutputDir(t))
 		}
-		if err := applyScope(xcafPath, outDir, projectRoot, "project"); err != nil {
-			return err
-		}
-		// Count files for summary
-		if _, statErr := os.Stat(outDir); statErr == nil {
-			_ = filepath.Walk(outDir, func(path string, info os.FileInfo, err error) error {
-				if err == nil && !info.IsDir() {
-					filesWrittenTotal++
-				}
-				return nil
-			})
-		}
-	}
-	if applyJSON {
-		evt := summaryEvent{
-			Event:          "summary",
-			TotalProviders: len(targets),
-			TotalFiles:     filesWrittenTotal,
-		}
-		_ = emitJSONLine(evt)
-	}
+		return filepath.Join(projectRoot, compiler.OutputDir(t))
+	})
+	emitApplySummaryIfJSON(len(targets), filesWritten)
 	_ = registry.UpdateLastApplied(projectRoot)
 	return nil
+}
+
+func compileTargets(targets []string, configPath, baseDir, scopeName string, outDirFn func(string) string) int {
+	var total int
+	for _, t := range targets {
+		targetFlag = t
+		outDir := outDirFn(t)
+		if err := applyScope(configPath, outDir, baseDir, scopeName); err != nil {
+			continue
+		}
+		total += countFiles(outDir)
+	}
+	return total
+}
+
+func countFiles(dir string) int {
+	var n int
+	if _, err := os.Stat(dir); err == nil {
+		_ = filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				n++
+			}
+			return nil
+		})
+	}
+	return n
+}
+
+func emitApplySummaryIfJSON(providerCount, fileCount int) {
+	if applyJSON {
+		_ = emitJSONLine(summaryEvent{
+			Event:          "summary",
+			TotalProviders: providerCount,
+			TotalFiles:     fileCount,
+		})
+	}
 }
 
 // resolveTargets returns the list of compilation targets with 4-tier priority:
