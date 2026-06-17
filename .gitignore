@@ -38,3 +38,4 @@ scaffold.lock
 .DS_Store
 .worktrees/
 .saero
+cmd/xcaffold/xcaf/

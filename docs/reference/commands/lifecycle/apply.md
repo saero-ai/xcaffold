@@ -24,6 +24,7 @@ xcaffold apply [flags]
 | `--dry-run` | — | `bool` | `false` | Preview changes without writing to disk. Shows a diff of what would change. |
 | `--force` | — | `bool` | `false` | Overwrite output files even when drift is detected. |
 | `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/xcaf/global.xcaf`). |
+| `--json` | — | `bool` | `false` | Output compilation events as NDJSON (one JSON line per event). See [JSON output](#json-output) below. |
 | `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
@@ -65,6 +66,61 @@ Provider files write to `<output-dir>/.claude/`, root files to `<output-dir>/CLA
 Relative paths resolve from the current working directory. Absolute paths are used as-is. The directory is created if it doesn't exist.
 
 `--output-dir` cannot be used with `--global`.
+
+## JSON output
+
+`xcaffold apply --json` emits compilation progress as NDJSON (newline-delimited JSON) — one JSON object per line. This is designed for CI pipelines, build tools, and any automation that needs to consume apply results programmatically.
+
+Two event types are emitted:
+
+### `provider` event
+
+Emitted once per compiled target. Fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | `string` | Always `"provider"`. |
+| `provider` | `string` | Provider identifier (e.g., `claude`, `cursor`). |
+| `displayLabel` | `string` | Human-readable name (e.g., `Claude Code`). Omitted when same as `provider`. |
+| `fileCount` | `int` | Number of files written for this provider. |
+| `outputDir` | `string` | Output directory where files were written. |
+
+### `summary` event
+
+Emitted as the final line after all providers are compiled. Fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | `string` | Always `"summary"`. |
+| `totalProviders` | `int` | Number of providers compiled. |
+| `totalFiles` | `int` | Total files written across all providers. |
+| `duration` | `string` | Wall-clock compilation time (e.g., `"1.23s"`). |
+
+`--json` is compatible with `--target`, `--dry-run`, `--force`, and all other apply flags. When `--json` is set, human-readable output (tables, color, confirmation prompts) is suppressed. Use `--yes` alongside `--json` in CI to skip the confirmation prompt.
+
+```bash
+# NDJSON output for all targets
+xcaffold apply --json --yes
+
+# Single target
+xcaffold apply --json --target claude --yes
+
+# Dry run
+xcaffold apply --json --dry-run
+
+# Pipe to jq for filtering
+xcaffold apply --json --yes 2>/dev/null | jq 'select(.event=="summary")'
+```
+
+Example output:
+
+```
+{"event":"provider","provider":"claude","displayLabel":"Claude Code","fileCount":90,"outputDir":".claude"}
+{"event":"provider","provider":"cursor","displayLabel":"Cursor","fileCount":54,"outputDir":".cursor"}
+{"event":"summary","totalProviders":2,"totalFiles":144,"duration":"1.23s"}
+```
+
+Each line is a self-contained JSON object. Errors and warnings are written to stderr, keeping stdout clean for JSON parsing.
 
 ## Exit codes
 
@@ -134,6 +190,16 @@ xcaffold apply --force
 **Back up the output directory before writing:**
 ```bash
 xcaffold apply --backup
+```
+
+**Output compilation events as NDJSON:**
+```bash
+xcaffold apply --json --yes
+```
+
+**NDJSON output for a single target:**
+```bash
+xcaffold apply --json --target claude --yes
 ```
 
 ## Notes
