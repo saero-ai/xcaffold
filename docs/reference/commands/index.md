@@ -79,6 +79,8 @@ xcaffold apply --target cursor
 xcaffold apply --dry-run
 xcaffold apply --force --yes
 xcaffold apply --blueprint staging
+xcaffold apply --json --yes
+xcaffold apply --json --target claude --yes
 
 # Import provider config
 xcaffold import
@@ -97,6 +99,8 @@ xcaffold validate --var-file ./custom.vars
 xcaffold status
 xcaffold status --target claude
 xcaffold status --target claude --all
+xcaffold status --json
+xcaffold status --json --target claude
 
 # List resources
 xcaffold list

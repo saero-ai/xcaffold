@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,6 +110,10 @@ targets: [claude]
 `
 
 func TestApplyScope_Project(t *testing.T) {
+	oldTargetFlag := targetFlag
+	targetFlag = "claude"
+	defer func() { targetFlag = oldTargetFlag }()
+
 	dir := t.TempDir()
 	xcaf := filepath.Join(dir, "project.xcaf")
 	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
@@ -1503,4 +1508,229 @@ version: "1.0"
 	err := runApply(applyCmd, []string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not support global")
+}
+
+// TestApply_JSON_EmitsProviderEventPerTarget verifies that apply --json
+// outputs one NDJSON provider event per compiled target.
+func TestApply_JSON_EmitsProviderEventPerTarget(t *testing.T) {
+	dir := t.TempDir()
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	// Enable JSON output
+	applyJSON = true
+	applyForce = true
+	xcafPath = xcaf
+	projectRoot = dir
+	globalFlag = false
+	defer func() {
+		applyJSON = false
+		applyForce = false
+		jsonOutputWriter = os.Stdout
+	}()
+
+	// Capture output
+	var output strings.Builder
+	jsonOutputWriter = &output
+
+	err := runApply(nil, nil)
+	require.NoError(t, err)
+
+	// Parse NDJSON output
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	require.Greater(t, len(lines), 0, "JSON output should not be empty")
+
+	// Find provider event
+	var events []map[string]interface{}
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var evt map[string]interface{}
+		require.NoError(t, unmarshalJSONLine(line, &evt), "each line should be valid JSON")
+		events = append(events, evt)
+	}
+
+	require.Greater(t, len(events), 0, "should have at least one event")
+	// First event should be provider
+	var foundProvider bool
+	for _, e := range events {
+		if e["event"] == "provider" {
+			assert.Equal(t, testTarget, e["provider"], "provider field should match target")
+			foundProvider = true
+			break
+		}
+	}
+	assert.True(t, foundProvider, "should have at least one provider event")
+}
+
+// TestApply_JSON_IncludesSummaryEvent verifies that the final NDJSON line
+// is a summary event with totals.
+func TestApply_JSON_IncludesSummaryEvent(t *testing.T) {
+	dir := t.TempDir()
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	applyJSON = true
+	applyForce = true
+	xcafPath = xcaf
+	projectRoot = dir
+	globalFlag = false
+	defer func() {
+		applyJSON = false
+		applyForce = false
+		jsonOutputWriter = os.Stdout
+	}()
+
+	var output strings.Builder
+	jsonOutputWriter = &output
+
+	err := runApply(nil, nil)
+	require.NoError(t, err)
+
+	// Parse NDJSON
+	outputStr := output.String()
+	t.Logf("JSON output: %q", outputStr)
+	lines := strings.Split(strings.TrimSpace(outputStr), "\n")
+	var events []map[string]interface{}
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var evt map[string]interface{}
+		require.NoError(t, unmarshalJSONLine(line, &evt))
+		events = append(events, evt)
+	}
+
+	t.Logf("Found %d events", len(events))
+	require.Greater(t, len(events), 0, "should have at least one event")
+
+	// Last event should be summary
+	summaryEvent := events[len(events)-1]
+	assert.Equal(t, "summary", summaryEvent["event"], "last event should be 'summary' type")
+
+	// Summary must have totalProviders and totalFiles
+	_, hasProviders := summaryEvent["totalProviders"]
+	_, hasFiles := summaryEvent["totalFiles"]
+	assert.True(t, hasProviders, "summary must include totalProviders")
+	assert.True(t, hasFiles, "summary must include totalFiles")
+}
+
+// TestApply_JSON_WithDryRun verifies that apply --json --dry-run produces events.
+func TestApply_JSON_WithDryRun(t *testing.T) {
+	dir := t.TempDir()
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	claudeDirPath := filepath.Join(dir, ".claude")
+
+	applyJSON = true
+	applyDryRun = true
+	targetFlag = testTarget
+	defer func() {
+		applyJSON = false
+		applyDryRun = false
+		targetFlag = ""
+		jsonOutputWriter = os.Stdout
+	}()
+
+	var output strings.Builder
+	jsonOutputWriter = &output
+
+	err := applyScope(xcaf, claudeDirPath, dir, "project")
+	require.NoError(t, err)
+
+	// Verify at least one event was emitted
+	outStr := output.String()
+	assert.NotEmpty(t, outStr, "JSON output should not be empty in dry-run mode")
+
+	lines := strings.Split(strings.TrimSpace(outStr), "\n")
+	var events []map[string]interface{}
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var evt map[string]interface{}
+		require.NoError(t, unmarshalJSONLine(line, &evt))
+		events = append(events, evt)
+	}
+
+	require.Greater(t, len(events), 0, "dry-run should emit events")
+}
+
+// TestApply_JSON_WithTargetFlag verifies that apply --json --target works.
+func TestApply_JSON_WithTargetFlag(t *testing.T) {
+	dir := t.TempDir()
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	claudeDirPath := filepath.Join(dir, ".claude")
+
+	applyJSON = true
+	targetFlag = testTarget
+	applyForce = true
+	defer func() {
+		applyJSON = false
+		applyForce = false
+		targetFlag = ""
+		jsonOutputWriter = os.Stdout
+	}()
+
+	var output strings.Builder
+	jsonOutputWriter = &output
+
+	err := applyScope(xcaf, claudeDirPath, dir, "project")
+	require.NoError(t, err)
+
+	outStr := output.String()
+	assert.NotEmpty(t, outStr, "should produce JSON output with --target flag")
+
+	// Verify events contain the target
+	lines := strings.Split(strings.TrimSpace(outStr), "\n")
+	var foundProvider bool
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var evt map[string]interface{}
+		require.NoError(t, unmarshalJSONLine(line, &evt))
+		if evt["event"] == "provider" && evt["provider"] == testTarget {
+			foundProvider = true
+			break
+		}
+	}
+	assert.True(t, foundProvider, "should have provider event matching target")
+}
+
+// TestApply_NoJSON_TextOutputUnchanged verifies that without --json flag,
+// no JSON events are emitted (regression test).
+func TestApply_NoJSON_TextOutputUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
+
+	applyJSON = false
+	applyForce = true
+	xcafPath = xcaf
+	projectRoot = dir
+	globalFlag = false
+	defer func() {
+		applyForce = false
+		jsonOutputWriter = os.Stdout
+	}()
+
+	var output strings.Builder
+	jsonOutputWriter = &output
+
+	err := runApply(nil, nil)
+	require.NoError(t, err)
+
+	// When JSON is disabled, jsonOutputWriter should be empty (no JSON events)
+	outStr := output.String()
+	assert.Empty(t, outStr, "should not emit JSON events when applyJSON is disabled")
+}
+
+// unmarshalJSONLine is a helper to parse a single JSON line.
+func unmarshalJSONLine(line string, v interface{}) error {
+	return json.Unmarshal([]byte(line), v)
 }

@@ -26,6 +26,7 @@ xcaffold status [flags]
 | `--all` | — | `bool` | `false` | Show all tracked files grouped by subdirectory. Works with or without `--target` (default: drifted files only). |
 | `--blueprint <name>` | — | `string` | `""` | Read state from the named blueprint's state file. Mutually exclusive with `--global`. |
 | `--global` | `-g` | `bool` | `false` | Read from the global config state (`~/.xcaffold/xcaf/global.xcaf`). Mutually exclusive with `--blueprint`. |
+| `--json` | — | `bool` | `false` | Output status as a single JSON object. See [JSON output](#json-output) below. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--output-dir <path>` | — | `string` | `""` | Override output directory for drift detection. When omitted, reads the stored output directory from the state manifest. |
 | `--target <name>` | — | `string` | `""` | Focus drift inspection on a single provider (e.g., `claude`, `cursor`, `gemini`). |
@@ -79,6 +80,88 @@ Use `--output-dir` on status to override the stored path (e.g., to check drift a
 | `source changed` | A `.xcaf` source file changed since the last `apply`. Output is stale. |
 | `source removed` | A `.xcaf` file tracked at last apply no longer exists on disk. |
 | `new source` | A `.xcaf` file exists on disk that was not present at the last apply. |
+
+## JSON output
+
+`xcaffold status --json` prints a single JSON object to stdout containing the full project status. This is useful for CI pipelines, scripting, and tool integration.
+
+The output includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `project` | `string` | Project name (derived from the directory name). |
+| `blueprint` | `string` | Blueprint name, if `--blueprint` was used. Empty string otherwise. |
+| `providers` | `array` | One entry per compiled provider (filtered by `--target` when set). |
+| `sources` | `object` | Source file summary with `total` and `changed` counts. |
+
+Each entry in `providers` contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Provider identifier (e.g., `claude`, `cursor`). |
+| `displayLabel` | `string` | Human-readable name (e.g., `Claude Code`). |
+| `status` | `string` | Provider status: `active` or `deprecated`. |
+| `deprecatedBy` | `string` | Replacement provider name, if deprecated. Empty otherwise. |
+| `sunsetDate` | `string` | Planned removal date, if deprecated. Empty otherwise. |
+| `fileCount` | `int` | Total tracked artifact files for this provider. |
+| `driftCount` | `int` | Number of files with detected drift (modified or missing). |
+| `outputDir` | `string` | Output directory where artifacts are written. |
+| `lastApplied` | `string` | Timestamp of the last successful apply. |
+
+`--json` is compatible with `--target` (filter to a single provider) and `--blueprint` (read a specific blueprint's state).
+
+When `--json` is set, all human-readable formatting (tables, color, glyphs) is suppressed. Exit codes remain the same.
+
+```bash
+# Full project status as JSON
+xcaffold status --json
+
+# Single provider
+xcaffold status --json --target claude
+
+# Specific blueprint
+xcaffold status --json --blueprint backend
+
+# Pipe to jq for filtering
+xcaffold status --json | jq '.providers[] | select(.driftCount > 0)'
+```
+
+Example output:
+
+```json
+{
+  "project": "myproject",
+  "blueprint": "",
+  "providers": [
+    {
+      "name": "claude",
+      "displayLabel": "Claude Code",
+      "status": "active",
+      "deprecatedBy": "",
+      "sunsetDate": "",
+      "fileCount": 90,
+      "driftCount": 0,
+      "outputDir": ".claude",
+      "lastApplied": "2026-06-17T10:30:00Z"
+    },
+    {
+      "name": "cursor",
+      "displayLabel": "Cursor",
+      "status": "active",
+      "deprecatedBy": "",
+      "sunsetDate": "",
+      "fileCount": 54,
+      "driftCount": 1,
+      "outputDir": ".cursor",
+      "lastApplied": "2026-06-17T10:30:00Z"
+    }
+  ],
+  "sources": {
+    "total": 52,
+    "changed": 0
+  }
+}
+```
 
 ## Exit codes
 
@@ -264,6 +347,16 @@ xcaffold status
 **Check status for a specific blueprint by name:**
 ```bash
 xcaffold status --blueprint backend
+```
+
+**Output status as JSON for scripting:**
+```bash
+xcaffold status --json
+```
+
+**Check a specific provider as JSON:**
+```bash
+xcaffold status --json --target claude
 ```
 
 **Disable color output (useful in CI):**
