@@ -206,7 +206,7 @@ func showApplyPreview(oldManifest *state.StateManifest, out *output.Output, outp
 	totalChanges := newC + changedC + orphanCount
 
 	if totalChanges == 0 {
-		fmt.Printf("\n  %s  No changes. Current files are up to date.\n", colorGreen(glyphOK()))
+		applyInfoPrintf("\n  %s  No changes. Current files are up to date.\n", colorGreen(glyphOK()))
 		return true, nil // Return true to allow state file to be written
 	}
 
@@ -312,6 +312,7 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().BoolVarP(&applyYes, "yes", "y", false, "Skip confirmation prompt (CI/CD mode)")
+	applyCmd.Flags().BoolVar(&quietFlag, "quiet", false, "Suppress informational output")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
 	applyCmd.Flags().StringVar(&targetFlag, "target", "", fmt.Sprintf("compilation target platform (%s)", strings.Join(providers.PrimaryNames(), ", ")))
@@ -560,8 +561,8 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	printTargetsWarning(config)
 
 	if applyDryRun {
-		fmt.Println("  Dry-run preview:")
-		fmt.Println()
+		applyInfoPrintln("  Dry-run preview:")
+		applyInfoPrintln()
 	}
 
 	previewBaseDir := baseDir
@@ -572,7 +573,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println()
+	applyInfoPrintln()
 
 	if promptDenied {
 		return nil
@@ -639,7 +640,7 @@ func compileApplyPhase(config *ast.XcaffoldConfig, baseDir string) (*output.Outp
 		varFile:   varFileFlag,
 	})
 	if err != nil {
-		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
+		fmt.Fprintf(os.Stderr, "  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
 		return nil, &silentError{msg: err.Error()}
 	}
 
@@ -672,31 +673,34 @@ func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
 func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast.XcaffoldConfig, error) {
 	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag), parser.WithTarget(targetFlag))
 	if err != nil {
-		if !applyJSON {
-			fmt.Println(formatHeader(headerInfo{
+		if quietFlag {
+			fmt.Fprintf(os.Stderr, "  %s  %v\n", colorRed(glyphErr()), err)
+			fmt.Fprintf(os.Stderr, "%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
+		} else if !applyJSON {
+			applyInfoPrintln(formatHeader(headerInfo{
 				project:     projectName,
 				blueprint:   applyBlueprintFlag,
 				isGlobal:    scopeName == scopeGlobal,
 				provider:    targetFlag,
 				lastApplied: lastApplied,
 			}))
-			fmt.Println()
-			fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
-			fmt.Println()
-			fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
+			applyInfoPrintln()
+			applyInfoPrintf("  %s  %v\n", colorRed(glyphErr()), err)
+			applyInfoPrintln()
+			applyInfoPrintf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
 		}
 		return nil, &silentError{msg: err.Error()}
 	}
 
 	if !applyJSON {
-		fmt.Println(formatHeader(headerInfo{
+		applyInfoPrintln(formatHeader(headerInfo{
 			project:     projectName,
 			blueprint:   applyBlueprintFlag,
 			isGlobal:    scopeName == scopeGlobal,
 			provider:    targetFlag,
 			lastApplied: lastApplied,
 		}))
-		fmt.Println()
+		applyInfoPrintln()
 	}
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
@@ -741,7 +745,7 @@ func (ctx *applyContext) completeApply() error {
 	if applyDryRun {
 		if filesWritten == 0 && !hasChanges {
 			if !applyJSON {
-				fmt.Printf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
+				applyInfoPrintf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
 			}
 		}
 		return nil
@@ -771,11 +775,11 @@ func performApplyBackup(config *ast.XcaffoldConfig, outputDir, scopeName string)
 // printSmartSkipMessage outputs the smart skip message.
 func printSmartSkipMessage() {
 	if applyDryRun {
-		fmt.Printf("  %s  All providers in sync. Nothing to compile.\n", colorGreen(glyphOK()))
+		applyInfoPrintf("  %s  All providers in sync. Nothing to compile.\n", colorGreen(glyphOK()))
 	} else {
-		fmt.Printf("  %s  All providers in sync. Nothing to compile.\n", colorGreen(glyphOK()))
-		fmt.Println()
-		fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
+		applyInfoPrintf("  %s  All providers in sync. Nothing to compile.\n", colorGreen(glyphOK()))
+		applyInfoPrintln()
+		applyInfoPrintf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
 	}
 }
 
@@ -825,16 +829,16 @@ func getUserApplyConfirmation(oldManifest *state.StateManifest, out *output.Outp
 
 // printApplySummary outputs the apply completion summary showing the resolved output directory.
 func printApplySummary(filesWritten int, outputDir string) {
-	fmt.Println()
+	applyInfoPrintln()
 	// Compute relative path from cwd for display
 	cwd, _ := os.Getwd()
 	displayPath := outputDir
 	if rel, err := filepath.Rel(cwd, outputDir); err == nil && !filepath.IsAbs(rel) && rel != "." {
 		displayPath = rel
 	}
-	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
+	applyInfoPrintf("%s  Apply complete. %d %s written to %s/\n",
 		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), displayPath)
-	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcaf sources.\n")
+	applyInfoPrintf("  Run 'xcaffold import' to sync manual edits back to .xcaf sources.\n")
 }
 
 // updateProjectRegistry registers or updates the project in the registry.

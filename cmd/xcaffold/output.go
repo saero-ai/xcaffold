@@ -136,3 +136,19 @@ func plural(n int, sing, plur string) string {
 	}
 	return plur
 }
+
+// applyInfoPrintf prints formatted informational apply output to stdout unless --quiet is set.
+func applyInfoPrintf(format string, args ...any) {
+	if quietFlag {
+		return
+	}
+	fmt.Printf(format, args...)
+}
+
+// applyInfoPrintln prints informational apply output to stdout unless --quiet is set.
+func applyInfoPrintln(args ...any) {
+	if quietFlag {
+		return
+	}
+	fmt.Println(args...)
+}
