@@ -377,8 +377,8 @@ When `path` is set, xcaffold renders the context to a subdirectory instead of th
 
 | Resource | Path | Compiled location |
 |----------|------|-------------------|
-| `kind: context` `backend` with `path: backend` | `backend/` | `backend/CLAUDE.md` (Claude), `backend/CURSOR.md` (Cursor) |
-| `kind: context` `frontend` with `path: frontend` | `frontend/` | `frontend/CLAUDE.md`, `frontend/CURSOR.md` |
+| `kind: context` `backend` with `path: backend` | `backend/` | `backend/CLAUDE.md` (Claude), `backend/AGENTS.md` (Cursor) |
+| `kind: context` `frontend` with `path: frontend` | `frontend/` | `frontend/CLAUDE.md`, `frontend/AGENTS.md` |
 | `kind: context` `infra` with `path: infra` | `infra/` | `infra/CLAUDE.md` |
 
 Each subsystem gets its own workspace context that agents load when working in that directory. When `xcaffold import` discovers existing `.CLAUDE.md` files in subdirectories, it automatically populates the `path:` field, enabling round-trip import of nested structures.

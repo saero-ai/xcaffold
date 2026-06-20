@@ -125,10 +125,10 @@ Both compile successfully because they target different paths.
 |---|---|---|
 | Claude Code | `✓` Yes | `{path}/CLAUDE.md` |
 | Cursor | `✓` Yes | `{path}/AGENTS.md` |
-| Gemini CLI | ✗ No | Consolidates at `GEMINI.md` (path ignored) |
+| Gemini CLI | `✓` Yes | `{path}/GEMINI.md` |
 | GitHub Copilot | `✓` Yes (via glob) | `.github/instructions/{name}.instructions.md` with `applyTo: {path}/**` glob |
-| Antigravity v1 | ✗ No | Consolidates at `GEMINI.md` (path ignored) |
-| Antigravity 2 | ✗ No | Consolidates at `GEMINI.md` (path ignored) |
+| Antigravity v1 | ✗ No | Deprecated provider; consolidates at `GEMINI.md` |
+| Antigravity 2 | `✓` Yes | `{path}/GEMINI.md` |
 | Codex | ✗ No | Consolidates at `AGENTS.md` (path ignored) |
 
 Gemini CLI and Antigravity targets consolidate all contexts at the project root regardless of the `path:` field — they do not support nested instructions.
