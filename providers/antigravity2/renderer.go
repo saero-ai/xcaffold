@@ -255,12 +255,17 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 }
 
 // CompileProjectInstructions renders the project-level instructions into
-// GEMINI.md (root file).
+// GEMINI.md at the repository root and into <path>/GEMINI.md for each
+// context with a non-empty Path field.
 func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	rootFiles := make(map[string]string)
-	rootContent := renderer.ResolveContextBody(config, targetName)
-	if rootContent != "" {
-		rootFiles[ProjectContextFile] = rootContent
+	bodies := renderer.ResolveContextBodies(config, targetName)
+	for path, content := range bodies {
+		if path == "" {
+			rootFiles[ProjectContextFile] = content
+		} else {
+			rootFiles[filepath.Join(path, ProjectContextFile)] = content
+		}
 	}
 	return nil, rootFiles, nil, nil
 }
