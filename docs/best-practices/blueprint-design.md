@@ -148,6 +148,68 @@ Focus on React component composition and accessibility.
 Use the browser-tools MCP server for visual testing.
 ```
 
+### Selecting Path-Bearing Contexts
+
+When contexts declare a `path:` field, they compile to subdirectories instead of the project root. Blueprints can explicitly select which path-bearing contexts to include using the `contexts:` list:
+
+```yaml
+# xcaf/contexts/shared.xcaf — root context
+---
+kind: context
+version: "1.0"
+name: shared
+default: true
+targets: [claude]
+---
+All services use Postgres and Redis. Run integration tests with `make test`.
+
+# xcaf/contexts/api.xcaf — scoped to services/api/
+---
+kind: context
+version: "1.0"
+name: api-service
+targets: [claude]
+path: "services/api/"
+---
+This service handles REST API requests. Follow the GraphQL spec for response envelopes.
+
+# xcaf/contexts/auth.xcaf — scoped to services/auth/
+---
+kind: context
+version: "1.0"
+name: auth-service
+targets: [claude]
+path: "services/auth/"
+---
+This service manages JWT tokens and RBAC policies. Never log secrets.
+
+# xcaf/blueprints/api.xcaf — API developer blueprint
+kind: blueprint
+version: "1.0"
+name: api-dev
+agents:
+  - api-developer
+contexts:
+  - shared
+  - api-service
+
+# xcaf/blueprints/auth.xcaf — Auth developer blueprint
+kind: blueprint
+version: "1.0"
+name: auth-dev
+agents:
+  - auth-developer
+contexts:
+  - shared
+  - auth-service
+```
+
+Running `xcaffold apply --blueprint api-dev` compiles:
+- `CLAUDE.md` with the `shared` context (no path)
+- `services/api/CLAUDE.md` with the `api-service` context (path = "services/api/")
+
+The auth developer blueprint similarly produces scoped instructions for their service.
+
 ### How contexts resolve
 
 - **Context composition:** if multiple context files match the same target, all bodies are composed (joined with `\n\n`). The one marked `default: true` is placed first; remaining contexts follow in sorted name order. If none is marked as default and multiple match, the compiler returns an error. See the [context reference — Default Resolution](../reference/kinds/provider/context.md#default-resolution) for the full resolution table.

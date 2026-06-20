@@ -23,6 +23,7 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 | **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ | `.agents/mcp_config.json` ⁷ | `config.toml` |
 | **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | *N/A* | *N/A* | *Not supported* |
 | **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `GEMINI.md` | `.github/copilot-instructions.md` | `GEMINI.md` | `GEMINI.md` | `AGENTS.md` (nested) |
+| **Nested Context Support** | `✓` Yes `{path}/CLAUDE.md` | `✓` Yes `{path}/AGENTS.md` | ✗ No (consolidates to root) | `✓` Yes (glob-based) | ✗ No (consolidates to root) | ✗ No (consolidates to root) | ✗ No (consolidates to root) |
 | **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported | `knowledge/*.md` | *Not supported* |
 
 ---
@@ -40,6 +41,8 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 ⁵ **Codex rules** — Codex uses Starlark `.rules` files, a fundamentally different paradigm that cannot be compiled from `.xcaf` rule declarations. A `RENDERER_KIND_UNSUPPORTED` fidelity note is emitted.
 
 ⁶ **Antigravity 2 agents** are compiled to `agents/<name>/agent.json` — one directory per agent. See [Antigravity 2.0 Runtime Behavior](#antigravity-20-runtime-behavior) for known discovery limitations.
+
+⁹ **GitHub Copilot nested contexts** — When a context has `path: "services/api/"`, Copilot's renderer creates `.github/instructions/{context-name}.instructions.md` with an `applyTo:` field set to the glob pattern `services/api/**`. This allows Copilot to load context-specific instructions only when the user edits files matching that pattern. Gemini CLI and Antigravity targets do not support this per-path scoping — they consolidate all contexts at the project root regardless of the `path:` field.
 
 ⁷ **Antigravity 2 MCP** — Unlike v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration at `.agents/mcp_config.json`.
 
