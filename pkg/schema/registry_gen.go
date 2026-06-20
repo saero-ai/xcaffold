@@ -632,6 +632,15 @@ func init() {
 				Description: "Restricts this context to specific provider targets.",
 				Group:       "Targeting",
 			},
+			{
+				Name:        "Path",
+				YAMLKey:     "path",
+				GoType:      "string",
+				XCAFType:    "string",
+				Optional:    true,
+				Description: "Relative subdirectory for the rendered instruction file.",
+				Group:       "Targeting",
+			},
 		},
 	}
 	Registry["hooks"] = KindSchema{

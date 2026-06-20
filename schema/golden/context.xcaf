@@ -9,6 +9,9 @@ default: false
 
 # Group: Targeting — omit to compile for all providers
 targets: [claude, gemini, antigravity, antigravity2, cursor, copilot]
+
+# Group: Targeting — optional subdirectory for the rendered instruction file
+path: "contexts/backend"
 ---
 # Golden Context
 

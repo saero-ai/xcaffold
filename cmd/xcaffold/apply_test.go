@@ -1244,14 +1244,14 @@ func TestCountOrphansFromState(t *testing.T) {
 	outFiles := map[string]string{
 		"agents/new.md": "content",
 	}
-	count := countOrphansFromState(oldManifest, "claude", outFiles)
+	count := countOrphansFromState(oldManifest, "claude", outFiles, nil)
 	assert.Equal(t, 2, count)
 }
 
 // TestCountOrphansFromState_NoOldState verifies that nil state returns 0 orphans.
 func TestCountOrphansFromState_NoOldState(t *testing.T) {
 	outFiles := map[string]string{"agents/new.md": "content"}
-	count := countOrphansFromState(nil, "claude", outFiles)
+	count := countOrphansFromState(nil, "claude", outFiles, nil)
 	assert.Equal(t, 0, count)
 }
 

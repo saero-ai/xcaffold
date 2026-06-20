@@ -56,6 +56,12 @@ Each renderer is an independent implementation of the `TargetRenderer` interface
 
 The `gemini` target writes project-level instructions to `GEMINI.md` at the repository root, using Gemini's native `@`-import syntax to reference rule files stored under `.gemini/rules/`. Agent system prompts are written to `.gemini/agents/<id>.md` with YAML frontmatter. Hooks and MCP servers are serialized to `.gemini/settings.json`.
 
+## Path-Scoped Rendering for Nested Contexts
+
+Contexts can declare an optional `path` field to render to a subdirectory instead of the project root. This enables monorepos and multi-subsystem projects to have separate workspace instructions per directory without duplicating configuration.
+
+When `path: backend` is set on a context resource, the rendered output file (e.g., `CLAUDE.md`) is written to `backend/CLAUDE.md` instead of the repository root. Import similarly discovers nested context files and populates the `path` field automatically. The uniqueness validation for contexts now operates per `(target, path)` pair — the same context name can appear with different paths for different subsystems (e.g., both `internal/context.xcaf` with `path: internal` and `backend/context.xcaf` with `path: backend` compiling the context `root` with different paths per subsystem).
+
 ## Target-Determined Output Directories
 
 No output directory is assumed at the time the `.xcaf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called:

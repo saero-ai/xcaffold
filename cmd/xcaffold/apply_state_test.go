@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,6 +63,114 @@ func TestHasDriftFromState_NilState(t *testing.T) {
 // This is the end-to-end regression test for the bug where blueprint applies
 // wrote an empty body (rendering no root file), and subsequent applies would
 // then purge a previously-written CLAUDE.md as an orphan.
+// ── cleanOrphans root-file boundary ───────────────────────────────────────────
+
+// TestCleanOrphans_RootFileOrphan_UsesBaseDirBoundary verifies that when a
+// root: prefixed orphan is deleted, cleanEmptyDirsUpToTarget is called with
+// ctx.baseDir as the boundary, not ctx.outputDir. This prevents cleanOrphans
+// from attempting to remove directories outside the output dir when cleaning
+// up root-scoped artifacts such as CLAUDE.md.
+func TestCleanOrphans_RootFileOrphan_UsesBaseDirBoundary(t *testing.T) {
+	base := t.TempDir()
+	outputDir := filepath.Join(base, ".claude")
+	require.NoError(t, os.MkdirAll(outputDir, 0755))
+
+	// Place an orphan root file in a subdirectory under baseDir (not outputDir).
+	// If cleanEmptyDirsUpToTarget used outputDir as boundary, it would attempt
+	// to walk above the subdir into baseDir and could wrongly delete directories.
+	subDir := filepath.Join(base, "docs", "generated")
+	require.NoError(t, os.MkdirAll(subDir, 0755))
+	orphanFile := filepath.Join(subDir, "context.md")
+	require.NoError(t, os.WriteFile(orphanFile, []byte("old content"), 0644))
+
+	oldManifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{Path: "root:docs/generated/context.md"},
+				},
+			},
+		},
+	}
+
+	oldTarget := targetFlag
+	targetFlag = "claude"
+	defer func() { targetFlag = oldTarget }()
+
+	ctx := &applyContext{
+		oldManifest: oldManifest,
+		out:         &output.Output{Files: map[string]string{}, RootFiles: map[string]string{}},
+		baseDir:     base,
+		outputDir:   outputDir,
+	}
+
+	hasChanges := false
+	ctx.cleanOrphans(&hasChanges)
+
+	// The orphan file must be deleted.
+	_, statErr := os.Stat(orphanFile)
+	assert.True(t, os.IsNotExist(statErr), "orphan root file must be deleted")
+
+	// The subdir and its parent must be cleaned (they were empty after deletion).
+	_, statErr = os.Stat(subDir)
+	assert.True(t, os.IsNotExist(statErr), "empty orphan subdirectory must be cleaned")
+
+	// baseDir itself must not be deleted — it is the boundary.
+	_, statErr = os.Stat(base)
+	assert.NoError(t, statErr, "baseDir must not be removed during orphan cleanup")
+
+	// outputDir must not be touched — orphan was root-scoped, not output-scoped.
+	_, statErr = os.Stat(outputDir)
+	assert.NoError(t, statErr, "outputDir must not be removed during root-orphan cleanup")
+
+	assert.True(t, hasChanges, "hasChanges must be set when orphan is deleted")
+}
+
+// ── countOrphansFromState root file awareness ────────────────────────────────
+
+// TestCountOrphans_RootFilePresent_NotCountedAsOrphan verifies that a root:
+// artifact whose relative path exists in rootFiles is not counted as an orphan.
+func TestCountOrphans_RootFilePresent_NotCountedAsOrphan(t *testing.T) {
+	oldManifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md"},
+					{Path: "root:CLAUDE.md"},
+				},
+			},
+		},
+	}
+	outFiles := map[string]string{"agents/dev.md": "content"}
+	rootFiles := map[string]string{"CLAUDE.md": "instructions"}
+
+	count := countOrphansFromState(oldManifest, "claude", outFiles, rootFiles)
+	assert.Equal(t, 0, count, "root file present in rootFiles must not be counted as orphan")
+}
+
+// TestCountOrphans_RootFileAbsent_CountedAsOrphan verifies that a root:
+// artifact whose relative path is absent from rootFiles is counted as an orphan.
+func TestCountOrphans_RootFileAbsent_CountedAsOrphan(t *testing.T) {
+	oldManifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{Path: "agents/dev.md"},
+					{Path: "root:CLAUDE.md"},
+				},
+			},
+		},
+	}
+	// Both outFiles and rootFiles match — only CLAUDE.md is absent from rootFiles.
+	outFiles := map[string]string{"agents/dev.md": "content"}
+	rootFiles := map[string]string{} // CLAUDE.md not present
+
+	count := countOrphansFromState(oldManifest, "claude", outFiles, rootFiles)
+	assert.Equal(t, 1, count, "root file absent from rootFiles must be counted as orphan")
+}
+
+// ── End-to-end regression test ────────────────────────────────────────────────
+
 func TestApply_BlueprintContext_RootInstructionFileSurvivesReapply(t *testing.T) {
 	dir := t.TempDir()
 

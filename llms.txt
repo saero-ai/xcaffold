@@ -32,7 +32,7 @@ xcaffold is an open-source CLI tool that lets teams define agent configurations 
 - `hook` — shell command triggered by lifecycle events
 - `memory` — persistent knowledge attached to an agent
 - `mcp` — Model Context Protocol server configuration
-- `context` — shared instruction block composable across agents
+- `context` — shared instruction block composable across agents; optional `path` field renders to subdirectories for monorepo support
 - `project` — project-level settings and variables
 
 ## Links

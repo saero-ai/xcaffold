@@ -54,6 +54,109 @@ targets:
 
 The `targets:` field scopes which providers receive this context. Omitting `targets:` causes the context to compile for all declared project targets. A project may have multiple `kind: context` documents — one per provider, or one shared across several.
 
+
+## Subdirectory Contexts
+
+By default, context files compile to the project root: `CLAUDE.md`, `GEMINI.md`, etc. When your project is a monorepo or has distinct subsystems, you can scope a context to a subdirectory by setting the `path:` field:
+
+```yaml
+---
+kind: context
+version: "1.0"
+name: backend-context
+targets: [claude]
+path: "backend/"
+---
+
+## Backend-Only Instructions
+
+This workspace covers the API server and database layer.
+Use the database-tools MCP server for schema exploration.
+Never modify client-side code from the backend services.
+```
+
+When compiled with `path: "backend/"`, this context renders to `backend/CLAUDE.md` instead of the project root. This is useful for:
+
+- **Monorepos:** Different subdirectories need different instructions (backend teams read `backend/CLAUDE.md`, frontend teams read `frontend/CLAUDE.md`).
+- **Layered Services:** A multi-service architecture where each service has its own agent configuration needs.
+- **Shared Infrastructure:** Separate context for infrastructure code, CI/CD, and shared libraries.
+
+### Nested Context Example
+
+For a monorepo with distinct service areas:
+
+```
+xcaf/
+├── contexts/
+│   ├── root.xcaf                  # project-wide (compiles to CLAUDE.md)
+│   ├── backend-context.xcaf       # backend team (compiles to backend/CLAUDE.md)
+│   └── frontend-context.xcaf      # frontend team (compiles to frontend/CLAUDE.md)
+```
+
+Each context compiles to its own location. The uniqueness constraint is per **(target, path) pair** — you can have two Claude contexts as long as they target different paths:
+
+```yaml
+---
+kind: context
+version: "1.0"
+name: api-backend
+targets: [claude]
+path: "services/api/"
+---
+```
+
+and
+
+```yaml
+---
+kind: context
+version: "1.0"
+name: auth-backend
+targets: [claude]
+path: "services/auth/"
+---
+```
+
+Both compile successfully because they target different paths.
+
+### Provider Support for Nested Contexts
+
+| Provider | Nested Path Support | Output Pattern |
+|---|---|---|
+| Claude Code | `✓` Yes | `{path}/CLAUDE.md` |
+| Cursor | `✓` Yes | `{path}/AGENTS.md` |
+| Gemini CLI | `✓` Yes | `{path}/GEMINI.md` |
+| GitHub Copilot | `✓` Yes (via glob) | `.github/instructions/{name}.instructions.md` with `applyTo: {path}/**` glob |
+| Antigravity v1 | ✗ No | Deprecated provider; consolidates at `GEMINI.md` |
+| Antigravity 2 | `✓` Yes | `{path}/GEMINI.md` |
+| Codex | ✗ No | Consolidates at `AGENTS.md` (path ignored) |
+
+Gemini CLI and Antigravity targets consolidate all contexts at the project root regardless of the `path:` field — they do not support nested instructions.
+
+### Variable Interpolation
+
+The `path:` field supports variable interpolation, allowing configuration-driven subdirectory selection:
+
+```yaml
+---
+kind: context
+version: "1.0"
+name: custom-service
+targets: [claude]
+path: "${var.service-dir}"
+---
+```
+
+Pass the value via `--var-file`:
+
+```bash
+xcaf/project.vars.local:
+service-dir = "services/my-service/"
+
+# Then compile with:
+xcaffold apply --var-file xcaf/project.vars.local
+```
+
 > [!IMPORTANT]
 > The `kind: project` document does **not** support a markdown body. Project metadata (`name`, `targets`, `extends`) goes in `kind: project`. Workspace prose goes in `kind: context`. Adding a markdown body after the closing `---` in a project manifest will cause a parse error.
 

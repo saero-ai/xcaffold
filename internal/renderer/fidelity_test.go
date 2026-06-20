@@ -123,6 +123,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeWorkflowDefaultChanged:              true,
 		renderer.CodeWorkflowMixedSteps:                  true,
 		renderer.CodeRootFileCollision:                   true,
+		renderer.CodeContextPathMapped:                   true,
 	}
 
 	got := make(map[string]bool)
