@@ -1567,6 +1567,30 @@ func TestParseDirectory_SkipGlobal_DoesNotLoadGlobalBase(t *testing.T) {
 	assert.Contains(t, cfg.Agents, "worker")
 }
 
+func TestParseContext_PathVarInterpolation(t *testing.T) {
+	contextYAML := `---
+kind: global
+version: "1.0"
+contexts:
+  my-context:
+    description: "Test context with variable path"
+    path: "${var.subdir}"
+---
+Context body content.
+`
+
+	vars := map[string]interface{}{
+		"subdir": "backend",
+	}
+
+	cfg, err := parsePartial(strings.NewReader(contextYAML), withVars(vars))
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.Contains(t, cfg.Contexts, "my-context")
+	assert.Equal(t, "backend", cfg.Contexts["my-context"].Path)
+}
+
 func TestMain(m *testing.M) {
 	tmpHome, err := os.MkdirTemp("", "parser-test-*")
 	if err != nil {
