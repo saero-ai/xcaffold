@@ -838,7 +838,7 @@ func TestClaude_ActivationAlways_RulePlusSkill(t *testing.T) {
 
 func intPtr(n int) *int { return &n }
 
-// ─── Context path tests (T-2.3) ──────────────────────────────────────────────
+// ─── Context path tests ─────────────────────────────────────────────────────
 
 // TestClaudeRenderer_Compile_ContextPath_Subdirectory verifies that a context
 // with Path="backend" is rendered to "backend/CLAUDE.md", not "CLAUDE.md".

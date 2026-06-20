@@ -63,7 +63,7 @@ func TestHasDriftFromState_NilState(t *testing.T) {
 // This is the end-to-end regression test for the bug where blueprint applies
 // wrote an empty body (rendering no root file), and subsequent applies would
 // then purge a previously-written CLAUDE.md as an orphan.
-// ── T-3.2: cleanOrphans root-file boundary ────────────────────────────────────
+// ── cleanOrphans root-file boundary ───────────────────────────────────────────
 
 // TestCleanOrphans_RootFileOrphan_UsesBaseDirBoundary verifies that when a
 // root: prefixed orphan is deleted, cleanEmptyDirsUpToTarget is called with
@@ -126,7 +126,7 @@ func TestCleanOrphans_RootFileOrphan_UsesBaseDirBoundary(t *testing.T) {
 	assert.True(t, hasChanges, "hasChanges must be set when orphan is deleted")
 }
 
-// ── T-3.3: countOrphansFromState root file awareness ─────────────────────────
+// ── countOrphansFromState root file awareness ────────────────────────────────
 
 // TestCountOrphans_RootFilePresent_NotCountedAsOrphan verifies that a root:
 // artifact whose relative path exists in rootFiles is not counted as an orphan.
