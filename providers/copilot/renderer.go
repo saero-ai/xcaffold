@@ -305,16 +305,69 @@ func claudeDirExists(baseDir string) bool {
 	return err == nil
 }
 
-// renderProjectInstructions emits a single copilot-instructions.md file.
+// renderProjectInstructions emits project instruction files for Copilot.
+//
+// Root contexts (Path="") are merged and written to copilot-instructions.md.
+// Non-root contexts (Path="backend") cannot be placed at a path-relative
+// location natively; each is written as
+// instructions/{name}.instructions.md with applyTo: "{path}/**" frontmatter
+// so that Copilot applies the context only to matching files. A
+// CONTEXT_PATH_MAPPED fidelity note is emitted for each non-root context.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	rootContent := renderer.ResolveContextBody(config, targetName)
+	bodies := renderer.ResolveContextBodies(config, targetName)
+	var notes []renderer.FidelityNote
 
-	if rootContent == "" {
-		return nil
+	// Root path — existing flat-file behavior.
+	if rootContent, ok := bodies[""]; ok && rootContent != "" {
+		files[filepath.Clean("copilot-instructions.md")] = resolver.StripFrontmatter(rootContent)
 	}
 
-	files[filepath.Clean("copilot-instructions.md")] = resolver.StripFrontmatter(rootContent)
-	return nil
+	// Non-root paths — write one instructions file per context name.
+	for name, ctx := range config.Contexts {
+		if ctx.Path == "" || ctx.Body == "" {
+			continue
+		}
+		if !contextAppliesToTarget(ctx, targetName) {
+			continue
+		}
+		var sb strings.Builder
+		sb.WriteString("---\n")
+		fmt.Fprintf(&sb, "applyTo: %q\n", ctx.Path+"/**")
+		sb.WriteString("---\n")
+		body := strings.TrimSpace(resolver.StripFrontmatter(ctx.Body))
+		if body != "" {
+			sb.WriteString("\n")
+			sb.WriteString(body)
+			sb.WriteString("\n")
+		}
+		filePath := filepath.Clean(fmt.Sprintf("instructions/%s.instructions.md", name))
+		files[filePath] = sb.String()
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     targetName,
+			Kind:       "context",
+			Resource:   name,
+			Field:      "path",
+			Code:       renderer.CodeContextPathMapped,
+			Reason:     fmt.Sprintf("context %q path %q has no native Copilot subdirectory equivalent; mapped to instructions/%s.instructions.md with applyTo: %q", name, ctx.Path, name, ctx.Path+"/**"),
+			Mitigation: "Review applyTo glob to ensure it covers the intended file scope.",
+		})
+	}
+	return notes
+}
+
+// contextAppliesToTarget reports whether a ContextConfig matches the given
+// target. A context with no Targets list matches all targets.
+func contextAppliesToTarget(ctx ast.ContextConfig, target string) bool {
+	if len(ctx.Targets) == 0 {
+		return true
+	}
+	for _, t := range ctx.Targets {
+		if t == target {
+			return true
+		}
+	}
+	return false
 }
 
 // renderAgents writes each agent to .github/agents/<id>.agent.md using YAML

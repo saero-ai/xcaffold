@@ -181,6 +181,13 @@ const (
 	// CodeRootFileCollision is emitted when two providers target the same
 	// root-level file (e.g., both Codex and Cursor produce AGENTS.md).
 	CodeRootFileCollision = "ROOT_FILE_COLLISION"
+
+	// CodeContextPathMapped is emitted when a context with a non-empty Path
+	// field cannot be placed at the path-relative location natively. The
+	// context is mapped to the closest target-supported location with path
+	// scope expressed via frontmatter (e.g. Copilot applyTo:) or merged
+	// into a flat root file (e.g. Codex AGENTS.md).
+	CodeContextPathMapped = "CONTEXT_PATH_MAPPED"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -227,5 +234,6 @@ func AllCodes() []string {
 		CodeWorkflowDefaultChanged,
 		CodeWorkflowMixedSteps,
 		CodeRootFileCollision,
+		CodeContextPathMapped,
 	}
 }

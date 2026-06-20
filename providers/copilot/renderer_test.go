@@ -447,6 +447,66 @@ func TestSupportsGlobalScope_Copilot(t *testing.T) {
 	}
 }
 
+// TestCopilotRenderer_Compile_ContextPath_MapsToInstructions verifies that a
+// context with Path="backend" is written as
+// instructions/backend-ctx.instructions.md with applyTo: "backend/**" and that
+// a CONTEXT_PATH_MAPPED fidelity note is emitted.
+func TestCopilotRenderer_Compile_ContextPath_MapsToInstructions(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"backend-ctx": {
+					Name: "backend-ctx",
+					Body: "Backend context instructions.",
+					Path: "backend",
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
+	require.NoError(t, err)
+
+	const wantPath = "instructions/backend-ctx.instructions.md"
+	content, ok := out.Files[wantPath]
+	require.True(t, ok, "expected %s in output; got keys: %v", wantPath, mapKeys(out.Files))
+	require.Contains(t, content, `applyTo: "backend/**"`)
+	require.Contains(t, content, "Backend context instructions.")
+
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeContextPathMapped {
+			found = true
+		}
+	}
+	require.True(t, found, "expected CONTEXT_PATH_MAPPED fidelity note; got notes: %v", notes)
+}
+
+// TestCopilotRenderer_Compile_ContextPath_RootUnchanged verifies that a
+// context with no Path writes to copilot-instructions.md as before and does
+// not emit a CONTEXT_PATH_MAPPED fidelity note.
+func TestCopilotRenderer_Compile_ContextPath_RootUnchanged(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {
+					Name: "root",
+					Body: "Root instructions.",
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
+	require.NoError(t, err)
+
+	require.Contains(t, out.Files, "copilot-instructions.md", "root context must write copilot-instructions.md")
+
+	for _, n := range notes {
+		require.NotEqual(t, renderer.CodeContextPathMapped, n.Code, "root context must not emit CONTEXT_PATH_MAPPED")
+	}
+}
+
 // mapKeys returns the sorted list of file keys for error output.
 func mapKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
