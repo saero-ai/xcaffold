@@ -347,18 +347,26 @@ func renderApplyPreview(entries []applyDiffEntry) (newCount, changedCount, uncha
 
 // countOrphansFromState counts the number of files tracked in oldManifest
 // for the given target that are absent from the new compiled output.
-func countOrphansFromState(oldManifest *state.StateManifest, target string, outFiles map[string]string) int {
+// outFiles covers provider-output-dir artifacts; rootFiles covers root:* artifacts.
+func countOrphansFromState(oldManifest *state.StateManifest, target string, outFiles map[string]string, rootFiles map[string]string) int {
 	if oldManifest == nil {
 		return 0
 	}
-	count := 0
 	targetState, ok := oldManifest.Targets[target]
 	if !ok {
 		return 0
 	}
+	count := 0
 	for _, artifact := range targetState.Artifacts {
-		if _, inOut := outFiles[artifact.Path]; !inOut {
-			count++
+		if strings.HasPrefix(artifact.Path, "root:") {
+			relPath := strings.TrimPrefix(artifact.Path, "root:")
+			if _, inRoot := rootFiles[relPath]; !inRoot {
+				count++
+			}
+		} else {
+			if _, inOut := outFiles[artifact.Path]; !inOut {
+				count++
+			}
 		}
 	}
 	return count
@@ -370,11 +378,14 @@ func (ctx *applyContext) cleanOrphans(hasChanges *bool) {
 	orphans := state.FindOrphansFromState(ctx.oldManifest, targetFlag, ctx.out.Files, ctx.out.RootFiles)
 	for _, orphanPath := range orphans {
 		var absPath string
+		var cleanBoundary string
 		if strings.HasPrefix(orphanPath, "root:") {
 			relPath := strings.TrimPrefix(orphanPath, "root:")
 			absPath = filepath.Clean(filepath.Join(ctx.baseDir, relPath))
+			cleanBoundary = ctx.baseDir
 		} else {
 			absPath = filepath.Clean(filepath.Join(ctx.outputDir, orphanPath))
+			cleanBoundary = ctx.outputDir
 		}
 		if applyDryRun {
 			fmt.Printf("    %s  would delete  %s\n", colorYellow(glyphSrc()), filepath.Base(absPath))
@@ -383,7 +394,7 @@ func (ctx *applyContext) cleanOrphans(hasChanges *bool) {
 			if err := os.Remove(absPath); err == nil {
 				fmt.Printf("    %s  deleted  %s\n", colorRed(glyphErr()), filepath.Base(absPath))
 				*hasChanges = true
-				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), ctx.outputDir)
+				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), cleanBoundary)
 			} else if os.IsNotExist(err) {
 				*hasChanges = true
 			}

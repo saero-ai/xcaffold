@@ -201,7 +201,7 @@ func checkCompilationErrors(config *ast.XcaffoldConfig, out *output.Output, note
 // Returns false only if user explicitly denied the prompt.
 func showApplyPreview(oldManifest *state.StateManifest, out *output.Output, outputDir, baseDir string) (bool, error) {
 	preview := computeApplyPreview(out.Files, out.RootFiles, outputDir, baseDir)
-	orphanCount := countOrphansFromState(oldManifest, targetFlag, out.Files)
+	orphanCount := countOrphansFromState(oldManifest, targetFlag, out.Files, out.RootFiles)
 	newC, changedC, _ := renderApplyPreview(preview)
 	totalChanges := newC + changedC + orphanCount
 
