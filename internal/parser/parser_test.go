@@ -935,6 +935,98 @@ test
 	assert.Equal(t, []string{"gemini", "copilot"}, ctx.Targets)
 }
 
+func TestParseContext_PathValid(t *testing.T) {
+	src := `---
+kind: context
+version: "1.0"
+name: backend
+path: "backend/"
+---
+Backend context
+`
+	config, err := Parse(strings.NewReader(src))
+	require.NoError(t, err)
+
+	ctx, ok := config.Contexts["backend"]
+	require.True(t, ok)
+	assert.Equal(t, "backend/", ctx.Path)
+}
+
+func TestParseContext_PathTraversal_Rejected(t *testing.T) {
+	src := `---
+kind: context
+version: "1.0"
+name: evil
+path: "../escape"
+---
+Nope
+`
+	_, err := Parse(strings.NewReader(src))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "..")
+}
+
+func TestParseContext_PathAbsolute_Rejected(t *testing.T) {
+	src := `---
+kind: context
+version: "1.0"
+name: absolute
+path: "/absolute"
+---
+Nope
+`
+	_, err := Parse(strings.NewReader(src))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute")
+}
+
+func TestParseContext_PathExplicitEmpty_Rejected(t *testing.T) {
+	src := `---
+kind: context
+version: "1.0"
+name: empty
+path: ""
+---
+Nope
+`
+	_, err := Parse(strings.NewReader(src))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty")
+}
+
+func TestParseContext_PathNestedValid(t *testing.T) {
+	src := `---
+kind: context
+version: "1.0"
+name: nested
+path: "apps/web/"
+---
+Nested context
+`
+	config, err := Parse(strings.NewReader(src))
+	require.NoError(t, err)
+
+	ctx, ok := config.Contexts["nested"]
+	require.True(t, ok)
+	assert.Equal(t, "apps/web/", ctx.Path)
+}
+
+func TestParseContext_PathOmitted_DefaultsToRoot(t *testing.T) {
+	src := `---
+kind: context
+version: "1.0"
+name: root
+---
+Root context
+`
+	config, err := Parse(strings.NewReader(src))
+	require.NoError(t, err)
+
+	ctx, ok := config.Contexts["root"]
+	require.True(t, ok)
+	assert.Equal(t, "", ctx.Path)
+}
+
 func TestParseSkill_BodyAssignment(t *testing.T) {
 	src := `---
 kind: skill

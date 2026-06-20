@@ -2,16 +2,16 @@ package parser
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"gopkg.in/yaml.v3"
 )
 
-// agentDocument wraps AgentConfig with envelope fields for multi-kind parsing.
-// KnownFields(true) validates both envelope and agent-specific fields.
-// Name is not redeclared here — it is promoted from AgentConfig.Name to avoid
-// a duplicate yaml:"name" tag conflict with yaml.v3.
+// contextDocument wraps ContextConfig with envelope fields for multi-kind parsing.
+// KnownFields(true) validates both envelope and context-specific fields.
+// Name is promoted from ContextConfig.Name to avoid a duplicate yaml:"name" tag.
 type contextDocument struct {
 	Kind              string `yaml:"kind"`
 	Version           string `yaml:"version"`
@@ -248,6 +248,36 @@ func validateEnvelope(version, name, kind string) error {
 	}
 	if version == "" {
 		return fmt.Errorf("%s document: version is required", kind)
+	}
+	return nil
+}
+
+// validateContextPath checks that the context path field is valid.
+// Omitted paths are allowed (empty string). Explicit empty string is rejected.
+// Paths must be relative and cannot contain .. or leading /.
+func validateContextPath(name, path string, explicitlySet bool) error {
+	// Omitted (false) = fine, empty string is allowed
+	// Explicitly set to empty string = error
+	if explicitlySet && path == "" {
+		return fmt.Errorf("context %q: path must be omitted (not empty string) for root placement", name)
+	}
+	// If omitted (path == "" and !explicitlySet), that's fine - return early
+	if path == "" {
+		return nil
+	}
+	// From here, path is non-empty and valid to check
+	// Reject .. components (traversal)
+	if strings.Contains(path, "..") {
+		return fmt.Errorf("context %q: path %q contains \"..\" traversal component", name, path)
+	}
+	// Reject absolute paths
+	if strings.HasPrefix(path, "/") {
+		return fmt.Errorf("context %q: path %q must be relative, not absolute", name, path)
+	}
+	// Clean the path and check it doesn't resolve outside root
+	cleaned := filepath.Clean(path)
+	if strings.HasPrefix(cleaned, "..") {
+		return fmt.Errorf("context %q: path %q would resolve outside root", name, path)
 	}
 	return nil
 }
