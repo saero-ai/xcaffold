@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/saero-ai/xcaffold/compare/v0.14.0...v0.15.0) (2026-06-20)
+
+
+### Features
+
+* **ast:** add Path field to ContextConfig for subdirectory rendering ([c0a02c3](https://github.com/saero-ai/xcaffold/commit/c0a02c39e22f41deaebfa80a040fdaa590c3412d))
+* **compiler:** fix orphan boundary and root file counting ([45a98e0](https://github.com/saero-ai/xcaffold/commit/45a98e0651cc0b94700398f884b9daf87d968816))
+* **context:** add path field for subdirectory rendering ([fd308d8](https://github.com/saero-ai/xcaffold/commit/fd308d8d6ca66299e60a6f79e514212933827277))
+* **importer:** recursive walker for nested context files with slugs ([58e94c6](https://github.com/saero-ai/xcaffold/commit/58e94c670c33a14a4ef132f9d7a602c2298c24b5))
+* **parser:** add parse-time validation for context path field ([e35ec03](https://github.com/saero-ai/xcaffold/commit/e35ec03d067f16cb76a383a094498fd0bd3497e2))
+* **renderer:** add ResolveContextBodies returning path-keyed map ([318e59b](https://github.com/saero-ai/xcaffold/commit/318e59b2c405f7703e311e2fab71e04e5bf95691))
+* **renderer:** antigravity2 path-bearing contexts to subdirs ([8c802eb](https://github.com/saero-ai/xcaffold/commit/8c802ebb5fe234e754d1881868051edf768e75e1))
+* **renderer:** claude renders path-bearing contexts to subdirs ([38eaee8](https://github.com/saero-ai/xcaffold/commit/38eaee8d0cd4a51fea81188b07fe1de006ae362d))
+* **renderer:** gemini and cursor support path-bearing contexts ([c14194b](https://github.com/saero-ai/xcaffold/commit/c14194b4e6a4e9c30938af37ef8d0c69ac8f39b4))
+* **renderer:** map context path for copilot and codex ([dfa5c4c](https://github.com/saero-ai/xcaffold/commit/dfa5c4c4a0ded4301f8e7f0538cc0e8aad695755))
+* **renderer:** scope context uniqueness validation by (target, path) ([8bf79a7](https://github.com/saero-ai/xcaffold/commit/8bf79a7947a31c37f2ef7749248a278c8c9515cf))
+
 ## [0.14.0](https://github.com/saero-ai/xcaffold/compare/v0.13.0...v0.14.0) (2026-06-17)
 
 
