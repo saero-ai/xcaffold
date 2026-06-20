@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1728,6 +1730,58 @@ func TestApply_NoJSON_TextOutputUnchanged(t *testing.T) {
 	// When JSON is disabled, jsonOutputWriter should be empty (no JSON events)
 	outStr := output.String()
 	assert.Empty(t, outStr, "should not emit JSON events when applyJSON is disabled")
+}
+
+func captureApplyStdout(t *testing.T, f func()) string {
+	t.Helper()
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = w
+	defer func() { os.Stdout = oldStdout }()
+
+	f()
+	require.NoError(t, w.Close())
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	return buf.String()
+}
+
+func TestApply_Quiet_SuppressesInfoStdout(t *testing.T) {
+	oldQuiet := quietFlag
+	quietFlag = true
+	defer func() { quietFlag = oldQuiet }()
+
+	out := captureApplyStdout(t, func() {
+		printApplySummary(2, t.TempDir())
+		printSmartSkipMessage()
+	})
+	assert.Empty(t, strings.TrimSpace(out))
+}
+
+func TestApply_Quiet_StillCountsPreview(t *testing.T) {
+	oldQuiet := quietFlag
+	quietFlag = true
+	defer func() { quietFlag = oldQuiet }()
+
+	entries := []applyDiffEntry{
+		{Path: "a.md", Status: "new"},
+		{Path: "b.md", Status: "changed"},
+	}
+	out := captureApplyStdout(t, func() {
+		newC, changedC, _ := renderApplyPreview(entries)
+		assert.Equal(t, 1, newC)
+		assert.Equal(t, 1, changedC)
+	})
+	assert.Empty(t, strings.TrimSpace(out))
+}
+
+func TestApply_QuietFlagRegisteredOnApplyOnly(t *testing.T) {
+	assert.NotNil(t, applyCmd.Flags().Lookup("quiet"))
+	assert.Nil(t, rootCmd.PersistentFlags().Lookup("quiet"))
 }
 
 // unmarshalJSONLine is a helper to parse a single JSON line.

@@ -26,7 +26,9 @@ xcaffold apply [flags]
 | `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/xcaf/global.xcaf`). |
 | `--json` | — | `bool` | `false` | Output compilation events as NDJSON (one JSON line per event). See [JSON output](#json-output) below. |
 | `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
+| `--quiet` | — | `bool` | `false` | Suppress informational stdout such as banners, previews, and success summaries. Errors still print to stderr. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
+| `--verbose` | — | `bool` | `false` | Show fidelity notes and policy warnings. |
 | `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
 | `--output-dir <path>` | — | `string` | `""` | Redirect compiled output to a directory (relative to CWD or absolute). Provider files write to `<path>/.claude/`, root files to `<path>/CLAUDE.md`. State remains at project root. |
 | `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
@@ -48,6 +50,14 @@ When drift is detected, apply lists each affected file with its status (`missing
 
 - `xcaffold import` — reads the drifted files and syncs them back to `.xcaf` sources. Run apply again after importing.
 - `xcaffold apply --force` — overwrites the output directory, discarding any manual edits.
+
+### Quiet mode (CI/CD)
+
+Combine `--quiet` with `--yes` in pipelines to skip banners, file previews, and success summaries while still surfacing errors on stderr:
+
+```bash
+xcaffold apply --target claude --yes --quiet
+```
 
 ### Multi-target projects
 

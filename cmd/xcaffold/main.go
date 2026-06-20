@@ -52,6 +52,9 @@ var noColorFlag bool
 // verboseFlag enables verbose output (fidelity notes, policy warnings).
 var verboseFlag bool
 
+// quietFlag suppresses informational apply stdout.
+var quietFlag bool
+
 type driftDetectedError struct {
 	msg string
 }

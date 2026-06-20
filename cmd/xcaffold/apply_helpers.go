@@ -35,7 +35,7 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 		return err
 	}
 
-	fmt.Printf("  %s  Backed up %s\n", colorGreen(glyphOK()), filepath.Base(destDir))
+	applyInfoPrintf("  %s  Backed up %s\n", colorGreen(glyphOK()), filepath.Base(destDir))
 	return copyDir(outputDir, destDir)
 }
 
@@ -222,13 +222,13 @@ func colorDiff(diff string) {
 	for _, l := range lines {
 		switch {
 		case strings.HasPrefix(l, "+"):
-			fmt.Println("\033[32m" + l + "\033[0m")
+			applyInfoPrintln("\033[32m" + l + "\033[0m")
 		case strings.HasPrefix(l, "-"):
-			fmt.Println("\033[31m" + l + "\033[0m")
+			applyInfoPrintln("\033[31m" + l + "\033[0m")
 		case strings.HasPrefix(l, "@"):
-			fmt.Println("\033[36m" + l + "\033[0m")
+			applyInfoPrintln("\033[36m" + l + "\033[0m")
 		default:
-			fmt.Println(l)
+			applyInfoPrintln(l)
 		}
 	}
 }
@@ -322,25 +322,25 @@ func renderApplyPreview(entries []applyDiffEntry) (newCount, changedCount, uncha
 		}
 	}
 	if changedCount > 0 {
-		fmt.Printf("\n  CHANGED (%d %s):\n", changedCount, plural(changedCount, "file", "files"))
+		applyInfoPrintf("\n  CHANGED (%d %s):\n", changedCount, plural(changedCount, "file", "files"))
 		for _, e := range entries {
 			if e.Status == "changed" {
 				display, _ := formatArtifactPath(e.Path)
-				fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), display)
+				applyInfoPrintf("    %s  %s\n", colorYellow(glyphSrc()), display)
 			}
 		}
 	}
 	if newCount > 0 {
-		fmt.Printf("\n  NEW (%d %s):\n", newCount, plural(newCount, "file", "files"))
+		applyInfoPrintf("\n  NEW (%d %s):\n", newCount, plural(newCount, "file", "files"))
 		for _, e := range entries {
 			if e.Status == "new" {
 				display, _ := formatArtifactPath(e.Path)
-				fmt.Printf("    %s  %s\n", colorGreen("+"), display)
+				applyInfoPrintf("    %s  %s\n", colorGreen("+"), display)
 			}
 		}
 	}
 	if unchangedCount > 0 {
-		fmt.Printf("\n  UNCHANGED: %d %s\n", unchangedCount, plural(unchangedCount, "file", "files"))
+		applyInfoPrintf("\n  UNCHANGED: %d %s\n", unchangedCount, plural(unchangedCount, "file", "files"))
 	}
 	return
 }
@@ -388,11 +388,11 @@ func (ctx *applyContext) cleanOrphans(hasChanges *bool) {
 			cleanBoundary = ctx.outputDir
 		}
 		if applyDryRun {
-			fmt.Printf("    %s  would delete  %s\n", colorYellow(glyphSrc()), filepath.Base(absPath))
+			applyInfoPrintf("    %s  would delete  %s\n", colorYellow(glyphSrc()), filepath.Base(absPath))
 			*hasChanges = true
 		} else {
 			if err := os.Remove(absPath); err == nil {
-				fmt.Printf("    %s  deleted  %s\n", colorRed(glyphErr()), filepath.Base(absPath))
+				applyInfoPrintf("    %s  deleted  %s\n", colorRed(glyphErr()), filepath.Base(absPath))
 				*hasChanges = true
 				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), cleanBoundary)
 			} else if os.IsNotExist(err) {
