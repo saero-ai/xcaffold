@@ -330,19 +330,26 @@ func (ctx renderCtx) runMCP() ([]FidelityNote, error) {
 
 // runProject compiles project instructions, or emits a RENDERER_KIND_UNSUPPORTED
 // note when the renderer has no project-instructions capability.
+// It runs when either a project is defined or the config contains context entries,
+// since both are rendered through CompileProjectInstructions.
 func (ctx renderCtx) runProject() ([]FidelityNote, error) {
-	if ctx.config.Project == nil {
+	hasProject := ctx.config.Project != nil
+	hasContexts := len(ctx.config.Contexts) > 0
+	if !hasProject && !hasContexts {
 		return nil, nil
 	}
 	if !ctx.caps.ProjectInstructions {
-		return []FidelityNote{{
-			Level:    LevelWarning,
-			Target:   ctx.r.Target(),
-			Kind:     "project",
-			Resource: ctx.config.Project.Name,
-			Code:     CodeRendererKindUnsupported,
-			Reason:   "project instructions are not supported by this renderer",
-		}}, nil
+		if hasProject {
+			return []FidelityNote{{
+				Level:    LevelWarning,
+				Target:   ctx.r.Target(),
+				Kind:     "project",
+				Resource: ctx.config.Project.Name,
+				Code:     CodeRendererKindUnsupported,
+				Reason:   "project instructions are not supported by this renderer",
+			}}, nil
+		}
+		return nil, nil
 	}
 	files, rootFiles, notes, err := ctx.r.CompileProjectInstructions(ctx.config, ctx.baseDir)
 	if err != nil {

@@ -51,6 +51,7 @@ You are working on xcaffold, a deterministic Harness-as-Code compiler...
 |-------|------|-------------|
 | `description` | `string` | Human-readable purpose of this context block. |
 | `default` | `bool` | Controls inclusion in bare apply. When `true`, marks this context as the tie-breaker when multiple contexts match the same target. When `false`, excludes this context from bare `xcaffold apply` (it is only used when a blueprint explicitly selects it). Omitting this field includes the context normally. |
+| `path` | `string` | Subdirectory scope for this context. When set, the context is rendered into a provider instruction file at `<path>/<instruction-file>` rather than the project root. See [Subdirectory Scoping](#subdirectory-scoping) below. |
 | `targets` | `[]string` | Restricts this context to specific provider targets. When absent, context renders for all targets. |
 
 The **markdown body** (content after the closing `---`) contains the workspace context prose that is rendered verbatim to the provider's instruction file.
@@ -75,6 +76,8 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
 
 ## Compiled Output
 
+When `path` is absent or empty, context renders to the provider's root instruction file:
+
 | Provider target | Output file |
 |---|---|
 | `claude` | `CLAUDE.md` (project root) |
@@ -84,6 +87,53 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
 | `antigravity` (deprecated) | `GEMINI.md` (project root) |
 | `antigravity2` | `GEMINI.md` (project root) |
 | `codex` | `AGENTS.md` (project root) |
+
+When `path` is set, the instruction file is placed inside that subdirectory instead:
+
+| Provider target | Example with `path: "frontend"` |
+|---|---|
+| `claude` | `frontend/CLAUDE.md` |
+| `gemini` | `frontend/GEMINI.md` |
+| `cursor` | `frontend/AGENTS.md` |
+
+See [Subdirectory Scoping](#subdirectory-scoping) for full details.
+
+## Subdirectory Scoping
+
+Set `path` to scope a context to a specific subdirectory of the project:
+
+```yaml
+---
+kind: context
+version: "1.0"
+name: frontend-ctx
+path: frontend
+targets: [claude, gemini, cursor]
+---
+You are working in the frontend subdirectory. Use TypeScript and React conventions.
+```
+
+xcaffold renders this context to `frontend/CLAUDE.md`, `frontend/GEMINI.md`, and `frontend/AGENTS.md` respectively. The project root instruction file is not created unless a separate root context (with `path` absent or empty) also exists.
+
+Multiple path-bearing contexts can coexist, each scoping to a different directory:
+
+```yaml
+---
+name: backend-ctx
+path: backend
+---
+Backend service conventions...
+```
+
+```yaml
+---
+name: frontend-ctx
+path: frontend
+---
+Frontend conventions...
+```
+
+This produces `backend/CLAUDE.md` and `frontend/CLAUDE.md` as separate files.
 
 ## Default Import Naming
 

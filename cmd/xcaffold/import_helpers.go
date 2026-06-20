@@ -324,26 +324,177 @@ func runProviderPostImport(provider, projectDir string, config *ast.XcaffoldConf
 	return nil
 }
 
-// discoverRootContextFiles scans the project root for known root context files
-// using the provider manifest registry and populates config.Contexts.
+// contextPathSlug converts a relative directory path to a context name slug.
+// It replaces path separators with hyphens, lowercases the result, and appends "-context".
+// Example: "apps/web/src" → "apps-web-src-context"
+func contextPathSlug(relDir string) string {
+	// Normalize path separators to forward slashes, then replace with hyphens.
+	slug := filepath.ToSlash(relDir)
+	slug = strings.ReplaceAll(slug, "/", "-")
+	slug = strings.ToLower(slug)
+	return slug + "-context"
+}
+
+// discoverRootContextFiles recursively scans the project directory for root context files
+// (e.g., CLAUDE.md, GEMINI.md) using the provider manifest registry.
+// It populates config.Contexts with discovered files, assigning contextPathSlug names
+// to nested contexts and respecting the ignore list.
 func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
 	if config.Contexts == nil {
 		config.Contexts = make(map[string]ast.ContextConfig)
 	}
 
+	// Build the ignore map from parser filter logic
+	ignored := buildIgnoreMap(projectDir)
+
+	// Collect all context files and their manifests
+	// Key: relative path (e.g., "CLAUDE.md" or ".github/copilot-instructions.md")
+	// Value: provider manifest
+	contextPathMap := make(map[string]providerspkg.ProviderManifest)
+	contextFilenameMap := make(map[string]providerspkg.ProviderManifest)
+	// Track directories that are part of explicit manifest paths (don't ignore them)
+	explicitPathDirs := make(map[string]bool)
+
 	for _, m := range providerspkg.Manifests() {
 		if m.RootContextFile == "" {
 			continue
 		}
-		fullPath := filepath.Join(projectDir, filepath.FromSlash(m.RootContextFile))
-		if data, err := os.ReadFile(fullPath); err == nil {
-			config.Contexts[m.Name] = ast.ContextConfig{
-				Name:    m.Name,
-				Targets: []string{m.Name},
+		normalized := filepath.ToSlash(m.RootContextFile)
+		contextPathMap[normalized] = m
+
+		// Track all directory components in explicit paths
+		dir := filepath.Dir(normalized)
+		for dir != "." && dir != "" {
+			explicitPathDirs[dir] = true
+			dir = filepath.Dir(dir)
+		}
+
+		// Also store by filename for nested discovery
+		fileName := filepath.Base(m.RootContextFile)
+		if contextFilenameMap[fileName].Name == "" {
+			contextFilenameMap[fileName] = m
+		}
+	}
+
+	// Walk the directory tree, discovering context files
+	_ = filepath.Walk(projectDir, func(fullPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip unreadable paths
+		}
+
+		// Check if this directory should be ignored
+		if info.IsDir() {
+			relDir, err := filepath.Rel(projectDir, fullPath)
+			if err != nil || relDir == "." {
+				return nil // Root directory, continue
+			}
+
+			// Don't skip if this directory is part of an explicit manifest path
+			relDirNorm := filepath.ToSlash(relDir)
+			if explicitPathDirs[relDirNorm] {
+				return nil // Part of explicit path, walk its contents
+			}
+
+			// Check if this directory name is in the ignore list
+			dirName := filepath.Base(fullPath)
+			if ignored[dirName] {
+				return filepath.SkipDir
+			}
+			return nil // Directory not ignored, walk its contents
+		}
+
+		// Get the relative path to this file
+		relFile, err := filepath.Rel(projectDir, fullPath)
+		if err != nil {
+			return nil
+		}
+
+		// Normalize to forward slashes for comparison
+		relFileNorm := filepath.ToSlash(relFile)
+
+		// Check if this file matches an explicit manifest path
+		manifest, isExplicitPath := contextPathMap[relFileNorm]
+
+		// If not found by full path, check by filename for nested discovery
+		var isNestedDiscovery bool
+		if !isExplicitPath {
+			fileName := filepath.Base(fullPath)
+			manifest, isNestedDiscovery = contextFilenameMap[fileName]
+			if !isNestedDiscovery {
+				return nil // Not a context file, continue
+			}
+		}
+
+		// Read the file
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			return nil // Skip unreadable files
+		}
+
+		// Determine the context name:
+		// - Explicit paths (from manifest): always use provider name (e.g., "copilot")
+		// - Nested discovery (filename match): use path slug for nested dirs, provider name for root
+		var contextName string
+		if isExplicitPath {
+			// Explicit manifest path: always use provider name
+			contextName = manifest.Name
+		} else {
+			// Nested discovery: use provider name for root, slug for nested dirs
+			fileDir := filepath.Dir(relFile)
+			if fileDir == "." {
+				contextName = manifest.Name
+			} else {
+				contextName = contextPathSlug(fileDir)
+			}
+		}
+
+		// Add to config (avoid overwriting existing contexts)
+		if _, exists := config.Contexts[contextName]; !exists {
+			config.Contexts[contextName] = ast.ContextConfig{
+				Name:    contextName,
+				Targets: []string{manifest.Name},
 				Body:    string(data),
 			}
 		}
+
+		return nil
+	})
+}
+
+// buildIgnoreMap creates a map of directory names to skip during context discovery.
+// It includes generic build/cache directories plus registered provider input directories.
+func buildIgnoreMap(projectDir string) map[string]bool {
+	ignored := map[string]bool{
+		".git":         true,
+		".worktrees":   true,
+		"node_modules": true,
+		"vendor":       true,
+		".venv":        true,
+		"dist":         true,
+		"build":        true,
+		"coverage":     true,
 	}
+
+	// Add registered provider input directories
+	for _, providerDir := range providerspkg.RegisteredInputDirs() {
+		ignored[providerDir] = true
+	}
+
+	// Add entries from .gitignore (basename-only entries without wildcards)
+	if data, err := os.ReadFile(filepath.Join(projectDir, ".gitignore")); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				clean := strings.TrimPrefix(line, "/")
+				clean = strings.TrimSuffix(clean, "/")
+				if !strings.ContainsAny(clean, "*?[") {
+					ignored[clean] = true
+				}
+			}
+		}
+	}
+
+	return ignored
 }
 
 // copyFile copies the file at src to dst, creating parent directories as needed.

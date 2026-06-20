@@ -113,6 +113,42 @@ Review all changed files. Use ${var.model} to reason about trade-offs.
 
 When `xcaffold apply` runs, every `${var.name}` is replaced with the resolved value before compilation proceeds.
 
+### Variables in Context Paths
+
+The `path:` field on `kind: context` resources supports variable interpolation, allowing configuration-driven context placement:
+
+```yaml
+---
+kind: context
+version: "1.0"
+name: service-context
+targets: [claude]
+path: "${var.context-dir}"
+---
+Service-specific instructions here.
+```
+
+Define the variable in `xcaf/project.vars`:
+
+```
+# xcaf/project.vars
+context-dir = "backend/"
+```
+
+Or override it locally without modifying committed files:
+
+```
+# xcaf/project.vars.local
+context-dir = "services/my-custom-service/"
+```
+
+Then compile:
+
+```bash
+xcaffold apply --var-file xcaf/project.vars.local
+# Renders context to services/my-custom-service/CLAUDE.md
+```
+
 ### Environment Variable References
 
 To reference a shell environment variable, use `${env.NAME}`. Environment variable access is opt-in: the variable name must appear in the project's `allowed-env-vars` field, declared in your `kind: project` manifest:

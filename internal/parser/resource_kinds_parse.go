@@ -219,6 +219,18 @@ func parseMCPDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferred
 
 // parseContextDocument decodes and stores a context document.
 func parseContextDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferredName string) error {
+	// First pass: detect if path field was explicitly set
+	rawMap := make(map[string]interface{})
+	rawDec := yaml.NewDecoder(bytes.NewReader(b))
+	if err := rawDec.Decode(&rawMap); err != nil {
+		return wrapDecodeError("context", err)
+	}
+	pathExplicitlySet := false
+	if _, ok := rawMap["path"]; ok {
+		pathExplicitlySet = true
+	}
+
+	// Second pass: unmarshal into typed structure
 	var doc contextDocument
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
@@ -243,6 +255,10 @@ func parseContextDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, infe
 		}
 	}
 	if err := validateEnvelope(doc.Version, doc.Name, "context"); err != nil {
+		return err
+	}
+	// Validate path field: pass both the value and whether it was explicitly set
+	if err := validateContextPath(doc.Name, doc.ContextConfig.Path, pathExplicitlySet); err != nil {
 		return err
 	}
 	if config.Contexts == nil {

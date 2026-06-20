@@ -643,6 +643,11 @@ type ContextConfig struct {
 	// +xcaf:type=[]string
 	Targets []string `yaml:"targets,omitempty"`
 
+	// Relative subdirectory for the rendered instruction file.
+	// +xcaf:optional
+	// +xcaf:group=Targeting
+	Path string `yaml:"path,omitempty"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`

@@ -311,6 +311,80 @@ Repeat with `apps/web/project.xcaf` for a separate web harness without merging u
 
 ---
 
+## Pattern 5: Monorepo nested contexts with path scoping
+
+### Problem
+
+A monorepo contains multiple subsystems — e.g., `backend/`, `frontend/`, `infra/` — each with distinct instructions and context. You want separate context files per subsystem, not a single root context that applies everywhere.
+
+### `.xcaf` snippet
+
+Define separate contexts with the `path` field to scope each to its subdirectory:
+
+```yaml
+# xcaf/context/backend/context.xcaf
+kind: context
+version: "1.0"
+name: backend
+path: backend
+targets:
+  - claude
+  - cursor
+---
+## Backend Development
+
+- Code organization: HTTP handlers in `handlers/`, models in `domain/`, database layer in `persistence/`.
+- Stack: Go 1.25, no external web frameworks — use stdlib.
+- Database: PostgreSQL via sqlc generated code.
+```
+
+```yaml
+# xcaf/context/frontend/context.xcaf
+kind: context
+version: "1.0"
+name: frontend
+path: frontend
+targets:
+  - claude
+  - cursor
+---
+## Frontend Development
+
+- Code organization: React components in `components/`, pages in `pages/`, styles in `styles/`.
+- Stack: TypeScript with React and Next.js.
+- Build: pnpm for package management.
+```
+
+```yaml
+# xcaf/context/infra/context.xcaf
+kind: context
+version: "1.0"
+name: infra
+path: infra
+targets:
+  - claude
+---
+## Infrastructure Code
+
+- IaC: Terraform modules in `modules/`, environments in `envs/`.
+- State: Remote state in GCS with locking.
+- Approval: Terraform plans require review before apply.
+```
+
+### Expected compiled output
+
+When `path` is set, xcaffold renders the context to a subdirectory instead of the project root:
+
+| Resource | Path | Compiled location |
+|----------|------|-------------------|
+| `kind: context` `backend` with `path: backend` | `backend/` | `backend/CLAUDE.md` (Claude), `backend/AGENTS.md` (Cursor) |
+| `kind: context` `frontend` with `path: frontend` | `frontend/` | `frontend/CLAUDE.md`, `frontend/AGENTS.md` |
+| `kind: context` `infra` with `path: infra` | `infra/` | `infra/CLAUDE.md` |
+
+Each subsystem gets its own workspace context that agents load when working in that directory. When `xcaffold import` discovers existing `.CLAUDE.md` files in subdirectories, it automatically populates the `path:` field, enabling round-trip import of nested structures.
+
+---
+
 ## Next steps
 
 - [`xcaffold init`](../reference/commands/lifecycle/init.md) — scaffold a starter project to try these patterns locally.

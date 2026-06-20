@@ -416,6 +416,33 @@ func TestOutputDir(t *testing.T) {
 	assert.Equal(t, ".agents", r.OutputDir())
 }
 
+// TestAntigravity2Renderer_Compile_ContextPath_Subdirectory verifies that a
+// context with Path="services" renders to rootFiles["services/GEMINI.md"].
+func TestAntigravity2Renderer_Compile_ContextPath_Subdirectory(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"services-ctx": {
+					Body:    "# Services Instructions\n\nFollow these guidelines for services.\n",
+					Targets: []string{"antigravity2"},
+					Path:    "services",
+				},
+			},
+		},
+	}
+
+	files, rootFiles, notes, err := r.CompileProjectInstructions(config, "")
+	require.NoError(t, err)
+	require.Empty(t, notes)
+	require.Empty(t, files)
+
+	content, ok := rootFiles["services/GEMINI.md"]
+	require.True(t, ok, "expected services/GEMINI.md in rootFiles")
+	assert.Contains(t, content, "Services Instructions")
+	assert.Contains(t, content, "services")
+}
+
 // TestFinalize_NoOp verifies that Finalize is a no-op that preserves input unchanged.
 func TestFinalize_NoOp(t *testing.T) {
 	r := New()

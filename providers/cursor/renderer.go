@@ -286,6 +286,8 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 // renderProjectInstructions emits AGENTS.md at root and one AGENTS.md per scope.
 // Cursor uses the closest-wins nesting class: each subdirectory's AGENTS.md is
 // authoritative for that directory; parent files do not cascade automatically.
+// Root contexts (Path="") write to "AGENTS.md"; non-root contexts
+// (Path="services/api") write to "services/api/AGENTS.md".
 //
 // Deviation handling:
 //   - concat-tagged scopes are pre-flattened: child = root + scope content.
@@ -293,12 +295,14 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 //   - InstructionsImports are inlined because Cursor has no native @-import support.
 //     A single INSTRUCTIONS_IMPORT_INLINED info note is emitted when any imports exist.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	rootContent := renderer.ResolveContextBody(config, targetName)
-	if rootContent == "" {
-		return nil
+	bodies := renderer.ResolveContextBodies(config, targetName)
+	for path, content := range bodies {
+		if path == "" {
+			files["AGENTS.md"] = content
+		} else {
+			files[filepath.Join(path, "AGENTS.md")] = content
+		}
 	}
-
-	files["AGENTS.md"] = rootContent
 	return nil
 }
 

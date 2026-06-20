@@ -169,12 +169,46 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 }
 
 // CompileProjectInstructions writes AGENTS.md at the project root.
+//
+// All contexts — including path-bearing ones — are merged into a single flat
+// file because Codex has no subdirectory instruction primitive. When any
+// context carries a non-empty Path, a CONTEXT_PATH_MAPPED fidelity note is
+// emitted to signal the path scope was ignored.
 func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, _ string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
-	body := renderer.ResolveContextBody(config, targetName)
-	if body == "" {
+	bodies := renderer.ResolveContextBodies(config, targetName)
+	if len(bodies) == 0 {
 		return nil, map[string]string{}, nil, nil
 	}
-	return nil, map[string]string{"AGENTS.md": body}, nil, nil
+
+	// Merge all path-keyed bodies into a single flat string.
+	var parts []string
+	for _, body := range bodies {
+		if body != "" {
+			parts = append(parts, body)
+		}
+	}
+	if len(parts) == 0 {
+		return nil, map[string]string{}, nil, nil
+	}
+	merged := strings.Join(parts, "\n\n")
+
+	var notes []renderer.FidelityNote
+	for name, ctx := range config.Contexts {
+		if ctx.Path == "" {
+			continue
+		}
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     targetName,
+			Kind:       "context",
+			Resource:   name,
+			Field:      "path",
+			Code:       renderer.CodeContextPathMapped,
+			Reason:     fmt.Sprintf("context %q path %q has no Codex subdirectory equivalent; merged into AGENTS.md", name, ctx.Path),
+			Mitigation: "Use a provider that supports path-scoped instructions (e.g. claude, cursor).",
+		})
+	}
+	return nil, map[string]string{"AGENTS.md": merged}, notes, nil
 }
 
 // CompileMemory is a no-op. Codex does not support memory; the orchestrator

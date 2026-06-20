@@ -106,7 +106,7 @@ Each `.xcaf` manifest declares one resource in the agent harness. xcaffold compi
 | `policy` | Compile-time enforcement; violations block `xcaffold apply` |
 | `workflow` | Multi-step agent procedures |
 | `blueprint` | Resource subset selectors for multi-environment targeting |
-| `context` | Formal workspace context declarations |
+| `context` | Formal workspace context declarations; optional `path` field renders to subdirectories for monorepo support |
 
 ## Key Features
 

@@ -641,6 +641,62 @@ func TestSupportsGlobalScope_Codex_Blocked(t *testing.T) {
 	}
 }
 
+// TestCodexRenderer_Compile_ContextPath_IgnoresPath verifies that a context
+// with Path="backend" is still written to root AGENTS.md and that a
+// CONTEXT_PATH_MAPPED fidelity note is emitted.
+func TestCodexRenderer_Compile_ContextPath_IgnoresPath(t *testing.T) {
+	r := New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"backend-ctx": {
+					Name: "backend-ctx",
+					Body: "Backend context instructions.",
+					Path: "backend",
+				},
+			},
+		},
+	}
+	_, rootFiles, notes, err := r.CompileProjectInstructions(cfg, "")
+	require.NoError(t, err)
+
+	_, ok := rootFiles["AGENTS.md"]
+	require.True(t, ok, "path-bearing context must still write to AGENTS.md; got rootFiles: %v", mapKeys(rootFiles))
+
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeContextPathMapped {
+			found = true
+		}
+	}
+	require.True(t, found, "expected CONTEXT_PATH_MAPPED fidelity note; got notes: %v", notes)
+}
+
+// TestCodexRenderer_Compile_ContextPath_NoPaths_NoNote verifies that a context
+// with no Path writes to root AGENTS.md and does not emit CONTEXT_PATH_MAPPED.
+func TestCodexRenderer_Compile_ContextPath_NoPaths_NoNote(t *testing.T) {
+	r := New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {
+					Name: "root",
+					Body: "Root instructions.",
+				},
+			},
+		},
+	}
+	_, rootFiles, notes, err := r.CompileProjectInstructions(cfg, "")
+	require.NoError(t, err)
+
+	_, ok := rootFiles["AGENTS.md"]
+	require.True(t, ok, "root context must write to AGENTS.md")
+
+	for _, n := range notes {
+		require.NotEqual(t, renderer.CodeContextPathMapped, n.Code, "root context must not emit CONTEXT_PATH_MAPPED")
+	}
+}
+
 // ─── Helper functions ────────────────────────────────────────────────────────
 
 // mapKeys returns the keys of a map as a slice for debugging.

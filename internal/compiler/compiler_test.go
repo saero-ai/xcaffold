@@ -873,6 +873,64 @@ func TestCompile_PolicyInherited_NoConflict(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// ── Context path-scoped uniqueness through Compile ────────────────────────────
+
+// TestCompile_TwoContexts_SameTarget_DifferentPaths_OK verifies that two
+// contexts targeting the same provider but at different paths (root vs "backend")
+// are not treated as ambiguous by ValidateContextUniqueness when called through
+// Compile in bare-apply mode (no blueprint).
+func TestCompile_TwoContexts_SameTarget_DifferentPaths_OK(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root-ctx": {
+					Name:    "root-ctx",
+					Body:    "Root workspace instructions.",
+					Targets: []string{"claude"},
+					Path:    "",
+				},
+				"backend-ctx": {
+					Name:    "backend-ctx",
+					Body:    "Backend-scoped instructions.",
+					Targets: []string{"claude"},
+					Path:    "backend",
+				},
+			},
+		},
+	}
+	_, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude"})
+	require.NoError(t, err, "two contexts at different paths must not trigger a uniqueness error")
+}
+
+// TestCompile_TwoContexts_SameTarget_SamePath_NoDefault_Error verifies that two
+// contexts both targeting "claude" at the same path ("backend"), neither marked
+// default, cause Compile to return a context validation error in bare-apply mode.
+func TestCompile_TwoContexts_SameTarget_SamePath_NoDefault_Error(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"backend-a": {
+					Name:    "backend-a",
+					Body:    "First backend context.",
+					Targets: []string{"claude"},
+					Path:    "backend",
+				},
+				"backend-b": {
+					Name:    "backend-b",
+					Body:    "Second backend context.",
+					Targets: []string{"claude"},
+					Path:    "backend",
+				},
+			},
+		},
+	}
+	_, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude"})
+	require.Error(t, err, "two contexts at the same path with no default must return an error")
+	assert.Contains(t, err.Error(), "context validation failed")
+	assert.Contains(t, err.Error(), `"claude"`)
+	assert.Contains(t, err.Error(), `"backend"`)
+}
+
 func TestMergeResourceScope_NilMaps(t *testing.T) {
 	// nil global + non-nil project: no panic, project entries present
 	t.Run("nil_root_non_nil_project", func(t *testing.T) {

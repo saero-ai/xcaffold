@@ -2337,6 +2337,169 @@ func TestDiscoverRootContextFiles_MissingFiles(t *testing.T) {
 	}
 }
 
+// TestImport_PathSlug_SingleLevel tests contextPathSlug with a single-level directory.
+func TestImport_PathSlug_SingleLevel(t *testing.T) {
+	result := contextPathSlug("backend")
+	expected := "backend-context"
+	if result != expected {
+		t.Errorf("contextPathSlug(\"backend\") = %q, expected %q", result, expected)
+	}
+}
+
+// TestImport_PathSlug_MultiLevel tests contextPathSlug with multi-level directories.
+func TestImport_PathSlug_MultiLevel(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"apps/web", "apps-web-context"},
+		{"apps/web/src", "apps-web-src-context"},
+		{"a/b/c/d", "a-b-c-d-context"},
+	}
+	for _, tt := range tests {
+		result := contextPathSlug(tt.input)
+		if result != tt.expected {
+			t.Errorf("contextPathSlug(%q) = %q, expected %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+// TestImport_NestedContext_DiscoveredWithPath verifies that nested context files
+// are discovered with appropriate names and paths.
+func TestImport_NestedContext_DiscoveredWithPath(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Create root-level CLAUDE.md
+	if err := os.WriteFile(filepath.Join(tmp, "CLAUDE.md"), []byte("Root Claude context"), 0600); err != nil {
+		t.Fatalf("failed to write root CLAUDE.md: %v", err)
+	}
+
+	// Create nested backend/CLAUDE.md
+	backendDir := filepath.Join(tmp, "backend")
+	if err := os.MkdirAll(backendDir, 0755); err != nil {
+		t.Fatalf("failed to create backend dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(backendDir, "CLAUDE.md"), []byte("Backend Claude context"), 0600); err != nil {
+		t.Fatalf("failed to write backend/CLAUDE.md: %v", err)
+	}
+
+	// Discover contexts
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: make(map[string]ast.ContextConfig),
+		},
+	}
+	discoverRootContextFiles(tmp, config)
+
+	// Verify root-level context
+	if ctx, ok := config.Contexts["claude"]; !ok {
+		t.Errorf("expected context \"claude\" (root-level), but it was not found")
+	} else {
+		if ctx.Body != "Root Claude context" {
+			t.Errorf("root claude context has wrong body: got %q", ctx.Body)
+		}
+	}
+
+	// Verify nested context with path-slug name
+	if ctx, ok := config.Contexts["backend-context"]; !ok {
+		t.Errorf("expected context \"backend-context\" (nested), but it was not found")
+	} else {
+		if ctx.Body != "Backend Claude context" {
+			t.Errorf("backend-context has wrong body: got %q", ctx.Body)
+		}
+	}
+}
+
+// TestImport_NestedContext_IgnoresFilteredDirs verifies that context files in ignored directories
+// (e.g., node_modules) are not discovered.
+func TestImport_NestedContext_IgnoresFilteredDirs(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Create node_modules/CLAUDE.md (should be ignored)
+	nodeModulesDir := filepath.Join(tmp, "node_modules")
+	if err := os.MkdirAll(nodeModulesDir, 0755); err != nil {
+		t.Fatalf("failed to create node_modules dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nodeModulesDir, "CLAUDE.md"), []byte("node_modules claude"), 0600); err != nil {
+		t.Fatalf("failed to write node_modules/CLAUDE.md: %v", err)
+	}
+
+	// Create vendor/CLAUDE.md (should be ignored)
+	vendorDir := filepath.Join(tmp, "vendor")
+	if err := os.MkdirAll(vendorDir, 0755); err != nil {
+		t.Fatalf("failed to create vendor dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vendorDir, "CLAUDE.md"), []byte("vendor claude"), 0600); err != nil {
+		t.Fatalf("failed to write vendor/CLAUDE.md: %v", err)
+	}
+
+	// Create .git/CLAUDE.md (should be ignored)
+	gitDir := filepath.Join(tmp, ".git")
+	if err := os.MkdirAll(gitDir, 0755); err != nil {
+		t.Fatalf("failed to create .git dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "CLAUDE.md"), []byte("git claude"), 0600); err != nil {
+		t.Fatalf("failed to write .git/CLAUDE.md: %v", err)
+	}
+
+	// Discover contexts
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: make(map[string]ast.ContextConfig),
+		},
+	}
+	discoverRootContextFiles(tmp, config)
+
+	// Verify that only unfiltered contexts exist
+	for key := range config.Contexts {
+		if strings.Contains(key, "node") || strings.Contains(key, "vendor") || strings.Contains(key, "git") {
+			t.Errorf("discovered context in ignored directory: %q", key)
+		}
+	}
+}
+
+// TestImport_NestedContext_DeepNesting verifies deep nesting with correct path and slug.
+func TestImport_NestedContext_DeepNesting(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Create root CLAUDE.md
+	if err := os.WriteFile(filepath.Join(tmp, "CLAUDE.md"), []byte("Root claude"), 0600); err != nil {
+		t.Fatalf("failed to write root CLAUDE.md: %v", err)
+	}
+
+	// Create deeply nested apps/web/src/CLAUDE.md
+	deepDir := filepath.Join(tmp, "apps", "web", "src")
+	if err := os.MkdirAll(deepDir, 0755); err != nil {
+		t.Fatalf("failed to create deep dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deepDir, "CLAUDE.md"), []byte("Deep claude context"), 0600); err != nil {
+		t.Fatalf("failed to write deep CLAUDE.md: %v", err)
+	}
+
+	// Discover contexts
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: make(map[string]ast.ContextConfig),
+		},
+	}
+	discoverRootContextFiles(tmp, config)
+
+	// Verify root context
+	if ctx, ok := config.Contexts["claude"]; !ok {
+		t.Errorf("expected root context \"claude\"")
+	} else if ctx.Body != "Root claude" {
+		t.Errorf("root context has wrong body")
+	}
+
+	// Verify deep context with correct slug name
+	expectedSlug := "apps-web-src-context"
+	if ctx, ok := config.Contexts[expectedSlug]; !ok {
+		t.Errorf("expected deep context %q, but it was not found", expectedSlug)
+	} else if ctx.Body != "Deep claude context" {
+		t.Errorf("deep context has wrong body: got %q", ctx.Body)
+	}
+}
+
 func TestTagResourcesWithProvider_AllKinds(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{

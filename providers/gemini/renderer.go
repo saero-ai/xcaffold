@@ -275,14 +275,17 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 
 // renderProjectInstructions writes project root instructions to GEMINI.md and
 // emits per-scope nested GEMINI.md files. @-import lines are preserved verbatim
-// since Gemini natively supports them.
+// since Gemini natively supports them. Root contexts (Path="") write to
+// "GEMINI.md"; non-root contexts (Path="frontend") write to "frontend/GEMINI.md".
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	rootContent := renderer.ResolveContextBody(config, targetName)
-	if rootContent == "" {
-		return nil
+	bodies := renderer.ResolveContextBodies(config, targetName)
+	for path, content := range bodies {
+		if path == "" {
+			files["GEMINI.md"] = content
+		} else {
+			files[filepath.Join(path, "GEMINI.md")] = content
+		}
 	}
-
-	files["GEMINI.md"] = rootContent
 	return nil
 }
 

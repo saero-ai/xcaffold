@@ -196,5 +196,153 @@ func TestResolveContextBody_RendersExplicitFalseContexts(t *testing.T) {
 	assert.Equal(t, "task body", result, "renderer must render default:false contexts it receives")
 }
 
+// ── ResolveContextBodies ──────────────────────────────────────────────────────
+
+// TestResolveContextBodies_EmptyPath_ReturnsRootEntry verifies that a context
+// with no Path value produces a map entry under the "" key.
+func TestResolveContextBodies_EmptyPath_ReturnsRootEntry(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root-ctx": {
+					Name:    "root-ctx",
+					Targets: []string{"claude"},
+					Body:    "root body",
+				},
+			},
+		},
+	}
+	got := ResolveContextBodies(config, "claude")
+	require.Len(t, got, 1)
+	assert.Equal(t, "root body", got[""])
+}
+
+// TestResolveContextBodies_DifferentPaths_ReturnsSeparateEntries verifies that
+// contexts with different Path values produce separate map entries.
+func TestResolveContextBodies_DifferentPaths_ReturnsSeparateEntries(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root-ctx": {
+					Name:    "root-ctx",
+					Targets: []string{"claude"},
+					Body:    "root body",
+				},
+				"backend-ctx": {
+					Name:    "backend-ctx",
+					Targets: []string{"claude"},
+					Body:    "backend body",
+					Path:    "backend",
+				},
+			},
+		},
+	}
+	got := ResolveContextBodies(config, "claude")
+	require.Len(t, got, 2)
+	assert.Equal(t, "root body", got[""])
+	assert.Equal(t, "backend body", got["backend"])
+}
+
+// TestResolveContextBodies_SamePath_CombinesBodies verifies that two contexts
+// sharing the same target and Path are joined with "\n\n", default first.
+func TestResolveContextBodies_SamePath_CombinesBodies(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-a": {
+					Name:    "ctx-a",
+					Targets: []string{"claude"},
+					Body:    "extra body",
+					Path:    "backend",
+				},
+				"ctx-b": {
+					Name:    "ctx-b",
+					Targets: []string{"claude"},
+					Body:    "default body",
+					Path:    "backend",
+					Default: boolPtr(true),
+				},
+			},
+		},
+	}
+	got := ResolveContextBodies(config, "claude")
+	require.Len(t, got, 1)
+	// Default comes first, then alphabetically sorted remainder.
+	assert.Equal(t, "default body\n\nextra body", got["backend"])
+}
+
+// TestResolveContextBodies_DeterministicOrder calls ResolveContextBodies 10
+// times and asserts identical output on every call.
+func TestResolveContextBodies_DeterministicOrder(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-z": {Name: "ctx-z", Targets: []string{"claude"}, Body: "z body", Path: "sub"},
+				"ctx-a": {Name: "ctx-a", Targets: []string{"claude"}, Body: "a body", Path: "sub"},
+				"ctx-m": {Name: "ctx-m", Targets: []string{"claude"}, Body: "m body", Path: "sub", Default: boolPtr(true)},
+				"root":  {Name: "root", Targets: []string{"claude"}, Body: "root body"},
+			},
+		},
+	}
+	first := ResolveContextBodies(config, "claude")
+	for i := 0; i < 9; i++ {
+		got := ResolveContextBodies(config, "claude")
+		assert.Equal(t, first, got, "call %d returned different result", i+2)
+	}
+}
+
+// ── ValidateContextUniqueness path-scoped tests ───────────────────────────────
+
+// TestValidateContextUniqueness_DifferentPaths_SameTarget_OK verifies that two
+// contexts targeting the same provider but at different paths are not ambiguous.
+func TestValidateContextUniqueness_DifferentPaths_SameTarget_OK(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"root-ctx":    {Name: "root-ctx", Body: "root", Targets: []string{"claude"}, Path: ""},
+		"backend-ctx": {Name: "backend-ctx", Body: "backend", Targets: []string{"claude"}, Path: "backend"},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.NoError(t, err, "different paths must not be treated as a conflict")
+}
+
+// TestValidateContextUniqueness_SamePath_SameTarget_NoDefault_Error verifies
+// that two contexts with the same target and same non-empty path, neither
+// marked default, produce an error.
+func TestValidateContextUniqueness_SamePath_SameTarget_NoDefault_Error(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Path: "backend"},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Path: "backend"},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `"claude"`)
+	assert.Contains(t, err.Error(), `"backend"`)
+	assert.Contains(t, err.Error(), "default")
+}
+
+// TestValidateContextUniqueness_SamePath_SameTarget_WithDefault_OK verifies
+// that two contexts at the same target+path are resolved when one is default.
+func TestValidateContextUniqueness_SamePath_SameTarget_WithDefault_OK(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Path: "backend"},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Path: "backend", Default: boolPtr(true)},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.NoError(t, err)
+}
+
+// TestValidateContextUniqueness_SamePath_SameTarget_TwoDefaults_Error verifies
+// that two contexts at the same target+path, both marked default, produce an error.
+func TestValidateContextUniqueness_SamePath_SameTarget_TwoDefaults_Error(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Path: "backend", Default: boolPtr(true)},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Path: "backend", Default: boolPtr(true)},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple contexts marked as default")
+	assert.Contains(t, err.Error(), `"claude"`)
+	assert.Contains(t, err.Error(), `"backend"`)
+}
+
 // boolPtr returns a pointer to the given bool value.
 func boolPtr(b bool) *bool { return &b }

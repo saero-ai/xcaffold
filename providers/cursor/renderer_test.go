@@ -1711,3 +1711,39 @@ func TestCompile_Skill_CCOnlyFieldsDropped_DisableModelInvocationKept(t *testing
 	// disable-model-invocation IS supported by Cursor and must appear.
 	assert.Contains(t, content, "disable-model-invocation: true", "disable-model-invocation must be emitted for Cursor")
 }
+
+// TestCursorRenderer_Compile_ContextPath_Subdirectory verifies that a context
+// with Path="services/api" is rendered to "services/api/AGENTS.md" in rootFiles,
+// not "AGENTS.md".
+func TestCursorRenderer_Compile_ContextPath_Subdirectory(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"api-ctx": {
+					Body: "API service instructions.",
+					Path: "services/api",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	_, rootPresent := out.RootFiles["AGENTS.md"]
+	assert.False(t, rootPresent, "root AGENTS.md must not be emitted when no root-path context exists")
+
+	content, ok := out.RootFiles["services/api/AGENTS.md"]
+	require.True(t, ok, "expected services/api/AGENTS.md in root output; got keys: %v", mapKeysCursor(out.RootFiles))
+	assert.Contains(t, content, "API service instructions.")
+}
+
+func mapKeysCursor(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}

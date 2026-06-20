@@ -527,6 +527,33 @@ func mapKeysGemini(m map[string]string) []string {
 	return keys
 }
 
+// TestGeminiRenderer_Compile_ContextPath_Subdirectory verifies that a context
+// with Path="frontend" is rendered to "frontend/GEMINI.md" in rootFiles, not "GEMINI.md".
+func TestGeminiRenderer_Compile_ContextPath_Subdirectory(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"frontend-ctx": {
+					Body: "Frontend-specific instructions.",
+					Path: "frontend",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	_, rootPresent := out.RootFiles["GEMINI.md"]
+	assert.False(t, rootPresent, "root GEMINI.md must not be emitted when no root-path context exists")
+
+	content, ok := out.RootFiles["frontend/GEMINI.md"]
+	require.True(t, ok, "expected frontend/GEMINI.md in root output; got keys: %v", mapKeysGemini(out.RootFiles))
+	assert.Contains(t, content, "Frontend-specific instructions.")
+}
+
 func TestSupportsGlobalScope_Gemini(t *testing.T) {
 	r := &Renderer{}
 	if !r.SupportsGlobalScope() {
