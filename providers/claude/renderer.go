@@ -428,15 +428,19 @@ func mergeMCPSettings(files map[string]string) error {
 	return nil
 }
 
-// renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.
+// renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per
+// path-bearing context scope. Root contexts (Path="") write to "CLAUDE.md";
+// non-root contexts (Path="backend") write to "backend/CLAUDE.md".
 // This is the concat-nested class — the reference implementation with zero fidelity loss.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	rootContent := renderer.ResolveContextBody(config, "claude")
-	if rootContent == "" {
-		return nil
+	bodies := renderer.ResolveContextBodies(config, "claude")
+	for path, content := range bodies {
+		if path == "" {
+			files["CLAUDE.md"] = content
+		} else {
+			files[filepath.Join(path, "CLAUDE.md")] = content
+		}
 	}
-
-	files["CLAUDE.md"] = rootContent
 	return nil // concat-nested: zero fidelity notes
 }
 

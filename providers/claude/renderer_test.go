@@ -838,6 +838,68 @@ func TestClaude_ActivationAlways_RulePlusSkill(t *testing.T) {
 
 func intPtr(n int) *int { return &n }
 
+// ─── Context path tests (T-2.3) ──────────────────────────────────────────────
+
+// TestClaudeRenderer_Compile_ContextPath_Subdirectory verifies that a context
+// with Path="backend" is rendered to "backend/CLAUDE.md", not "CLAUDE.md".
+func TestClaudeRenderer_Compile_ContextPath_Subdirectory(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"backend-ctx": {
+					Body: "Backend-specific instructions.",
+					Path: "backend",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	_, rootPresent := out.RootFiles["CLAUDE.md"]
+	assert.False(t, rootPresent, "root CLAUDE.md must not be emitted when no root-path context exists")
+
+	content, ok := out.RootFiles["backend/CLAUDE.md"]
+	require.True(t, ok, "expected backend/CLAUDE.md in root output; got keys: %v", mapKeys(out.RootFiles))
+	assert.Contains(t, content, "Backend-specific instructions.")
+}
+
+// TestClaudeRenderer_Compile_ContextPath_RootAndSubdir verifies that a root
+// context (Path="") and a path-bearing context (Path="backend") each emit
+// their own CLAUDE.md at the correct location.
+func TestClaudeRenderer_Compile_ContextPath_RootAndSubdir(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root-ctx": {
+					Body: "Root project instructions.",
+					Path: "",
+				},
+				"backend-ctx": {
+					Body: "Backend-specific instructions.",
+					Path: "backend",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	rootContent, rootOK := out.RootFiles["CLAUDE.md"]
+	require.True(t, rootOK, "expected CLAUDE.md in root output; got keys: %v", mapKeys(out.RootFiles))
+	assert.Contains(t, rootContent, "Root project instructions.")
+
+	subContent, subOK := out.RootFiles["backend/CLAUDE.md"]
+	require.True(t, subOK, "expected backend/CLAUDE.md in root output; got keys: %v", mapKeys(out.RootFiles))
+	assert.Contains(t, subContent, "Backend-specific instructions.")
+}
+
 func TestSupportsGlobalScope_Claude(t *testing.T) {
 	r := New()
 	if !r.SupportsGlobalScope() {
