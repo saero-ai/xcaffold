@@ -88,13 +88,21 @@ type matchedContext struct {
 }
 
 // ValidateContextUniqueness checks that at most one context matches each
-// target in the provided list. When multiple contexts match a target, exactly
-// one must have Default=true to act as the tie-breaker. Returns an error if
-// the ambiguity cannot be resolved (no default, or more than one default).
+// (target, path) pair in the provided list. When multiple contexts match a
+// pair, exactly one must have Default=true to act as the tie-breaker. Returns
+// an error if the ambiguity cannot be resolved (no default, or more than one
+// default).
 func ValidateContextUniqueness(contexts map[string]ast.ContextConfig, targets []string) error {
+	type scope struct{ target, path string }
+
+	// group collects context names and defaults per (target, path) scope.
+	type group struct {
+		matching []string
+		defaults []string
+	}
+	groups := make(map[scope]*group)
+
 	for _, target := range targets {
-		var matching []string
-		var defaults []string
 		for name, ctx := range contexts {
 			applies := len(ctx.Targets) == 0
 			if !applies {
@@ -105,24 +113,42 @@ func ValidateContextUniqueness(contexts map[string]ast.ContextConfig, targets []
 					}
 				}
 			}
-			if applies {
-				matching = append(matching, name)
-				if ctx.Default != nil && *ctx.Default {
-					defaults = append(defaults, name)
-				}
+			if !applies {
+				continue
+			}
+			key := scope{target: target, path: ctx.Path}
+			if groups[key] == nil {
+				groups[key] = &group{}
+			}
+			groups[key].matching = append(groups[key].matching, name)
+			if ctx.Default != nil && *ctx.Default {
+				groups[key].defaults = append(groups[key].defaults, name)
 			}
 		}
-		sort.Strings(matching)
-		sort.Strings(defaults)
-		if len(matching) > 1 {
-			if len(defaults) == 0 {
-				return fmt.Errorf("multiple contexts target %q: [%s]; mark one as default or use --blueprint to select",
-					target, strings.Join(matching, ", "))
+	}
+
+	// Evaluate each scope independently.
+	for key, g := range groups {
+		sort.Strings(g.matching)
+		sort.Strings(g.defaults)
+		if len(g.matching) <= 1 {
+			continue
+		}
+		if len(g.defaults) == 0 {
+			if key.path != "" {
+				return fmt.Errorf("multiple contexts target %q at path %q: [%s]; mark one as default or use --blueprint to select",
+					key.target, key.path, strings.Join(g.matching, ", "))
 			}
-			if len(defaults) > 1 {
-				return fmt.Errorf("multiple contexts marked as default for target %q: [%s]",
-					target, strings.Join(defaults, ", "))
+			return fmt.Errorf("multiple contexts target %q: [%s]; mark one as default or use --blueprint to select",
+				key.target, strings.Join(g.matching, ", "))
+		}
+		if len(g.defaults) > 1 {
+			if key.path != "" {
+				return fmt.Errorf("multiple contexts marked as default for target %q at path %q: [%s]",
+					key.target, key.path, strings.Join(g.defaults, ", "))
 			}
+			return fmt.Errorf("multiple contexts marked as default for target %q: [%s]",
+				key.target, strings.Join(g.defaults, ", "))
 		}
 	}
 	return nil

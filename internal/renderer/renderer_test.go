@@ -291,5 +291,58 @@ func TestResolveContextBodies_DeterministicOrder(t *testing.T) {
 	}
 }
 
+// ── ValidateContextUniqueness path-scoped tests ───────────────────────────────
+
+// TestValidateContextUniqueness_DifferentPaths_SameTarget_OK verifies that two
+// contexts targeting the same provider but at different paths are not ambiguous.
+func TestValidateContextUniqueness_DifferentPaths_SameTarget_OK(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"root-ctx":    {Name: "root-ctx", Body: "root", Targets: []string{"claude"}, Path: ""},
+		"backend-ctx": {Name: "backend-ctx", Body: "backend", Targets: []string{"claude"}, Path: "backend"},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.NoError(t, err, "different paths must not be treated as a conflict")
+}
+
+// TestValidateContextUniqueness_SamePath_SameTarget_NoDefault_Error verifies
+// that two contexts with the same target and same non-empty path, neither
+// marked default, produce an error.
+func TestValidateContextUniqueness_SamePath_SameTarget_NoDefault_Error(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Path: "backend"},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Path: "backend"},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `"claude"`)
+	assert.Contains(t, err.Error(), `"backend"`)
+	assert.Contains(t, err.Error(), "default")
+}
+
+// TestValidateContextUniqueness_SamePath_SameTarget_WithDefault_OK verifies
+// that two contexts at the same target+path are resolved when one is default.
+func TestValidateContextUniqueness_SamePath_SameTarget_WithDefault_OK(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Path: "backend"},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Path: "backend", Default: boolPtr(true)},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.NoError(t, err)
+}
+
+// TestValidateContextUniqueness_SamePath_SameTarget_TwoDefaults_Error verifies
+// that two contexts at the same target+path, both marked default, produce an error.
+func TestValidateContextUniqueness_SamePath_SameTarget_TwoDefaults_Error(t *testing.T) {
+	contexts := map[string]ast.ContextConfig{
+		"ctx-a": {Name: "ctx-a", Body: "a", Targets: []string{"claude"}, Path: "backend", Default: boolPtr(true)},
+		"ctx-b": {Name: "ctx-b", Body: "b", Targets: []string{"claude"}, Path: "backend", Default: boolPtr(true)},
+	}
+	err := ValidateContextUniqueness(contexts, []string{"claude"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple contexts marked as default")
+	assert.Contains(t, err.Error(), `"claude"`)
+	assert.Contains(t, err.Error(), `"backend"`)
+}
+
 // boolPtr returns a pointer to the given bool value.
 func boolPtr(b bool) *bool { return &b }
