@@ -16,6 +16,11 @@ func NewModelResolver() *antigravityModelResolver {
 // Ground truth: Antigravity model spec (2026-05-22 / 2026-08-23).
 var knownModels = map[string]string{
 	// Gemini tier
+	"gemini-3.7-flash":    "gemini-3.7-flash",
+	"flash-3.7":           "gemini-3.7-flash",
+	"flash-latest":        "gemini-3.7-flash",
+	"gemini-3.6-flash":    "gemini-3.6-flash",
+	"flash-3.6":           "gemini-3.6-flash",
 	"gemini-3.5-flash":    "gemini-3.5-flash",
 	"gemini-3.1-pro-high": "gemini-3.1-pro-high",
 	"gemini-3.1-pro-low":  "gemini-3.1-pro-low",
