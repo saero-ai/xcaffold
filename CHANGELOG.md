@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0](https://github.com/saero-ai/xcaffold/compare/v0.15.0...v0.16.0) (2026-08-23)
+
+
+### Features
+
+* **providers:** add gemini-3.7/3.6 models and antigravity catalog to docs ([50c80f9](https://github.com/saero-ai/xcaffold/commit/50c80f9e78947abc6579c5bac12f8cd2b4b916d9))
+* **providers:** add gemini-3.7/3.6 to antigravity resolver ([f9f7a16](https://github.com/saero-ai/xcaffold/commit/f9f7a166d629d073f54c092c22841ce9af0081ff))
+* **providers:** unify antigravity provider across cli, ide, and runtime ([e9436cc](https://github.com/saero-ai/xcaffold/commit/e9436cc7ad9f1808fe6c2a40483a32a8f4922fd1))
+* **providers:** unify antigravity provider across cli, ide, and runtime ([0c337f2](https://github.com/saero-ai/xcaffold/commit/0c337f23467eb8543c829fb1af16a5a13952aaff))
+
 ## [Unreleased]
 
 ### Features
