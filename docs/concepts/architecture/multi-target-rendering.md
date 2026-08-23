@@ -47,8 +47,7 @@ xcaffold ships renderers for each supported platform:
 |---|---|---|
 | `claude` | `.claude/` | YAML-frontmatter Markdown agents, `settings.json`, `mcp.json` |
 | `cursor` | `.cursor/` | YAML-frontmatter Markdown agents, `.mdc` rules, `mcp.json` |
-| `antigravity` (deprecated) | `.agents/` | Plain Markdown workflow definitions (no project MCP file — global `~/.gemini/antigravity/mcp_config.json` only) |
-| `antigravity2` | `.agents/` | Structured JSON agents, `mcp_config.json` |
+| `antigravity` | `.agents/` | YAML-frontmatter Markdown agents, `skills/*/SKILL.md`, `rules/*.md`, `workflows/*.md`, `hooks.json`, `mcp_config.json`, `GEMINI.md` |
 | `copilot` | `.github/` | GitHub Copilot instructions and prompt files |
 | `gemini` | `.gemini/` | YAML-frontmatter Markdown agents, `rules/*.md`, `settings.json` |
 

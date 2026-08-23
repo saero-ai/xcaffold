@@ -129,7 +129,7 @@ You are the ONLY agent authorized to modify `src/components/`.
 | `mcp` | `[]string` | MCP server resource IDs available to this agent. Must match top-level `mcp:` map keys. |
 | `mcp-servers` | `map[string]MCPConfig` | Inline MCP server definitions keyed by server name. Same field schema as [`kind: mcp`](./mcp). |
 | `hooks` | `HookConfig` | Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](./hooks). |
-| `targets` | `map[string]TargetOverride` | Per-provider overrides keyed by provider name (`antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`). |
+| `targets` | `map[string]TargetOverride` | Per-provider overrides keyed by provider name (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). |
 
 ### `hooks` block
 
@@ -147,7 +147,7 @@ Agent-scoped MCP server definitions. Not merged with project-level `mcp:`. Same 
 
 Per-provider overrides keyed by provider name. When present, the resource compiles only for listed providers. See [Targets](../../../concepts/configuration/targets.md) for the full concept, including filtering semantics and the dual-purpose map syntax.
 
-Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct. Valid target keys are: `antigravity` (deprecated), `antigravity2`, `claude`, `copilot`, `cursor`, `gemini`, `codex`.
+Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct. Valid target keys are: `antigravity`, `claude`, `copilot`, `cursor`, `gemini`, `codex`.
 
 | Field | Type | Status |
 |---|---|---|
@@ -311,19 +311,11 @@ mcpServers:
 
 > Gemini emits `name`, `description`, `model` (resolved), `tools` (YAML list), `max_turns` (snake_case, from `max-turns`), and `mcpServers` (camelCase, from `mcp-servers`). Fields `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `readonly`, `background`, `isolation`, `color`, `initial-prompt`, and `hooks` are dropped.
 
-### Antigravity (deprecated)
+### Antigravity
 
-> **Deprecated.** The `antigravity` target is deprecated in favor of `antigravity2` (Antigravity 2.0). Existing configurations continue to work but new projects should use `antigravity2`. See [Supported Providers](../../supported-providers.md).
+**Output path**: `.agents/agents/<id>.md`
 
-**Output path**: `.agents/agents/react-developer.md`
-
-Agent compiled as a specialist note (persona profile). Fidelity note `RENDERER_KIND_DOWNGRADED` emitted to stderr indicating that Antigravity does not support native agent definitions. `name`, `description`, `model`, and body content are folded into the note body; no frontmatter fields are emitted.
-
-### Antigravity 2
-
-**Output path**: `.agents/agents/<name>/agent.json`
-
-Antigravity 2.0 compiles agents to a structured JSON format (`agent.json`). `name`, `description`, `model` (resolved), `tools` (JSON array), `disallowed-tools` (as `disabledTools`), `max-turns` (as `maxTurns`), `readonly`, `user-invocable` (as `userInvocable`), `initial-prompt`, `skills`, and `rules` are emitted. Fields without an Antigravity 2 equivalent — `memory`, `mcp-servers`, `mcp`, `effort`, `permission-mode`, `background`, `isolation`, `color`, `hooks` — are dropped.
+Antigravity compiles agents to flat Markdown files with YAML frontmatter and a Markdown system prompt body. `name`, `description`, `model` (resolved), `tools` (list), `mainAgent` (true), `subagent` (true), `commandExecutionPolicy` (`sandbox`), `skills`, and inline `mcpServers` are emitted in the frontmatter. Body content is rendered as the system prompt. Fields without native equivalents (`memory`, `effort`, `permission-mode`, `background`, `isolation`, `color`, `hooks`) are dropped with fidelity notes.
 
 ### Codex (Preview)
 

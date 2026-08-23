@@ -266,21 +266,13 @@ Emits `name`, `description`, and `license` in the frontmatter. Artifact subdirec
 
 Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Artifact subdirectories are seeded at `.gemini/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
-### Antigravity (deprecated)
+### Antigravity
 
-> **Deprecated.** Antigravity (v1) is superseded by Antigravity 2. New projects should target `antigravity2`. The v1 target remains supported for backwards compatibility.
+**Output path**: `.agents/skills/<id>/SKILL.md`
 
-**Output path**: `.agents/skills/component-patterns/SKILL.md`
+Antigravity follows the agentskills.io format and emits `name`, `description`, `when-to-use`, `argument-hint`, `allowed-tools`, `user-invocable`, and `disable-model-invocation` in the frontmatter. The markdown body is preserved.
 
-Antigravity v1 emits only `name` and `description` in the frontmatter. All other frontmatter fields (`when-to-use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are stripped. The markdown body is preserved.
-
-### Antigravity 2
-
-**Output path**: `.agents/skills/component-patterns/SKILL.md`
-
-Antigravity 2 emits `name`, `description`, `when-to-use`, `argument-hint`, and `allowed-tools` in the frontmatter. Provider-specific fields (`license`, `disable-model-invocation`, `user-invocable`) are stripped. The markdown body is preserved.
-
-When `artifacts` are declared, files discovered in each artifact subdirectory are placed alongside `SKILL.md` with the Antigravity 2 directory remapping applied (see the artifact path remapping table below).
+When `artifacts` are declared, files discovered in each artifact subdirectory are placed alongside `SKILL.md` with artifact directory mapping applied (`references` -> `examples`, `assets` -> `resources`).
 
 ### Codex (Preview)
 

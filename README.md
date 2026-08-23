@@ -19,7 +19,7 @@ project.xcaf  ──►  xcaffold apply  ──►  claude        ──►  .cl
                                    ──►  cursor        ──►  .cursor/
                                    ──►  gemini        ──►  .gemini/
                                    ──►  copilot       ──►  .github/
-                                   ──►  antigravity2  ──►  .agents/
+                                   ──►  antigravity   ──►  .agents/
                                    ──►  codex         ──►  .codex/
 ```
 
