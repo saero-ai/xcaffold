@@ -5,7 +5,7 @@ description: "How the AST enables the same configuration to compile to different
 
 # Multi-Target Rendering
 
-A single `.xcaf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity and Antigravity 2, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
+A single `.xcaf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
 
 This works because xcaffold treats configuration as data and delegates all format concerns to per-target renderers.
 

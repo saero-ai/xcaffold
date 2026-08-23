@@ -126,11 +126,10 @@ Both compile successfully because they target different paths.
 | Cursor | `✓` Yes | `{path}/AGENTS.md` |
 | Gemini CLI | `✓` Yes | `{path}/GEMINI.md` |
 | GitHub Copilot | `✓` Yes (via glob) | `.github/instructions/{name}.instructions.md` with `applyTo: {path}/**` glob |
-| Antigravity v1 | ✗ No | Deprecated provider; consolidates at `GEMINI.md` |
-| Antigravity 2 | `✓` Yes | `{path}/GEMINI.md` |
+| Antigravity | `✓` Yes | `{path}/GEMINI.md` |
 | Codex | ✗ No | Consolidates at `AGENTS.md` (path ignored) |
 
-Gemini CLI and Antigravity targets consolidate all contexts at the project root regardless of the `path:` field — they do not support nested instructions.
+Codex consolidates all contexts at the project root regardless of the `path:` field — it does not support nested instructions.
 
 ### Variable Interpolation
 

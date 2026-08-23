@@ -8,7 +8,7 @@ description: "Reference context exercising every ContextConfig field."
 default: false
 
 # Group: Targeting — omit to compile for all providers
-targets: [claude, gemini, antigravity, antigravity2, cursor, copilot]
+targets: [claude, gemini, antigravity, cursor, copilot]
 
 # Group: Targeting — optional subdirectory for the rendered instruction file
 path: "contexts/backend"
@@ -16,7 +16,7 @@ path: "contexts/backend"
 # Golden Context
 
 This body text is compiled verbatim into the provider's root instruction file
-(e.g. CLAUDE.md for Claude, GEMINI.md for Gemini, AGENTS.md for Antigravity).
+(e.g. CLAUDE.md for Claude, GEMINI.md for Gemini, GEMINI.md for Antigravity).
 
 Use `kind: context` to supply workspace-level ambient instructions shared
 across all agents — project conventions, coding standards, tool policies, etc.
