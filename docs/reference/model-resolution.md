@@ -132,3 +132,26 @@ Featured models available in Cursor as of 2026-06-09:
 
 > **Source:** [Cursor Docs — Models](https://cursor.com/docs) (mined 2026-06-09).
 > Model availability and slugs may change. Use literal pass-through for models not listed here.
+
+## Antigravity Model Catalog
+
+Available models in Antigravity (CLI, IDE, and runtime) as of 2026-08-23:
+
+| Model | Provider | Model ID | Context | Tier / Capabilities |
+|-------|----------|----------|---------|---------------------|
+| Gemini 3.7 Flash | Google | `gemini-3.7-flash` | 1M tokens | default, reasoning (thinking) |
+| Gemini 3.6 Flash | Google | `gemini-3.6-flash` | 1M tokens | fast, reasoning (thinking) |
+| Gemini 3.5 Flash | Google | `gemini-3.5-flash` | 1M tokens | balanced / fast, thinking |
+| Gemini 3.1 Pro (high) | Google | `gemini-3.1-pro-high` | 1M tokens | flagship, deep reasoning |
+| Gemini 3.1 Pro (low) | Google | `gemini-3.1-pro-low` | 1M tokens | flagship, low thinking |
+| Gemini 3 Flash | Google | `gemini-3-flash` | 1M tokens | fast |
+| Gemini 2.5 Pro | Google | `gemini-2.5-pro` | 1M tokens | flagship |
+| Gemini 2.5 Flash | Google | `gemini-2.5-flash` | 1M tokens | fast, efficient |
+| Claude Sonnet 4.6 (thinking) | Anthropic | `claude-sonnet-4-6-thinking` | 200K tokens | reasoning, extended thinking |
+| Claude Opus 4.6 (thinking) | Anthropic | `claude-opus-4-6-thinking` | 200K tokens | flagship reasoning |
+| GPT-OSS-120b | Open Source | `gpt-oss-120b` | 128K tokens | open-source reasoning |
+| Nano Banana 2 | Internal | `nano-banana-2` | N/A | image generation |
+
+> **Source:** Ground Truth Model Registry (verified 2026-08-23).
+> Model availability and aliases are supported across Antigravity CLI (`agy`), Antigravity IDE, and Antigravity 2.0. Unlisted or custom model IDs pass through directly.
+
