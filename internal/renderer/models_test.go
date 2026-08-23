@@ -279,3 +279,55 @@ func TestIsMappedModel_OldAlias_HaikuRejected(t *testing.T) {
 	assert.False(t, renderer.IsMappedModel("haiku-3.5", "claude"),
 		"old alias haiku-3.5 must NOT be a mapped alias after rename")
 }
+
+func TestResolveModel_AntigravityTarget(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"flagship", "gemini-3.1-pro-high"},
+		{"balanced", "gemini-3.5-flash"},
+		{"fast", "gemini-2.5-flash"},
+		{"flash", "gemini-3.5-flash"},
+		{"pro", "gemini-3.1-pro-high"},
+		{"pro-low", "gemini-3.1-pro-low"},
+		{"gemini-3.7-flash", "gemini-3.7-flash"},
+		{"flash-3.7", "gemini-3.7-flash"},
+		{"flash-latest", "gemini-3.7-flash"},
+		{"gemini-3.6-flash", "gemini-3.6-flash"},
+		{"flash-3.6", "gemini-3.6-flash"},
+		{"sonnet-thinking", "claude-sonnet-4-6-thinking"},
+		{"opus-thinking", "claude-opus-4-6-thinking"},
+		{"gpt-oss", "gpt-oss-120b"},
+		{"custom-antigravity-model", "custom-antigravity-model"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			model, ok := renderer.ResolveModel(tt.input, "antigravity")
+			assert.True(t, ok, "expected ok=true for antigravity target")
+			assert.Equal(t, tt.expected, model)
+		})
+	}
+}
+
+func TestSanitizeAgentModel_AntigravityPassThrough(t *testing.T) {
+	caps := renderer.CapabilitySet{}
+
+	// Known tier alias -> resolves cleanly with 0 notes
+	gotModel, gotNotes := renderer.SanitizeAgentModel("balanced", caps, "antigravity", "agent-1")
+	assert.Equal(t, "gemini-3.5-flash", gotModel)
+	assert.Empty(t, gotNotes)
+
+	// Short alias -> resolves with 1 info note (transformed/passthrough)
+	gotModel, gotNotes = renderer.SanitizeAgentModel("flash-3.7", caps, "antigravity", "agent-1")
+	assert.Equal(t, "gemini-3.7-flash", gotModel)
+	assert.Len(t, gotNotes, 1)
+	assert.Equal(t, renderer.CodeFieldTransformed, gotNotes[0].Code)
+
+	// Literal / custom model -> passes through with 1 info note
+	gotModel, gotNotes = renderer.SanitizeAgentModel("gemini-3.7-flash", caps, "antigravity", "agent-1")
+	assert.Equal(t, "gemini-3.7-flash", gotModel)
+	assert.Len(t, gotNotes, 1)
+	assert.Equal(t, renderer.CodeFieldTransformed, gotNotes[0].Code)
+}
