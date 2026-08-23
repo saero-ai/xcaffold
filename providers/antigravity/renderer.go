@@ -352,6 +352,8 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, caps renderer.Capabi
 		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
 
+	var notes []renderer.FidelityNote
+
 	body := strings.TrimSpace(renderer.StripAllFrontmatter(resolver.StripFrontmatter(agent.Body)))
 
 	name := agent.Name
@@ -363,6 +365,10 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, caps renderer.Capabi
 	if resolvedModel == "" {
 		resolvedModel = "inherit"
 	}
+	notes = append(notes, mn...)
+
+	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
+	notes = append(notes, toolNotes...)
 
 	var sb strings.Builder
 	sb.WriteString("---\n")
@@ -372,9 +378,9 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, caps renderer.Capabi
 	}
 	fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolvedModel))
 
-	if len(agent.Tools.Values) > 0 {
+	if len(sanitizedTools) > 0 {
 		sb.WriteString("tools:\n")
-		for _, t := range agent.Tools.Values {
+		for _, t := range sanitizedTools {
 			fmt.Fprintf(&sb, "  - %s\n", t)
 		}
 	}
@@ -408,7 +414,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, caps renderer.Capabi
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), mn, nil
+	return sb.String(), notes, nil
 }
 
 // compileSkill renders a single SkillConfig to SKILL.md.
