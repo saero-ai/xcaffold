@@ -11,32 +11,29 @@ xcaffold supports a `model` field on agents that accepts either a **tier alias**
 
 Tier aliases let you write provider-agnostic `.xcaf` files. Each provider maps the alias to its recommended model for that tier.
 
-| Alias | Intent | Claude Code | Cursor | Copilot | Gemini CLI | Codex |
-|-------|--------|-------------|--------|---------|------------|-------|
-| `balanced` | General-purpose default | `sonnet` | `claude-sonnet-4-6` | `claude-sonnet-4-6` | `gemini-3.5-flash` | `gpt-5.4` |
-| `flagship` | Most capable model | `opus` | `gpt-5.5` | `claude-opus-4-8` | `gemini-2.5-pro` | `gpt-5.5` |
-| `fast` | Fastest / cheapest | `haiku` | `composer-2.5` | `claude-haiku-4-5` | `gemini-3.5-flash` | `gpt-5.4-mini` |
+| Alias | Intent | Claude Code | Cursor | Copilot | Gemini CLI | Codex | Antigravity |
+|-------|--------|-------------|--------|---------|------------|-------|-------------|
+| `balanced` | General-purpose default | `sonnet` | `claude-sonnet-4-6` | `claude-sonnet-4-6` | `gemini-3.5-flash` | `gpt-5.4` | `gemini-3.5-flash` |
+| `flagship` | Most capable model | `opus` | `gpt-5.5` | `claude-opus-4-8` | `gemini-2.5-pro` | `gpt-5.5` | `gemini-3.1-pro-high` |
+| `fast` | Fastest / cheapest | `haiku` | `composer-2.5` | `claude-haiku-4-5` | `gemini-3.5-flash` | `gpt-5.4-mini` | `gemini-2.5-flash` |
 
 Claude Code uses bare aliases (`sonnet`, `opus`, `haiku`) that resolve at runtime to the latest version. This means the compiled output always targets the current model without needing resolver updates.
 
-Antigravity 2.0 uses its own short aliases (`flash`, `pro`, `pro-low`, `sonnet-thinking`, `opus-thinking`, `gpt-oss`) rather than the generic tiers — see [Antigravity 2.0 Models](#antigravity-20-models) below.
-
-> **Last verified:** 2026-06-09 against official provider documentation.
+> **Last verified:** 2026-08-23 against official provider documentation.
 > Tier mappings are defaults. Override them per-provider using `model-tier-<alias>` entries in `project.<provider>.vars`, or use `agent.<provider>.xcaf` overrides for individual agents.
 
 ## Literal Model IDs (Pass-Through)
 
 When the `model` field contains a literal model ID instead of a tier alias, each provider checks whether the ID matches a known prefix family and passes it through unchanged.
 
-| Provider | Accepted Prefixes |
-|----------|------------------|
+| Provider | Accepted Prefixes / Pass-Through |
+|----------|----------------------------------|
 | Claude Code | `claude-`, bare aliases (`sonnet`, `opus`, `haiku`) |
 | Cursor | `claude-`, `gpt-`, `gemini-`, `cursor-`, `composer-`, `o1-`, `o3-`, `grok-`, `kimi-` |
 | Copilot | `claude-`, `gpt-` |
 | Gemini CLI | `gemini-` |
 | Codex | `gpt-` |
-| Antigravity 2.0 | Known model IDs and aliases only — see [Antigravity 2.0 Models](#antigravity-20-models) |
-| Antigravity (deprecated) | *(no model support)* |
+| Antigravity | Multi-vendor model IDs, short aliases, and pass-through strings — see [Antigravity Models](#antigravity-models) |
 
 Pass-through is case-insensitive. `Claude-Sonnet-4-6` resolves to `claude-sonnet-4-6`.
 
@@ -51,6 +48,8 @@ Unrecognized model IDs (no matching prefix) produce an `AGENT_MODEL_UNMAPPED` wa
 | `flagship` | `gemini-3.1-pro-high` | Gemini |
 | `balanced` | `gemini-3.5-flash` | Gemini |
 | `fast` | `gemini-2.5-flash` | Gemini |
+| `flash-3.7` / `flash-latest` | `gemini-3.7-flash` | Gemini |
+| `flash-3.6` | `gemini-3.6-flash` | Gemini |
 | `flash` | `gemini-3.5-flash` | Gemini |
 | `pro` | `gemini-3.1-pro-high` | Gemini |
 | `pro-low` | `gemini-3.1-pro-low` | Gemini |
@@ -58,7 +57,7 @@ Unrecognized model IDs (no matching prefix) produce an `AGENT_MODEL_UNMAPPED` wa
 | `opus-thinking` | `claude-opus-4-6-thinking` | Claude |
 | `gpt-oss` | `gpt-oss-120b` | GPT-OSS |
 
-Full model IDs accepted directly: `gemini-3.5-flash`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low`, `gemini-3.1-pro`, `gemini-3-flash`, `gemini-2.5-pro`, `gemini-2.5-flash`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`, `nano-banana-2`.
+Full model IDs accepted directly: `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low`, `gemini-3.1-pro`, `gemini-3-flash`, `gemini-2.5-pro`, `gemini-2.5-flash`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`, `nano-banana-2`.
 
 Default model: `gemini-3.1-pro`.
 
