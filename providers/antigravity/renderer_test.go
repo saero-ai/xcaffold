@@ -241,6 +241,71 @@ func TestCompile_Agent_NativeMarkdownFile(t *testing.T) {
 	assert.Contains(t, content, "You are an expert coder.")
 }
 
+func TestCompile_Agent_ClaudeNativeTools_SanitizedAndDropped(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"researcher": {
+					Name:        "Researcher",
+					Description: "Investigates codebase.",
+					Tools:       ast.ClearableList{Values: []string{"Read", "Write", "Edit", "Glob", "Grep", "Bash"}},
+					Body:        "You are a researcher.",
+				},
+			},
+		},
+	}
+
+	out, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content, ok := out.Files["agents/researcher.md"]
+	require.True(t, ok, "expected agents/researcher.md in output files")
+
+	assert.NotContains(t, content, "tools:\n", "Claude-native tools must be sanitized away, omitting tools: key")
+	assert.NotContains(t, content, "- Read")
+	assert.NotContains(t, content, "- Write")
+	assert.NotContains(t, content, "- Edit")
+	assert.NotContains(t, content, "- Glob")
+	assert.NotContains(t, content, "- Grep")
+	assert.NotContains(t, content, "- Bash")
+
+	note, found := findAgNote(notes, renderer.CodeAgentToolsDropped, "tools")
+	assert.True(t, found, "expected CodeAgentToolsDropped note for sanitized Claude tools")
+	assert.Equal(t, "researcher", note.Resource)
+}
+
+func TestCompile_Agent_MixedTools_ClaudeDroppedMCPAndNativePreserved(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"hybrid": {
+					Name:        "Hybrid Agent",
+					Description: "Uses mixed tools.",
+					Tools:       ast.ClearableList{Values: []string{"Read", "view_file", "mcp_custom_tool"}},
+					Body:        "You are a hybrid agent.",
+				},
+			},
+		},
+	}
+
+	out, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content, ok := out.Files["agents/hybrid.md"]
+	require.True(t, ok, "expected agents/hybrid.md in output files")
+
+	assert.Contains(t, content, "tools:\n")
+	assert.Contains(t, content, "  - view_file")
+	assert.Contains(t, content, "  - mcp_custom_tool")
+	assert.NotContains(t, content, "Read")
+
+	note, found := findAgNote(notes, renderer.CodeAgentToolsDropped, "tools")
+	assert.True(t, found, "expected CodeAgentToolsDropped note for dropped Read tool")
+	assert.Equal(t, "hybrid", note.Resource)
+}
+
 // ─── Skill tests ──────────────────────────────────────────────────────────────
 
 func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
