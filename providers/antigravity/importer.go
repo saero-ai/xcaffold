@@ -12,7 +12,6 @@ import (
 
 // AntigravityImporter imports resources from a .agents/ directory tree.
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
-// Callers may inspect Warnings after Import() returns to surface skipped files.
 type AntigravityImporter struct {
 	importer.BaseImporter
 }
@@ -28,15 +27,16 @@ func NewImporter() *AntigravityImporter {
 }
 
 // antigravityMappings maps path patterns to AST kinds. First match wins.
-// Agents are stored in prompts/ (not agents/) — this is the key Antigravity difference.
-// Skills use DirectoryPerEntry layout: skills/<id>/SKILL.md plus assets.
+// Per strict single-pattern decision, agents are imported from agents/*.md.
 var antigravityMappings = []importer.KindMapping{
-	{Pattern: "prompts/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
+	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/examples/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/resources/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
+	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
 	{Pattern: "mcp_config.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
 }
@@ -68,10 +68,12 @@ func (a *AntigravityImporter) Extract(rel string, data []byte, config *ast.Xcaff
 		return importer.DefaultExtractSkillAsset(rel, data, config)
 	case importer.KindHookScript:
 		return importer.DefaultExtractHookScript(rel, data, config)
+	case importer.KindHook:
+		return extractHooksJSON(rel, data, config)
 	case importer.KindRule:
 		return importer.DefaultExtractRule(rel, data, a.Provider(), config)
 	case importer.KindMCP:
-		return extractMCPStandalone(rel, data, config)
+		return extractMCPConfig(rel, data, config)
 	case importer.KindWorkflow:
 		return extractWorkflow(rel, data, config)
 	default:
@@ -81,10 +83,6 @@ func (a *AntigravityImporter) Extract(rel string, data []byte, config *ast.Xcaff
 
 // Import walks dir, classifies each entry, extracts classified files, and
 // appends unclassified files to config.ProviderExtras["antigravity"].
-//
-// Extraction errors for individual files are non-fatal: they are collected in
-// a.Warnings and the walk continues. Only I/O errors (unreadable directory or
-// file) abort the walk.
 func (a *AntigravityImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	a.Warnings = a.Warnings[:0]
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
@@ -113,55 +111,12 @@ type agentFrontmatter struct {
 	Name                   string                        `yaml:"name"`
 	Description            string                        `yaml:"description"`
 	Model                  string                        `yaml:"model"`
-	Effort                 string                        `yaml:"effort"`
-	MaxTurns               int                           `yaml:"max-turns"`
-	Mode                   string                        `yaml:"mode"`
 	Tools                  []string                      `yaml:"tools"`
-	DisallowedTools        []string                      `yaml:"disallowed-tools"`
-	PermissionMode         string                        `yaml:"permission-mode"`
-	Background             *bool                         `yaml:"background"`
-	Isolation              string                        `yaml:"isolation"`
-	When                   string                        `yaml:"when"`
-	Memory                 string                        `yaml:"memory"`
-	Color                  string                        `yaml:"color"`
-	InitialPrompt          string                        `yaml:"initial-prompt"`
+	MainAgent              *bool                         `yaml:"mainAgent"`
+	Subagent               *bool                         `yaml:"subagent"`
+	CommandExecutionPolicy string                        `yaml:"commandExecutionPolicy"`
 	Skills                 []string                      `yaml:"skills"`
-	Rules                  []string                      `yaml:"rules"`
-	MCP                    []string                      `yaml:"mcp"`
-	Assertions             []string                      `yaml:"assertions"`
 	Targets                map[string]ast.TargetOverride `yaml:"targets"`
-	DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
-	UserInvocable          *bool                         `yaml:"user-invocable"`
-	Readonly               *bool                         `yaml:"readonly"`
-}
-
-// buildAgentConfig constructs an AST AgentConfig from frontmatter and body.
-func buildAgentConfig(front *agentFrontmatter, body string) ast.AgentConfig {
-	return ast.AgentConfig{
-		Name:                   front.Name,
-		Description:            front.Description,
-		Model:                  front.Model,
-		Effort:                 front.Effort,
-		MaxTurns:               intPtrIfNonZero(front.MaxTurns),
-		Tools:                  ast.ClearableList{Values: front.Tools},
-		DisallowedTools:        ast.ClearableList{Values: front.DisallowedTools},
-		PermissionMode:         front.PermissionMode,
-		DisableModelInvocation: front.DisableModelInvocation,
-		UserInvocable:          front.UserInvocable,
-		Readonly:               front.Readonly,
-		Background:             front.Background,
-		Isolation:              front.Isolation,
-		Memory:                 ast.NewFlexStringSlice(front.Memory),
-		Color:                  front.Color,
-		InitialPrompt:          front.InitialPrompt,
-		Skills:                 ast.ClearableList{Values: front.Skills},
-		Rules:                  ast.ClearableList{Values: front.Rules},
-		MCP:                    ast.ClearableList{Values: front.MCP},
-		Assertions:             ast.ClearableList{Values: front.Assertions},
-		Targets:                front.Targets,
-		Body:                   body,
-		SourceProvider:         "antigravity",
-	}
 }
 
 func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
@@ -175,7 +130,24 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	if config.Agents == nil {
 		config.Agents = make(map[string]ast.AgentConfig)
 	}
-	config.Agents[id] = buildAgentConfig(&front, body)
+
+	permMode := ""
+	if front.CommandExecutionPolicy == "auto" {
+		permMode = "allow"
+	}
+
+	config.Agents[id] = ast.AgentConfig{
+		Name:           front.Name,
+		Description:    front.Description,
+		Model:          front.Model,
+		Tools:          ast.ClearableList{Values: front.Tools},
+		UserInvocable:  front.MainAgent,
+		PermissionMode: permMode,
+		Skills:         ast.ClearableList{Values: front.Skills},
+		Targets:        front.Targets,
+		Body:           body,
+		SourceProvider: "antigravity",
+	}
 	return nil
 }
 
@@ -198,7 +170,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	}
 
 	// DirectoryPerEntry layout: id is the directory name (parent of SKILL.md)
-	// rel is "skills/<id>/SKILL.md", so extract the directory name.
 	parts := strings.Split(filepath.ToSlash(filepath.Clean(rel)), "/")
 	var id string
 	if len(parts) >= 2 && parts[0] == "skills" {
@@ -226,14 +197,37 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	return nil
 }
 
-// mcpFileWrapper is the outer JSON envelope for mcp_config.json.
-// Antigravity writes {"mcpServers": {...}} as the top-level shape.
-type mcpFileWrapper struct {
-	MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
+// extractHooksJSON parses the hooks.json file and stores events under a
+// "default" named hook block in config.Hooks.
+func extractHooksJSON(_ string, data []byte, config *ast.XcaffoldConfig) error {
+	var hooks ast.HookConfig
+	if err := json.Unmarshal(data, &hooks); err != nil {
+		return fmt.Errorf("antigravity: hooks.json parse: %w", err)
+	}
+	if len(hooks) == 0 {
+		return nil
+	}
+	if config.Hooks == nil {
+		config.Hooks = make(map[string]ast.NamedHookConfig)
+	}
+	config.Hooks["default"] = ast.NamedHookConfig{Name: "default", Events: hooks}
+	return nil
 }
 
-func extractMCPStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var wrapper mcpFileWrapper
+type mcpServerEntry struct {
+	Command       string            `json:"command,omitempty"`
+	Args          []string          `json:"args,omitempty"`
+	Env           map[string]string `json:"env,omitempty"`
+	ServerURL     string            `json:"serverUrl,omitempty"`
+	URL           string            `json:"url,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	DisabledTools []string          `json:"disabledTools,omitempty"`
+}
+
+func extractMCPConfig(_ string, data []byte, config *ast.XcaffoldConfig) error {
+	var wrapper struct {
+		MCPServers map[string]mcpServerEntry `json:"mcpServers"`
+	}
 	if err := json.Unmarshal(data, &wrapper); err != nil {
 		return fmt.Errorf("antigravity: mcp_config.json parse: %w", err)
 	}
@@ -241,8 +235,19 @@ func extractMCPStandalone(rel string, data []byte, config *ast.XcaffoldConfig) e
 		config.MCP = make(map[string]ast.MCPConfig)
 	}
 	for k, v := range wrapper.MCPServers {
-		v.SourceProvider = "antigravity"
-		config.MCP[k] = v
+		serverURL := v.ServerURL
+		if serverURL == "" {
+			serverURL = v.URL
+		}
+		config.MCP[k] = ast.MCPConfig{
+			Command:        v.Command,
+			Args:           v.Args,
+			Env:            v.Env,
+			Headers:        v.Headers,
+			URL:            serverURL,
+			DisabledTools:  v.DisabledTools,
+			SourceProvider: "antigravity",
+		}
 	}
 	return nil
 }
@@ -261,9 +266,6 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 	}
 
 	steps := front.Steps
-	// Native Antigravity workflows store content in the markdown body,
-	// not in YAML steps. Import the body as a single "main" step if no
-	// steps are defined in frontmatter.
 	trimmedBody := strings.TrimSpace(body)
 	if len(steps) == 0 && trimmedBody != "" {
 		steps = []ast.WorkflowStep{{
@@ -284,11 +286,4 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		SourceProvider: "antigravity",
 	}
 	return nil
-}
-
-func intPtrIfNonZero(n int) *int {
-	if n == 0 {
-		return nil
-	}
-	return &n
 }

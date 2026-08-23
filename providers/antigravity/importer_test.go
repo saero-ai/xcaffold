@@ -14,9 +14,9 @@ import (
 
 // --- Classify tests ---
 
-func TestAntigravityClassify_AgentInPrompts(t *testing.T) {
+func TestAntigravityClassify_AgentInAgents(t *testing.T) {
 	imp := antimp.NewImporter()
-	kind, layout := imp.Classify("prompts/explorer.md", false)
+	kind, layout := imp.Classify("agents/explorer.md", false)
 	assert.Equal(t, importer.KindAgent, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
@@ -47,7 +47,7 @@ func TestAntigravityClassify_SkillScripts(t *testing.T) {
 
 func TestAntigravityClassify_SkillExamples(t *testing.T) {
 	imp := antimp.NewImporter()
-	// Skill asset files in examples/ subdirectory (Antigravity-native)
+	// Skill asset files in examples/ subdirectory
 	kind, layout := imp.Classify("skills/search/examples/usage.md", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
@@ -58,6 +58,13 @@ func TestAntigravityClassify_RulePattern(t *testing.T) {
 	kind, layout := imp.Classify("rules/safety.md", false)
 	assert.Equal(t, importer.KindRule, kind)
 	assert.Equal(t, importer.FlatFile, layout)
+}
+
+func TestAntigravityClassify_HooksJSON(t *testing.T) {
+	imp := antimp.NewImporter()
+	kind, layout := imp.Classify("hooks.json", false)
+	assert.Equal(t, importer.KindHook, kind)
+	assert.Equal(t, importer.StandaloneJSON, layout)
 }
 
 func TestAntigravityClassify_WorkflowPattern(t *testing.T) {
@@ -81,13 +88,6 @@ func TestAntigravityClassify_UnknownFile(t *testing.T) {
 	assert.Equal(t, importer.LayoutUnknown, layout)
 }
 
-func TestAntigravityClassify_AgentsDir_NotMatched(t *testing.T) {
-	// Antigravity does NOT have an agents/ directory — prompts/ is the agent directory.
-	imp := antimp.NewImporter()
-	kind, _ := imp.Classify("agents/ceo.md", false)
-	assert.Equal(t, importer.KindUnknown, kind)
-}
-
 func TestAntigravityImporter_Provider(t *testing.T) {
 	assert.Equal(t, "antigravity", antimp.NewImporter().Provider())
 }
@@ -98,19 +98,19 @@ func TestAntigravityImporter_InputDir(t *testing.T) {
 
 // --- Extract tests ---
 
-func TestAntigravityExtract_AgentFromPrompts(t *testing.T) {
-	data := []byte("---\nname: Explorer Agent\ndescription: Navigates codebases\nmodel: claude-opus-4-5\n---\n\nExplore the codebase thoroughly.\n")
+func TestAntigravityExtract_AgentFromAgents(t *testing.T) {
+	data := []byte("---\nname: Explorer Agent\ndescription: Navigates codebases\nmodel: claude-opus-4-6-thinking\n---\n\nExplore the codebase thoroughly.\n")
 	config := &ast.XcaffoldConfig{}
 	imp := antimp.NewImporter()
-	err := imp.Extract("prompts/explorer.md", data, config)
+	err := imp.Extract("agents/explorer.md", data, config)
 	require.NoError(t, err)
 
 	// Agent must land in config.Agents, keyed by filename stem.
 	agent, ok := config.Agents["explorer"]
-	require.True(t, ok, "expected agent 'explorer' in config.Agents — prompts/*.md must map to KindAgent")
+	require.True(t, ok, "expected agent 'explorer' in config.Agents — agents/*.md must map to KindAgent")
 	assert.Equal(t, "Explorer Agent", agent.Name)
 	assert.Equal(t, "Navigates codebases", agent.Description)
-	assert.Equal(t, "claude-opus-4-5", agent.Model)
+	assert.Equal(t, "claude-opus-4-6-thinking", agent.Model)
 	assert.Contains(t, agent.Body, "Explore the codebase thoroughly.")
 	assert.Equal(t, "antigravity", agent.SourceProvider)
 }
@@ -129,6 +129,23 @@ func TestAntigravityExtract_Skill(t *testing.T) {
 	assert.Equal(t, ast.ClearableList{Values: []string{"Grep"}}, skill.AllowedTools)
 	assert.Contains(t, skill.Body, "Search across files.")
 	assert.Equal(t, "antigravity", skill.SourceProvider)
+}
+
+func TestAntigravityExtract_HooksJSON(t *testing.T) {
+	data := []byte(`{
+		"PreInvocation": [{"type": "command", "command": "echo pre-invoke"}],
+		"PostToolUse": [{"type": "command", "command": "echo post-tool"}]
+	}`)
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("hooks.json", data, config)
+	require.NoError(t, err)
+
+	require.NotNil(t, config.Hooks)
+	defaultHook, ok := config.Hooks["default"]
+	require.True(t, ok, "expected default hook in config.Hooks")
+	assert.Len(t, defaultHook.Events["PreInvocation"], 1)
+	assert.Len(t, defaultHook.Events["PostToolUse"], 1)
 }
 
 func TestAntigravityExtract_Rule(t *testing.T) {
@@ -213,7 +230,7 @@ This is body content that should be ignored when steps are in frontmatter.
 }
 
 func TestAntigravityExtract_MCPConfig(t *testing.T) {
-	data := []byte(`{"mcpServers":{"filesystem":{"type":"stdio","command":"mcp-filesystem","args":["--root","."]}}}`)
+	data := []byte(`{"mcpServers":{"filesystem":{"command":"mcp-filesystem","args":["--root","."]}}}`)
 	config := &ast.XcaffoldConfig{}
 	imp := antimp.NewImporter()
 	err := imp.Extract("mcp_config.json", data, config)
@@ -221,7 +238,6 @@ func TestAntigravityExtract_MCPConfig(t *testing.T) {
 
 	mc, ok := config.MCP["filesystem"]
 	require.True(t, ok, "expected mcp server 'filesystem'")
-	assert.Equal(t, "stdio", mc.Type)
 	assert.Equal(t, "mcp-filesystem", mc.Command)
 	assert.Equal(t, "antigravity", mc.SourceProvider)
 }
@@ -242,9 +258,9 @@ func TestAntigravityImporter_FullWorkspace(t *testing.T) {
 	err := imp.Import(inputDir, config)
 	require.NoError(t, err)
 
-	// Agent from prompts/ directory
+	// Agent from agents/ directory
 	agent, ok := config.Agents["explorer"]
-	require.True(t, ok, "expected agent 'explorer' from prompts/explorer.md")
+	require.True(t, ok, "expected agent 'explorer' from agents/explorer.md")
 	assert.Equal(t, "Explorer Agent", agent.Name)
 	assert.Equal(t, "antigravity", agent.SourceProvider)
 	assert.NotEmpty(t, agent.Body)

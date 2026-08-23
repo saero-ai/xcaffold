@@ -526,7 +526,7 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 
 // detectTargets derives compilation target names from platform directory base names
 // by consulting the importer registry. It maps InputDir() names to Provider() names.
-// When an explicit provider is set (e.g., --target antigravity2), that provider is
+// When an explicit provider is set (e.g., --target antigravity), that provider is
 // returned after canonicalization. Otherwise, all matching providers are detected,
 // filtered to prefer active (non-deprecated/non-sunset) ones when multiple share
 // an input dir, and returned sorted.

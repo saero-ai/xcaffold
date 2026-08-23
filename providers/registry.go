@@ -100,10 +100,18 @@ func IsRegistered(name string) bool {
 	return ok
 }
 
+// isConsolidatedTarget reports whether target is a consolidated provider name.
+func isConsolidatedTarget(target string) bool {
+	return target == "antigravity2" || target == "antigravity-2.0" || target == "antigravity-2"
+}
+
 // CheckDeprecation returns a non-empty warning if the named provider is
-// deprecated, or an error if it has reached sunset. Active providers
-// return ("", nil).
+// deprecated, or an error if it has reached sunset or been consolidated. Active
+// providers return ("", nil).
 func CheckDeprecation(target string) (warning string, err error) {
+	if isConsolidatedTarget(target) {
+		return "", fmt.Errorf("Target %q has been consolidated into \"antigravity\". Please update your target to \"antigravity\".", target)
+	}
 	m, ok := ManifestFor(target)
 	if !ok {
 		return "", nil
@@ -119,8 +127,12 @@ func CheckDeprecation(target string) (warning string, err error) {
 
 // ResolveRenderer returns a new TargetRenderer for the given target name or
 // alias. It returns an error when the target is unknown or its NewRenderer
-// factory is nil. Returns ErrSunset for sunset providers.
+// factory is nil. Returns ErrSunset for sunset providers, or a consolidation
+// error for consolidated targets.
 func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
+	if isConsolidatedTarget(target) {
+		return nil, fmt.Errorf("providers: target %q has been consolidated into \"antigravity\"; please update your target to \"antigravity\"", target)
+	}
 	m, ok := ManifestFor(target)
 	if !ok {
 		return nil, fmt.Errorf("providers: unknown target %q", target)

@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAntigravity_CapabilitySet_MemoryDeferred(t *testing.T) {
+func TestAntigravity_CapabilitySet_MemoryUnsupported(t *testing.T) {
 	r := antigravity.New()
 	caps := r.Capabilities()
-	require.False(t, caps.Memory, "Antigravity memory rendering is deferred — capability must be false until native format is implemented")
+	require.False(t, caps.Memory, "Antigravity does not support persistent memory per ground truth (db/memory.json) — capability is false")
 }
