@@ -23,11 +23,11 @@ targets:
   - cursor
   - gemini
   - copilot
-  - antigravity2
+  - antigravity
   - codex
 ```
 
-`xcaffold apply` processes each target in sequence and writes provider-native output to the corresponding output directory (`.claude/`, `.cursor/`, `.gemini/`, `.github/`, `.agents/`). Both `antigravity` and `antigravity2` share the `.agents/` output directory. All targets must be listed here — there is no separate per-target project file.
+`xcaffold apply` processes each target in sequence and writes provider-native output to the corresponding output directory (`.claude/`, `.cursor/`, `.gemini/`, `.github/`, `.agents/`). All targets must be listed here — there is no separate per-target project file.
 
 To apply a single target without modifying your project declaration, use the `--target` flag:
 
@@ -291,7 +291,6 @@ targets:
   gemini: {}
   copilot: {}
   antigravity: {}
-  antigravity2: {}
 ---
 Your project-level instructions here.
 ```

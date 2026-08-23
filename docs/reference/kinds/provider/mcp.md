@@ -153,17 +153,11 @@ Copilot uses VS Code's MCP format with a `"servers"` top-level key (not `"mcpSer
 
 MCP declarations are merged alongside any other Gemini settings in `.gemini/settings.json`.
 
-### Antigravity (deprecated)
-
-> **Deprecated.** The `antigravity` target is deprecated in favor of `antigravity2` (Antigravity 2.0). Existing configurations continue to work but new projects should use `antigravity2`. See [Supported Providers](../../supported-providers.md).
-
-No project-local file is written. MCP servers must be configured globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time.
-
-### Antigravity 2
+### Antigravity
 
 **Output path**: `.agents/mcp_config.json`
 
-Unlike Antigravity v1 (global-only), Antigravity 2.0 supports workspace-local MCP configuration. MCP server declarations are compiled to `.agents/mcp_config.json` with the same `mcpServers` structure as Gemini CLI. Multiple MCP declarations are merged into a single file.
+Antigravity supports workspace-local MCP configuration across CLI, IDE, and runtime surfaces. MCP server declarations are compiled to `.agents/mcp_config.json` with the standard `mcpServers` structure. Multiple MCP declarations are merged into a single file.
 
 ```json
 {
@@ -190,7 +184,5 @@ args = ["@agentdeskai/browser-tools-mcp@latest"]
 
 Import of existing `.codex/config.toml` MCP sections is not yet supported. Existing Codex MCP configuration must be migrated manually to `kind: mcp` declarations.
 
-> [!WARNING]
-> **Antigravity (v1)** does not support project-local MCP configuration. MCP servers must be registered globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time; no project file is written. **Antigravity 2** supports workspace-local MCP at `.agents/mcp_config.json` — new projects should use `antigravity2`.
->
+> [!NOTE]
 > **Settings merge**: If your `kind: settings` block also declares `mcp-servers`, those are merged with `kind: mcp` declarations at compile time. The `kind: settings` values win on conflict.

@@ -32,9 +32,9 @@ func TestIsMappedModel_EmptyAlias_ReturnsFalse(t *testing.T) {
 		"empty alias is never mapped")
 }
 
-func TestIsMappedModel_Antigravity_ReturnsFalse(t *testing.T) {
-	assert.False(t, renderer.IsMappedModel("balanced", "antigravity"),
-		"antigravity has no model support — always false")
+func TestIsMappedModel_Antigravity_ReturnsTrue(t *testing.T) {
+	assert.True(t, renderer.IsMappedModel("balanced", "antigravity"),
+		"antigravity maps standard tier aliases")
 }
 
 func TestResolveModel_GeminiTarget_TranslatesBalanced(t *testing.T) {

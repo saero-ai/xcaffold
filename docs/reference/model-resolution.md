@@ -42,12 +42,15 @@ Pass-through is case-insensitive. `Claude-Sonnet-4-6` resolves to `claude-sonnet
 
 Unrecognized model IDs (no matching prefix) produce an `AGENT_MODEL_UNMAPPED` warning and are omitted from output.
 
-## Antigravity 2.0 Models
+## Antigravity Models
 
-> Antigravity 2.0 supports multi-vendor model selection — Gemini, Claude, and GPT-OSS models are all valid targets.
+> Antigravity supports multi-vendor model selection across Gemini, Claude, and GPT-OSS tiers.
 
 | Alias | Resolves To | Vendor |
 |-------|------------|--------|
+| `flagship` | `gemini-3.1-pro-high` | Gemini |
+| `balanced` | `gemini-3.5-flash` | Gemini |
+| `fast` | `gemini-2.5-flash` | Gemini |
 | `flash` | `gemini-3.5-flash` | Gemini |
 | `pro` | `gemini-3.1-pro-high` | Gemini |
 | `pro-low` | `gemini-3.1-pro-low` | Gemini |
@@ -55,11 +58,9 @@ Unrecognized model IDs (no matching prefix) produce an `AGENT_MODEL_UNMAPPED` wa
 | `opus-thinking` | `claude-opus-4-6-thinking` | Claude |
 | `gpt-oss` | `gpt-oss-120b` | GPT-OSS |
 
-Full model IDs accepted unchanged: `gemini-3.5-flash`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low`, `gemini-3-flash`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`, `nano-banana-2` (image generation, UI-only).
+Full model IDs accepted directly: `gemini-3.5-flash`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low`, `gemini-3.1-pro`, `gemini-3-flash`, `gemini-2.5-pro`, `gemini-2.5-flash`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`, `nano-banana-2`.
 
-Default model: `gemini-3.5-flash`.
-
-> **Deprecated:** the `antigravity` (v1) target does not compile the `model` field at all. New projects should target `antigravity2`. See [Supported Providers](supported-providers.md).
+Default model: `gemini-3.1-pro`.
 
 ## Fidelity Notes
 

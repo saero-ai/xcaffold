@@ -318,17 +318,11 @@ The `command` field is mapped to `bash`. Timeout is converted from milliseconds 
 }
 ```
 
-### Antigravity (deprecated)
-
-> **Deprecated.** The `antigravity` target is deprecated in favor of `antigravity2` (Antigravity 2.0). Existing configurations continue to work but new projects should use `antigravity2`. See [Supported Providers](../../supported-providers.md).
-
-Antigravity v1 does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no hook output for that target.
-
-### Antigravity 2
+### Antigravity
 
 **Output path**: `.agents/hooks.json`
 
-Hook declarations are serialized to a standalone `hooks.json` file in the `.agents/` output directory. All hook event names pass through unchanged (the xcaffold schema mirrors the Antigravity 2.0 format — no translation is applied).
+Hook declarations are serialized to a standalone `hooks.json` file in the `.agents/` output directory. All hook event names (`PreToolUse`, `PostToolUse`, `PreInvocation`, `PostInvocation`, `Stop`) pass through directly to the Antigravity hooks format.
 
 ```json
 {

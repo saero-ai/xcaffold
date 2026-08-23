@@ -7,7 +7,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/providers"
-	_ "github.com/saero-ai/xcaffold/providers/antigravity2"
+	_ "github.com/saero-ai/xcaffold/providers/antigravity"
 )
 
 // resetRegistry replaces the global registry with the given slice and returns
@@ -444,20 +444,20 @@ func TestResolveRenderer_Active(t *testing.T) {
 	}
 }
 
-func TestPrimaryNames_IncludesAntigravity2(t *testing.T) {
+func TestPrimaryNames_IncludesAntigravity(t *testing.T) {
 	// Don't reset registry — use the real one with actual provider registrations.
-	// This tests that antigravity2 was registered during init().
+	// This tests that antigravity was registered during init().
 
 	names := providers.PrimaryNames()
 	found := false
 	for _, name := range names {
-		if name == "antigravity2" {
+		if name == "antigravity" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("PrimaryNames() does not include 'antigravity2' — provider may not be registered")
+		t.Error("PrimaryNames() does not include 'antigravity' — provider may not be registered")
 	}
 }
 
@@ -477,19 +477,17 @@ func TestCanonicalName_AliasResolvesToCanonical(t *testing.T) {
 	defer resetRegistry(t, nil)()
 
 	providers.Register(providers.ProviderManifest{
-		Name:       "antigravity2",
+		Name:       "antigravity",
 		OutputDir:  ".agents",
-		ValidNames: []string{"antigravity2", "antigravity-2.0", "antigravity-2", "agy"},
+		ValidNames: []string{"antigravity", "agy"},
 	})
 
 	cases := []struct {
 		input string
 		want  string
 	}{
-		{"agy", "antigravity2"},
-		{"antigravity-2", "antigravity2"},
-		{"antigravity-2.0", "antigravity2"},
-		{"antigravity2", "antigravity2"},
+		{"agy", "antigravity"},
+		{"antigravity", "antigravity"},
 	}
 	for _, tc := range cases {
 		got, ok := providers.CanonicalName(tc.input)
@@ -527,24 +525,24 @@ func TestPreferActiveProviders_FiltersDeprecated(t *testing.T) {
 	defer resetRegistry(t, nil)()
 
 	deprecated := providers.ProviderManifest{
-		Name:         "antigravity",
-		OutputDir:    ".agents",
-		ValidNames:   []string{"antigravity"},
+		Name:         "legacy",
+		OutputDir:    ".legacy",
+		ValidNames:   []string{"legacy"},
 		Status:       "deprecated",
-		DeprecatedBy: "antigravity2",
+		DeprecatedBy: "claude",
 	}
 	active := providers.ProviderManifest{
-		Name:       "antigravity2",
-		OutputDir:  ".agents",
-		ValidNames: []string{"antigravity2", "antigravity-2.0", "antigravity-2", "agy"},
+		Name:       "claude",
+		OutputDir:  ".claude",
+		ValidNames: []string{"claude", "claude-code"},
 	}
 
 	got := providers.PreferActiveProviders([]providers.ProviderManifest{deprecated, active})
 	if len(got) != 1 {
 		t.Fatalf("PreferActiveProviders returned %d items, want 1", len(got))
 	}
-	if got[0].Name != "antigravity2" {
-		t.Errorf("PreferActiveProviders returned %q, want %q", got[0].Name, "antigravity2")
+	if got[0].Name != "claude" {
+		t.Errorf("PreferActiveProviders returned %q, want %q", got[0].Name, "claude")
 	}
 }
 
@@ -583,15 +581,35 @@ func TestPreferActiveProviders_SunsetFiltered(t *testing.T) {
 	}
 }
 
-// --- Task 3: Antigravity2 RootMCPPaths is empty ---
+// --- Task 3: Antigravity RootMCPPaths is empty ---
 
-func TestAntigravity2_RootMCPPathsEmpty(t *testing.T) {
+func TestAntigravity_RootMCPPathsEmpty(t *testing.T) {
 	// Uses the real registry populated by init().
-	m, ok := providers.ManifestFor("antigravity2")
+	m, ok := providers.ManifestFor("antigravity")
 	if !ok {
-		t.Fatal("antigravity2 not registered")
+		t.Fatal("antigravity not registered")
 	}
 	if len(m.RootMCPPaths) != 0 {
-		t.Errorf("antigravity2 RootMCPPaths = %v, want empty (in-directory MCP config must not appear here)", m.RootMCPPaths)
+		t.Errorf("antigravity RootMCPPaths = %v, want empty (in-directory MCP config must not appear here)", m.RootMCPPaths)
+	}
+}
+
+// --- Task 4: Antigravity2 Consolidation Guard ---
+
+func TestAntigravity2_ConsolidationGuard(t *testing.T) {
+	_, err := providers.CheckDeprecation("antigravity2")
+	if err == nil {
+		t.Fatal("expected error when checking deprecation for consolidated antigravity2")
+	}
+	if !contains(err.Error(), "consolidated into \"antigravity\"") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+
+	_, err = providers.ResolveRenderer("antigravity2")
+	if err == nil {
+		t.Fatal("expected error when resolving renderer for consolidated antigravity2")
+	}
+	if !contains(err.Error(), "consolidated into \"antigravity\"") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }

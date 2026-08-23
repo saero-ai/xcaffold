@@ -215,33 +215,11 @@ When `activation:` is set, a rule is also emitted:
 ...step instructions concatenated with blank lines between them...
 ```
 
-### Antigravity (deprecated)
-
-> **Deprecated.** Antigravity (v1) is superseded by Antigravity 2. New projects should target `antigravity2`. The v1 target remains supported for backwards compatibility.
+### Antigravity
 
 **Default output path**: `.agents/workflows/run-component-audit.md`
 
-Antigravity v1 always renders native workflow output. Steps are concatenated under `## <step-name>` headers (level-2, no numbering).
-
-```markdown
-## implement
-
-...step instructions...
-
-## review
-
-...step instructions...
-
-## pr
-
-...step instructions...
-```
-
-### Antigravity 2
-
-**Default output path**: `.agents/workflows/run-component-audit.md`
-
-Antigravity 2 always renders native workflow output — no lowering occurs. Steps are concatenated under `## <step-name>` headers (level-2, no numbering). A YAML frontmatter block is emitted with a `description` field derived from the workflow's `description` or `name`.
+Antigravity renders native workflow output — no lowering occurs. Steps are concatenated under `## <step-name>` headers (level-2, no numbering). A YAML frontmatter block is emitted with a `description` field derived from the workflow's `description` or `name`.
 
 ```markdown
 ---
