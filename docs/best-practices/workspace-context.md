@@ -12,12 +12,11 @@ In xcaffold, workspace-level instructions — the root prompt read by all AI pro
 | Claude Code | `CLAUDE.md` | project root |
 | Cursor | `AGENTS.md` | project root |
 | Gemini CLI | `GEMINI.md` | project root |
-| Antigravity (deprecated) | `GEMINI.md` | project root |
-| Antigravity 2 | `GEMINI.md` | project root |
+| Antigravity | `GEMINI.md` | project root |
 | GitHub Copilot | `copilot-instructions.md` | `.github/` |
 
 > [!NOTE]
-> Both Antigravity v1 and Antigravity 2 read `GEMINI.md` from the project root for project context — they do not have their own separate context files. The `gemini`, `antigravity`, and `antigravity2` targets all write to the same `GEMINI.md`. If targeting more than one of these, be aware that the latter target compiled will overwrite the file.
+> Antigravity reads `GEMINI.md` from the project root for project context — it shares this convention with Gemini CLI. Both the `gemini` and `antigravity` targets write to `GEMINI.md`. If targeting both simultaneously, the latter target compiled will overwrite the file.
 
 Because these files are loaded on **every interaction** (check with the provider for any changes), their token cost is unconditional — paid regardless of which agent is active or what task is being performed. Keep them short and focused on absolute invariants.
 
@@ -34,7 +33,7 @@ targets:
   - claude
   - cursor
   - gemini
-  - antigravity2
+  - antigravity
   - copilot
 ---
 
@@ -127,11 +126,10 @@ Both compile successfully because they target different paths.
 | Cursor | `✓` Yes | `{path}/AGENTS.md` |
 | Gemini CLI | `✓` Yes | `{path}/GEMINI.md` |
 | GitHub Copilot | `✓` Yes (via glob) | `.github/instructions/{name}.instructions.md` with `applyTo: {path}/**` glob |
-| Antigravity v1 | ✗ No | Deprecated provider; consolidates at `GEMINI.md` |
-| Antigravity 2 | `✓` Yes | `{path}/GEMINI.md` |
+| Antigravity | `✓` Yes | `{path}/GEMINI.md` |
 | Codex | ✗ No | Consolidates at `AGENTS.md` (path ignored) |
 
-Gemini CLI and Antigravity targets consolidate all contexts at the project root regardless of the `path:` field — they do not support nested instructions.
+Codex consolidates all contexts at the project root regardless of the `path:` field — it does not support nested instructions.
 
 ### Variable Interpolation
 
@@ -258,7 +256,7 @@ version: "1.0"
 name: root-claude
 targets:
   - claude
-  - antigravity2
+  - antigravity
 ---
 
 ## Repository Invariants

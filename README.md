@@ -19,7 +19,7 @@ project.xcaf  ──►  xcaffold apply  ──►  claude        ──►  .cl
                                    ──►  cursor        ──►  .cursor/
                                    ──►  gemini        ──►  .gemini/
                                    ──►  copilot       ──►  .github/
-                                   ──►  antigravity2  ──►  .agents/
+                                   ──►  antigravity   ──►  .agents/
                                    ──►  codex         ──►  .codex/
 ```
 
@@ -219,21 +219,22 @@ xcaffold apply                       # recompile from the updated manifests
 
 ## Provider Support
 
-| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity (deprecated) | Antigravity 2 (Preview) | Codex (Preview) |
-|----------|:-----------:|:------:|:--------------:|:----------:|:------------------------:|:-----------------------:|:---------------:|
-| Agents | ✓ | ✓ | ✓ | ✓ | —† | ✓ | ✓ |
-| Skills | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Rules | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ | ✓ | — |
-| Hooks | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ |
-| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓‡ | ✓ | ✓ |
-| Memory | ✓ | —** | —** | —** | — | ✓ | — |
-| Settings | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity | Codex (Preview) |
+|----------|:-----------:|:------:|:--------------:|:----------:|:-----------:|:---------------:|
+| Agents | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Skills | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Rules | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ | — |
+| Hooks | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Memory | ✓ | —** | —** | —** | —** | — |
+| Settings | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 
 *Compiled as rules + skills for providers without a native workflow format.
 **Persistent context can be delivered through `context`, `rule`, or `hooks` kinds. See [memory reference](docs/reference/kinds/provider/memory.md#cross-provider-memory-patterns).
-†Antigravity v1 agents are compiled as downgraded specialist profiles (Markdown notes), not native agent definitions.
-‡Antigravity v1 reads MCP configuration from the global file only (`~/.gemini/antigravity/mcp_config.json`); no project-local file is written.
+
+> [!NOTE]
+> **Unified Antigravity Provider:** Antigravity CLI (`agy`), Antigravity IDE, and Antigravity 2.0 runtime are unified into the canonical `antigravity` provider (`.agents/`). Legacy `antigravity2` configurations have been consolidated into `antigravity`.
 
 When a feature cannot be expressed in a target's native format, xcaffold emits a structured fidelity report rather than silently dropping configuration. You always know exactly what was and was not applied.
 

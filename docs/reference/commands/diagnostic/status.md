@@ -178,8 +178,7 @@ Example output:
 sandbox  ·  last applied 3 days ago
 
   PROVIDER       FILES   STATUS
-  antigravity       28   ✓ synced  (deprecated)
-  antigravity2      32   ✓ synced
+  antigravity       32   ✓ synced
   claude            90   ✓ synced
   copilot            1   ✓ synced
   cursor            54   ✓ synced
@@ -196,8 +195,7 @@ sandbox  ·  last applied 3 days ago
 sandbox  ·  last applied 3 days ago
 
   PROVIDER       FILES   STATUS
-  antigravity       28   ✓ synced  (deprecated)
-  antigravity2      32   ✓ synced
+  antigravity       32   ✓ synced
   claude            90   ✗ 1 modified
   copilot            1   ✓ synced
   cursor            54   ✓ synced
@@ -300,7 +298,7 @@ sandbox  ·  claude  ·  applied 3 days ago
 ```
 ✗ No state for provider "nonexistent".
 
-  Known providers:  antigravity, antigravity2, claude, copilot, cursor, gemini
+  Known providers:  antigravity, claude, copilot, cursor, gemini
 
 → Run 'xcaffold apply --target nonexistent' to compile it first.
 ```

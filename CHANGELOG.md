@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Features
+
+* **providers:** unify Antigravity provider across CLI (`agy`), IDE, and runtime into canonical `antigravity` target (`.agents/`)
+* **renderer:** emit flat native agents (`.agents/agents/<id>.md`) with YAML frontmatter and Markdown system prompt body
+* **renderer:** support 4 rule activation modes (`always`, `path-glob`, `model-decided`, `manual-mention`)
+* **renderer:** emit hooks configuration to `.agents/hooks.json` for 5 lifecycle events
+* **renderer:** emit workspace MCP configuration to `.agents/mcp_config.json`
+* **model:** add multi-vendor model resolver for Antigravity (Gemini, Claude reasoning, GPT-OSS)
+
+### Breaking Changes
+
+* **providers:** `antigravity2` has been consolidated into `antigravity`. Targeting `antigravity2` will emit an error instructing users to update to `antigravity`.
+
 ## [0.15.0](https://github.com/saero-ai/xcaffold/compare/v0.14.0...v0.15.0) (2026-06-20)
 
 

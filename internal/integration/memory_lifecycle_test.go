@@ -137,8 +137,8 @@ func TestIntegration_Memory_Copilot_EmitsNoNativeTargetNote(t *testing.T) {
 	require.Equal(t, renderer.CodeMemoryNoNativeTarget, notes[0].Code)
 }
 
-func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
-	r := antigravity.NewMemoryRenderer()
+func TestIntegration_Memory_Antigravity_Unsupported(t *testing.T) {
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
@@ -146,15 +146,11 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	files, notes, err := r.CompileMemory(config, t.TempDir(), renderer.MemoryOptions{})
 	require.NoError(t, err)
-	require.Empty(t, notes)
-	require.Contains(t, out.Files, "knowledge/project_user-role.md")
-	content := out.Files["knowledge/project_user-role.md"]
-	// type: removed from MemoryConfig; all entries get generic "memory" tag.
-	require.NotContains(t, content, "type:")
-	require.Contains(t, content, "- memory")
-	require.Contains(t, content, "Robert is the founder.")
+	require.Empty(t, files)
+	require.Len(t, notes, 1)
+	require.Equal(t, renderer.CodeRendererKindUnsupported, notes[0].Code)
 }
 
 func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {

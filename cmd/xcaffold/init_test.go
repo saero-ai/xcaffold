@@ -679,7 +679,7 @@ func TestResolveTargetMeta_UsesProviderManifest(t *testing.T) {
 		{"copilot", "copilot", "gpt-4o", "copilot"},
 		{"cursor", "cursor", "cursor-default", "cursor"},
 		{"gemini", "gemini", "gemini-2.5-pro", "gemini"},
-		{"antigravity", "antigravity", "gemini-2.5-pro", "gemini"},
+		{"antigravity", "antigravity", "gemini-3.1-pro", "agy"},
 		{"unknown", "unknown", "", ""},
 	}
 
@@ -725,7 +725,7 @@ func TestProviderManifest_HasDisplayLabel_AndCLIBinary(t *testing.T) {
 		"copilot":     {"GitHub Copilot", "copilot", "gpt-4o"},
 		"cursor":      {"Cursor", "cursor", "cursor-default"},
 		"gemini":      {"Gemini", "gemini", "gemini-2.5-pro"},
-		"antigravity": {"Antigravity", "gemini", "gemini-2.5-pro"},
+		"antigravity": {"Antigravity", "agy", "gemini-3.1-pro"},
 	}
 
 	for _, m := range allManifests {

@@ -12,33 +12,37 @@ func init() {
 	renderer.RegisterModelResolver("antigravity", NewModelResolver())
 }
 
-// Manifest describes the Antigravity provider's capabilities and factories.
+// Manifest describes the unified Antigravity provider's capabilities and factories
+// across Antigravity CLI (agy), Antigravity IDE, and Antigravity 2.0 runtime.
 var Manifest = providers.ProviderManifest{
 	Name:           "antigravity",
 	OutputDir:      ".agents",
-	ValidNames:     []string{"antigravity"},
+	ValidNames:     []string{"antigravity", "agy"},
 	RequiredPasses: []string{"flatten-scopes", "inline-imports"},
 	DefaultBudget:  12000,
 	BudgetKind:     "bytes",
 	KindSupport: map[string]bool{
+		"agent":    true,
 		"skill":    true,
 		"rule":     true,
 		"workflow": true,
 		"mcp":      true,
+		"hook":     true,
+		"settings": true,
+		"memory":   false,
 	},
 	RootContextFile: "GEMINI.md",
 	SubdirMap: map[string]string{
-		"examples":  "examples",
-		"scripts":   "scripts",
-		"resources": "assets",
+		"examples":   "examples",
+		"scripts":    "scripts",
+		"resources":  "assets",
+		"references": "examples",
 	},
 	SkillMDAsReference: false,
-	PostImportWarning:  "Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem",
+	PostImportWarning:  "",
 	DisplayLabel:       "Antigravity",
-	CLIBinary:          "gemini",
-	DefaultModel:       "gemini-2.5-pro",
-	Status:             "deprecated",
-	DeprecatedBy:       "antigravity2",
+	CLIBinary:          "agy",
+	DefaultModel:       "gemini-3.1-pro",
 	NewRenderer:        func() renderer.TargetRenderer { return New() },
 	NewModelResolver:   func() renderer.ModelResolver { return NewModelResolver() },
 	NewImporter:        func() importer.ProviderImporter { return NewImporter() },

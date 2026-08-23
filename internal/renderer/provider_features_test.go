@@ -123,10 +123,10 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			skills:              true,
 			rules:               true,
 			workflows:           true,
-			hooks:               false,
+			hooks:               true,
 			settings:            true,
 			mcp:                 true,
-			memory:              false, // deferred — native format not yet implemented
+			memory:              false,
 			projectInstructions: true,
 			skillArtifactDirs: map[string]string{
 				"references": "examples",
@@ -134,7 +134,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 				"assets":     "resources",
 				"examples":   "examples",
 			},
-			ruleActivations: []string{"always", "path-glob", "model-decided"},
+			ruleActivations: []string{"always", "path-glob", "model-decided", "manual-mention"},
 		},
 	}
 

@@ -503,10 +503,10 @@ func TestDetectTargets(t *testing.T) {
 			expected: []string{"claude"},
 		},
 		{
-			name:     "agents dir with no explicit provider returns active (antigravity2)",
+			name:     "agents dir with no explicit provider",
 			dir:      ".agents",
 			explicit: "",
-			expected: []string{"antigravity2"},
+			expected: []string{"antigravity"},
 		},
 		{
 			name:     "cursor dir with no explicit provider",
@@ -521,15 +521,15 @@ func TestDetectTargets(t *testing.T) {
 			expected: []string{},
 		},
 		{
-			name:     "agents dir with explicit antigravity2",
-			dir:      ".agents",
-			explicit: "antigravity2",
-			expected: []string{"antigravity2"},
-		},
-		{
-			name:     "agents dir with explicit antigravity (deprecated alias)",
+			name:     "agents dir with explicit antigravity",
 			dir:      ".agents",
 			explicit: "antigravity",
+			expected: []string{"antigravity"},
+		},
+		{
+			name:     "agents dir with explicit agy alias",
+			dir:      ".agents",
+			explicit: "agy",
 			expected: []string{"antigravity"},
 		},
 	}
@@ -2533,43 +2533,35 @@ func TestTagResourcesWithProvider_AllKinds(t *testing.T) {
 	}
 }
 
-// TestDetectTargets_PreferActiveWhenMultipleMatch tests that when multiple
-// providers share an input dir (e.g. antigravity and antigravity2 both
-// use .agents), detectTargets with no explicit provider filters to active providers.
-func TestDetectTargets_PreferActiveWhenMultipleMatch(t *testing.T) {
-	// When detectTargets is called with .agents and no explicit provider,
-	// it should detect both antigravity and antigravity2, then filter to active.
-	// Since antigravity is deprecated and antigravity2 is active,
-	// the result should be antigravity2 only.
+// TestDetectTargets_AgentsDir tests that when detectTargets is called with .agents,
+// it returns antigravity.
+func TestDetectTargets_AgentsDir(t *testing.T) {
 	targets := detectTargets(".agents", "")
 	require.NotNil(t, targets)
-	assert.Contains(t, targets, "antigravity2", "detectTargets should prefer active antigravity2 over deprecated antigravity")
-	assert.NotContains(t, targets, "antigravity", "detectTargets should filter out deprecated antigravity when antigravity2 is present")
+	assert.Contains(t, targets, "antigravity", "detectTargets should return antigravity for .agents")
 }
 
 // TestDetectTargets_ExplicitTargetBypassesDeduplication tests that when
 // an explicit provider is passed, detectTargets returns exactly that (canonicalized).
 func TestDetectTargets_ExplicitTargetBypassesDeduplication(t *testing.T) {
-	// When an explicit provider is passed, detectTargets returns only that,
-	// regardless of what's actually on disk.
-	targets := detectTargets(".agents", "antigravity2")
+	targets := detectTargets(".agents", "antigravity")
 	require.NotNil(t, targets)
 	require.Len(t, targets, 1)
-	assert.Equal(t, "antigravity2", targets[0])
+	assert.Equal(t, "antigravity", targets[0])
 }
 
 // TestImportTargetAlias_NormalizesAliasToCanonical tests that
-// xcaffold import --target agy normalizes to antigravity2 internally.
+// xcaffold import --target agy normalizes to antigravity internally.
 func TestImportTargetAlias_NormalizesAliasToCanonical(t *testing.T) {
 	// Verify that providers.CanonicalName handles the alias
 	canonical, ok := providerspkg.CanonicalName("agy")
-	require.True(t, ok, "agy should be a valid alias for antigravity2")
-	require.Equal(t, "antigravity2", canonical, "agy alias should map to antigravity2")
+	require.True(t, ok, "agy should be a valid alias for antigravity")
+	require.Equal(t, "antigravity", canonical, "agy alias should map to antigravity")
 
-	// Verify that antigravity2 and agy both resolve to the same manifest
-	m1, ok1 := providerspkg.ManifestFor("antigravity2")
+	// Verify that antigravity and agy both resolve to the same manifest
+	m1, ok1 := providerspkg.ManifestFor("antigravity")
 	m2, ok2 := providerspkg.ManifestFor("agy")
-	require.True(t, ok1 && ok2, "both antigravity2 and agy should be valid")
+	require.True(t, ok1 && ok2, "both antigravity and agy should be valid")
 	require.Equal(t, m1.Name, m2.Name, "both names should resolve to the same canonical manifest")
 }
 
@@ -2604,7 +2596,7 @@ func TestPreserveRemoteMCPServersOnImport(t *testing.T) {
 	require.NoError(t, os.WriteFile(".agents/mcp_config.json", []byte(mcpConfig), 0644))
 
 	// Run import
-	err = importScope(".agents", "project.xcaf", "project", "antigravity2", ".")
+	err = importScope(".agents", "project.xcaf", "project", "antigravity", ".")
 	require.NoError(t, err, "import should succeed with remote MCP servers")
 
 	// Verify the generated MCP resource preserves serverUrl and disabledTools

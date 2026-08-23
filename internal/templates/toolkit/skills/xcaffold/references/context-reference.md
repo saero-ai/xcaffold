@@ -4,8 +4,8 @@
 # This file is NOT parsed by xcaffold.
 # Copy fields from here into your xcaf/contexts/<name>/context.xcaf
 # Context compiles into the provider's root instruction file
-# (CLAUDE.md for Claude, GEMINI.md for Gemini, Antigravity 2.0,
-# and the deprecated Antigravity v1).
+# (CLAUDE.md for Claude, GEMINI.md for Gemini and Antigravity,
+# AGENTS.md for Cursor and Codex).
 # ============================================================
 
 ---
