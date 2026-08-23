@@ -125,7 +125,7 @@ When `activation:` is set, an additional rule primitive is emitted alongside the
 | Rule + skill (explicit) | `rule-plus-skill` | Claude, Cursor, Copilot, Gemini |
 | Prompt file | `prompt-file` | Copilot |
 | Custom command | `custom-command` | Gemini |
-| Native (no lowering) | *(always)* | Antigravity (deprecated), Antigravity 2 |
+| Native (no lowering) | *(always)* | Antigravity |
 | Unsupported | *(fidelity note)* | Codex |
 
 To override the inferred strategy for a provider, set `lowering-strategy` inside `targets.<provider>.provider`:

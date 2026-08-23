@@ -159,28 +159,28 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 
 Not all fields survive compilation to every provider. The table below shows which xcaffold fields are emitted for each target. Fields marked `—` are dropped silently unless noted.
 
-| Field | Claude | Cursor | Copilot | Gemini | Antigravity (deprecated) | Antigravity 2 | Codex (Preview) |
-|-------|--------|--------|---------|--------|-------------|---------------|-----------------|
-| `name` | yes | yes | yes | yes | body only | yes (JSON key) | yes (TOML key) |
-| `description` | yes | yes | yes | yes | body only | yes | yes |
-| `model` | yes (resolved) | mapped only ¹ | yes (resolved) | yes (resolved) | body only | yes (resolved) | yes (resolved) |
-| `effort` | yes | — | — | — | — | — | — |
-| `max-turns` | yes | — | — | `max_turns` ² | — | yes (`maxTurns`) | — |
-| `tools` | yes (inline) | — | yes (YAML list) | yes (YAML list) | — | yes (JSON array) | yes (TOML array) |
-| `disallowed-tools` | yes | — | — | — | — | yes (`disabledTools`) | — |
-| `readonly` | transforms ³ | yes | — | — | — | yes | — |
-| `permission-mode` | yes | — | — | — | — | — | — |
-| `disable-model-invocation` | — | — | yes | — | — | — | — |
-| `user-invocable` | — | — | yes | — | — | yes (`userInvocable`) | — |
-| `background` | yes | `is_background` ² | — | — | — | — | — |
-| `isolation` | yes | — | — | — | — | — | — |
-| `memory` | yes | — | — | — | — | — | — |
-| `color` | yes | — | — | — | — | — | — |
-| `initial-prompt` | yes | — | — | — | — | yes | yes (`system_prompt`) |
-| `skills` | yes (inline) | — | — | — | — | yes | — |
-| `rules` | — | — | — | — | — | yes | — |
-| `hooks` | yes (YAML) | — | — | — | — | — | — |
-| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | — | — | — |
+| Field | Claude | Cursor | Copilot | Gemini | Antigravity | Codex (Preview) |
+|-------|--------|--------|---------|--------|-------------|-----------------|
+| `name` | yes | yes | yes | yes | yes (frontmatter) | yes (TOML key) |
+| `description` | yes | yes | yes | yes | yes | yes |
+| `model` | yes (resolved) | mapped only ¹ | yes (resolved) | yes (resolved) | yes (resolved) | yes (resolved) |
+| `effort` | yes | — | — | — | — | — |
+| `max-turns` | yes | — | — | `max_turns` ² | yes (`maxTurns`) | — |
+| `tools` | yes (inline) | — | yes (YAML list) | yes (YAML list) | yes (YAML list) | yes (TOML array) |
+| `disallowed-tools` | yes | — | — | — | yes (`disabledTools`) | — |
+| `readonly` | transforms ³ | yes | — | — | yes | — |
+| `permission-mode` | yes | — | — | — | — | — |
+| `disable-model-invocation` | — | — | yes | — | — | — |
+| `user-invocable` | — | — | yes | — | yes (`userInvocable`) | — |
+| `background` | yes | `is_background` ² | — | — | — | — |
+| `isolation` | yes | — | — | — | — | — |
+| `memory` | yes | — | — | — | — | — |
+| `color` | yes | — | — | — | — | — |
+| `initial-prompt` | yes | — | — | — | yes | yes (`system_prompt`) |
+| `skills` | yes (inline) | — | — | — | yes | — |
+| `rules` | — | — | — | — | yes | — |
+| `hooks` | yes (YAML) | — | — | — | — | — |
+| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | yes (`mcpServers`) | — |
 
 **Footnotes**
 

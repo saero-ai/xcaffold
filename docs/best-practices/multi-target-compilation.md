@@ -5,7 +5,7 @@ description: "How to manage a single set of .xcaf manifests that compiles cleanl
 
 # Multi-Target Compilation
 
-xcaffold compiles one set of `.xcaf` manifests into provider-native output for every provider you list in your project configuration. A single `xcaffold apply` run produces output for Claude, Cursor, Gemini, Copilot, Antigravity 2 (and the deprecated Antigravity v1) — or any subset you choose.
+xcaffold compiles one set of `.xcaf` manifests into provider-native output for every provider you list in your project configuration. A single `xcaffold apply` run produces output for Claude, Cursor, Gemini, Copilot, Antigravity, and Codex — or any subset you choose.
 
 This guide covers how to structure and maintain a multi-target project: declaring targets, writing resources that work across all providers, scoping resources to specific providers when needed, customizing per-provider behavior through override files, and interpreting fidelity notes when a field or resource is not fully supported.
 
@@ -134,7 +134,7 @@ targets:
   cursor: {}
 ```
 
-This skill compiles only for Claude and Cursor. Gemini, Copilot, Antigravity, and Antigravity 2 receive an info note and skip it.
+This skill compiles only for Claude and Cursor. Gemini, Copilot, Antigravity, and Codex receive an info note and skip it.
 
 ## Provider-Specific Overrides
 
@@ -317,7 +317,7 @@ targets:
 Your project-level instructions here.
 ```
 
-**Shared `.agents/skills/` directory.** Codex, Antigravity, and Antigravity 2 all read skills from `.agents/skills/*/SKILL.md`. This is not a conflict — the output format is identical. A single compile pass that targets multiple of these providers writes skills once to `.agents/skills/` and all consume them. No additional configuration is needed.
+**Shared `.agents/skills/` directory.** Codex and Antigravity both read skills from `.agents/skills/*/SKILL.md`. This is not a conflict — the output format is identical. A single compile pass that targets multiple of these providers writes skills once to `.agents/skills/` and all consume them. No additional configuration is needed.
 
 **Rules gap.** Codex does not support rule compilation. xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note for each rule when Codex is a target. Rules defined in your `.xcaf` manifests are compiled for all other declared targets and skipped for Codex. If a rule is required behavior for your workflow, scope it explicitly to the providers that support it using `targets:` so the note is suppressed.
 
