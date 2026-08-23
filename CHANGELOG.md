@@ -22,20 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **providers:** unify antigravity provider across cli, ide, and runtime ([e9436cc](https://github.com/saero-ai/xcaffold/commit/e9436cc7ad9f1808fe6c2a40483a32a8f4922fd1))
 * **providers:** unify antigravity provider across cli, ide, and runtime ([0c337f2](https://github.com/saero-ai/xcaffold/commit/0c337f23467eb8543c829fb1af16a5a13952aaff))
 
-## [Unreleased]
-
-### Features
-
-* **providers:** unify Antigravity provider across CLI (`agy`), IDE, and runtime into canonical `antigravity` target (`.agents/`)
-* **renderer:** emit flat native agents (`.agents/agents/<id>.md`) with YAML frontmatter and Markdown system prompt body
-* **renderer:** support 4 rule activation modes (`always`, `path-glob`, `model-decided`, `manual-mention`)
-* **renderer:** emit hooks configuration to `.agents/hooks.json` for 5 lifecycle events
-* **renderer:** emit workspace MCP configuration to `.agents/mcp_config.json`
-* **model:** add multi-vendor model resolver for Antigravity (Gemini, Claude reasoning, GPT-OSS)
-
-### Breaking Changes
-
-* **providers:** `antigravity2` has been consolidated into `antigravity`. Targeting `antigravity2` will emit an error instructing users to update to `antigravity`.
 
 ## [0.15.0](https://github.com/saero-ai/xcaffold/compare/v0.14.0...v0.15.0) (2026-06-20)
 
