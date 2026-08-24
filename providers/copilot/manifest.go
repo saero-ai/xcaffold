@@ -17,7 +17,7 @@ var Manifest = providers.ProviderManifest{
 	Name:           "copilot",
 	OutputDir:      ".github",
 	ValidNames:     []string{"copilot"},
-	RequiredPasses: []string{"flatten-scopes", "inline-imports"},
+	RequiredPasses: []string{"inline-imports"},
 	DefaultBudget:  4000,
 	BudgetKind:     "bytes",
 	KindSupport: map[string]bool{

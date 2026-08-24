@@ -207,6 +207,43 @@ func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
 	assert.Contains(t, content, "12000", "warning must mention the 12000-char limit")
 }
 
+func TestCompile_Rule_NestedDirectoryPathPreserved(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"backend/api-conventions": {
+					Description: "Backend API Conventions",
+					Paths:       ast.ClearableList{Values: []string{"**/backend/**/*.ts"}},
+					Activation:  ast.RuleActivationPathGlob,
+					Body:        "# API Conventions\n\nUse camelCase for responses.",
+				},
+				"backend/architecture": {
+					Description: "Backend Architecture",
+					Paths:       ast.ClearableList{Values: []string{"**/backend/**/*.ts"}},
+					Activation:  ast.RuleActivationPathGlob,
+					Body:        "# Architecture\n\nModular design.",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	apiContent, ok := out.Files["rules/backend/api-conventions.md"]
+	require.True(t, ok, "expected rules/backend/api-conventions.md in output")
+	assert.Contains(t, apiContent, "description: Backend API Conventions")
+	assert.Contains(t, apiContent, "trigger: glob")
+	assert.Contains(t, apiContent, "Use camelCase for responses.")
+
+	archContent, ok := out.Files["rules/backend/architecture.md"]
+	require.True(t, ok, "expected rules/backend/architecture.md in output")
+	assert.Contains(t, archContent, "description: Backend Architecture")
+	assert.Contains(t, archContent, "trigger: glob")
+	assert.Contains(t, archContent, "Modular design.")
+}
+
 // ─── Agent tests ─────────────────────────────────────────────────────────────
 
 func TestCompile_Agent_NativeMarkdownFile(t *testing.T) {

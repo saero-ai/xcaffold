@@ -27,11 +27,10 @@ func TestOptimizerRun_RequiredPassesRunFirst(t *testing.T) {
 
 	order := o.PassOrder()
 
-	// antigravity requires flatten-scopes then inline-imports first.
-	require.GreaterOrEqual(t, len(order), 3, "expected at least 3 passes")
-	assert.Equal(t, "flatten-scopes", order[0])
-	assert.Equal(t, "inline-imports", order[1])
-	assert.Equal(t, "dedupe", order[2])
+	// antigravity requires inline-imports first.
+	require.GreaterOrEqual(t, len(order), 2, "expected at least 2 passes")
+	assert.Equal(t, "inline-imports", order[0])
+	assert.Equal(t, "dedupe", order[1])
 }
 
 // TestOptimizerRun_ExtractCommonBeforeInlineImports_Reordered verifies that
