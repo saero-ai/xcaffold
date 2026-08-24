@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2](https://github.com/saero-ai/xcaffold/compare/v0.16.1...v0.16.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* **providers:** preserve nested rule paths for antigravity & copilot ([523354a](https://github.com/saero-ai/xcaffold/commit/523354a65b11e4474d37586d012d5ed4f698f0ea))
+* **providers:** preserve nested rule paths for antigravity & copilot ([57a753d](https://github.com/saero-ai/xcaffold/commit/57a753d61b2f6ed4b795e1108b315b5fda784f5b))
+
 ## [0.16.1](https://github.com/saero-ai/xcaffold/compare/v0.16.0...v0.16.1) (2026-08-23)
 
 
