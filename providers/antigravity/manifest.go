@@ -18,7 +18,7 @@ var Manifest = providers.ProviderManifest{
 	Name:           "antigravity",
 	OutputDir:      ".agents",
 	ValidNames:     []string{"antigravity", "agy"},
-	RequiredPasses: []string{"flatten-scopes", "inline-imports"},
+	RequiredPasses: []string{"inline-imports"},
 	DefaultBudget:  12000,
 	BudgetKind:     "bytes",
 	KindSupport: map[string]bool{

@@ -507,6 +507,26 @@ func TestCopilotRenderer_Compile_ContextPath_RootUnchanged(t *testing.T) {
 	}
 }
 
+// TestCompileRules_Copilot_NestedRulesPreserved verifies that nested rules compile
+// to their full nested path under instructions/ when .claude/ is absent.
+func TestCompileRules_Copilot_NestedRulesPreserved(t *testing.T) {
+	dir := t.TempDir()
+
+	r := copilot.New()
+	rules := map[string]ast.RuleConfig{
+		"backend/api-conventions": {
+			Description: "Backend API Conventions",
+			Paths:       ast.ClearableList{Values: []string{"**/backend/**/*.ts"}},
+			Activation:  ast.RuleActivationPathGlob,
+			Body:        "# API Conventions\n\nUse camelCase.",
+		},
+	}
+	files, _, err := r.CompileRules(rules, dir)
+	require.NoError(t, err)
+	assert.Contains(t, files, "instructions/backend/api-conventions.instructions.md",
+		"nested rule path must be preserved under instructions/")
+}
+
 // mapKeys returns the sorted list of file keys for error output.
 func mapKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
