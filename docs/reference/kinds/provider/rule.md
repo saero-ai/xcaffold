@@ -255,7 +255,7 @@ Always-apply rules emit only the `description` in the frontmatter. No activation
 ---
 description: "Prevents server-only modules from being imported inside client components."
 trigger: glob
-globs: src/components/**,src/hooks/**
+globs: src/components/**, src/hooks/**
 ---
 
 # No Server Imports in UI

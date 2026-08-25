@@ -124,9 +124,9 @@ func TestCompile_Rule_GlobActivation(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"path-rule": {
 					Description: "A rule with paths",
-					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go", "**/*.ts"}},
 					Activation:  ast.RuleActivationPathGlob,
-					Body:        "Check Go files.",
+					Body:        "Check Go and TS files.",
 				},
 			},
 		},
@@ -139,7 +139,7 @@ func TestCompile_Rule_GlobActivation(t *testing.T) {
 	require.NotEmpty(t, content)
 
 	assert.Contains(t, content, "trigger: glob", "PathGlob activation must emit trigger: glob")
-	assert.Contains(t, content, "- **/*.go", "PathGlob activation must emit globs list")
+	assert.Contains(t, content, "globs: **/*.go, **/*.ts", "PathGlob activation must emit comma-separated globs")
 }
 
 func TestCompile_Rule_ModelDecidedActivation(t *testing.T) {

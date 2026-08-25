@@ -44,10 +44,30 @@ func ParseFrontmatterLenient(data []byte, v interface{}) (body string, err error
 	if len(parts) < 2 {
 		return strings.TrimSpace(content), nil
 	}
-	if err := yaml.Unmarshal([]byte(parts[0]), v); err != nil {
-		return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
+	rawYAML := parts[0]
+	if err := yaml.Unmarshal([]byte(rawYAML), v); err != nil {
+		sanitized := sanitizeYAMLFrontmatter(rawYAML)
+		_ = yaml.Unmarshal([]byte(sanitized), v)
 	}
 	return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
+}
+
+// sanitizeYAMLFrontmatter quotes unquoted scalar values that contain special YAML
+// characters like leading * or unquoted commas that cause yaml.Unmarshal to fail.
+func sanitizeYAMLFrontmatter(raw string) string {
+	lines := strings.Split(raw, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if idx := strings.Index(trimmed, ":"); idx > 0 {
+			key := trimmed[:idx]
+			val := strings.TrimSpace(trimmed[idx+1:])
+			if len(val) > 0 && !strings.HasPrefix(val, "\"") && !strings.HasPrefix(val, "'") && !strings.HasPrefix(val, "[") && !strings.HasPrefix(val, "{") {
+				indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+				lines[i] = fmt.Sprintf("%s%s: %q", indent, key, val)
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // MatchGlob matches a relative path against a glob pattern.
@@ -206,9 +226,11 @@ func DefaultExtractRule(rel string, data []byte, provider string, config *ast.Xc
 	var front struct {
 		Name          string                        `yaml:"name"`
 		Description   string                        `yaml:"description"`
+		Trigger       string                        `yaml:"trigger"`
 		AlwaysApply   *bool                         `yaml:"always-apply"`
 		Activation    string                        `yaml:"activation"`
-		Paths         []string                      `yaml:"paths"`
+		Paths         ast.FlexStringSlice           `yaml:"paths"`
+		Globs         ast.FlexStringSlice           `yaml:"globs"`
 		ExcludeAgents []string                      `yaml:"exclude-agents"`
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
@@ -216,6 +238,40 @@ func DefaultExtractRule(rel string, data []byte, provider string, config *ast.Xc
 	body, err := ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		return fmt.Errorf("rule %q: %w", rel, err)
+	}
+
+	var paths []string
+	if len(front.Globs) > 0 {
+		for _, item := range front.Globs {
+			for _, part := range strings.Split(item, ",") {
+				if trimmed := strings.TrimSpace(part); trimmed != "" {
+					paths = append(paths, trimmed)
+				}
+			}
+		}
+	}
+	if len(front.Paths) > 0 {
+		for _, item := range front.Paths {
+			for _, part := range strings.Split(item, ",") {
+				if trimmed := strings.TrimSpace(part); trimmed != "" {
+					paths = append(paths, trimmed)
+				}
+			}
+		}
+	}
+
+	activation := front.Activation
+	if activation == "" {
+		switch front.Trigger {
+		case "glob":
+			activation = ast.RuleActivationPathGlob
+		case "model_decision":
+			activation = ast.RuleActivationModelDecided
+		case "manual":
+			activation = ast.RuleActivationManualMention
+		case "always_on":
+			activation = ast.RuleActivationAlways
+		}
 	}
 
 	rulesPrefix := "rules/"
@@ -234,8 +290,8 @@ func DefaultExtractRule(rel string, data []byte, provider string, config *ast.Xc
 		Name:           name,
 		Description:    front.Description,
 		AlwaysApply:    front.AlwaysApply,
-		Activation:     front.Activation,
-		Paths:          ast.ClearableList{Values: front.Paths},
+		Activation:     activation,
+		Paths:          ast.ClearableList{Values: paths},
 		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
 		Targets:        front.Targets,
 		Body:           body,

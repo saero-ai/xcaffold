@@ -35,7 +35,7 @@ var antigravityMappings = []importer.KindMapping{
 	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/examples/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/resources/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
-	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
+	{Pattern: "rules/**/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
 	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
 	{Pattern: "mcp_config.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
@@ -71,7 +71,7 @@ func (a *AntigravityImporter) Extract(rel string, data []byte, config *ast.Xcaff
 	case importer.KindHook:
 		return extractHooksJSON(rel, data, config)
 	case importer.KindRule:
-		return importer.DefaultExtractRule(rel, data, a.Provider(), config)
+		return extractRule(rel, data, config)
 	case importer.KindMCP:
 		return extractMCPConfig(rel, data, config)
 	case importer.KindWorkflow:
@@ -283,6 +283,85 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		Description:    front.Description,
 		Steps:          steps,
 		Targets:        front.Targets,
+		SourceProvider: "antigravity",
+	}
+	return nil
+}
+
+type antigravityRuleFrontmatter struct {
+	Name          string                        `yaml:"name"`
+	Description   string                        `yaml:"description"`
+	Trigger       string                        `yaml:"trigger"`
+	Globs         ast.FlexStringSlice           `yaml:"globs"`
+	Paths         ast.FlexStringSlice           `yaml:"paths"`
+	AlwaysApply   *bool                         `yaml:"always-apply"`
+	Activation    string                        `yaml:"activation"`
+	ExcludeAgents []string                      `yaml:"exclude-agents"`
+	Targets       map[string]ast.TargetOverride `yaml:"targets"`
+}
+
+func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var front antigravityRuleFrontmatter
+	body, err := importer.ParseFrontmatterLenient(data, &front)
+	if err != nil {
+		return fmt.Errorf("antigravity: rule %q: %w", rel, err)
+	}
+
+	var paths []string
+	if len(front.Globs) > 0 {
+		for _, item := range front.Globs {
+			for _, part := range strings.Split(item, ",") {
+				if trimmed := strings.TrimSpace(part); trimmed != "" {
+					paths = append(paths, trimmed)
+				}
+			}
+		}
+	}
+	if len(front.Paths) > 0 {
+		for _, item := range front.Paths {
+			for _, part := range strings.Split(item, ",") {
+				if trimmed := strings.TrimSpace(part); trimmed != "" {
+					paths = append(paths, trimmed)
+				}
+			}
+		}
+	}
+
+	activation := front.Activation
+	if activation == "" {
+		switch front.Trigger {
+		case "glob":
+			activation = ast.RuleActivationPathGlob
+		case "model_decision":
+			activation = ast.RuleActivationModelDecided
+		case "manual":
+			activation = ast.RuleActivationManualMention
+		case "always_on":
+			activation = ast.RuleActivationAlways
+		}
+	}
+
+	rulesPrefix := "rules/"
+	relFromRules := strings.TrimPrefix(filepath.ToSlash(rel), rulesPrefix)
+	id := strings.TrimSuffix(relFromRules, ".md")
+
+	name := front.Name
+	if name == "" {
+		name = id
+	}
+
+	if config.Rules == nil {
+		config.Rules = make(map[string]ast.RuleConfig)
+	}
+	config.Rules[id] = ast.RuleConfig{
+		Name:           name,
+		Description:    front.Description,
+		AlwaysApply:    front.AlwaysApply,
+		Activation:     activation,
+		Paths:          ast.ClearableList{Values: paths},
+		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
+		Targets:        front.Targets,
+		Body:           body,
 		SourceProvider: "antigravity",
 	}
 	return nil

@@ -496,10 +496,7 @@ func compileRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet) (s
 		case ast.RuleActivationPathGlob:
 			sb.WriteString("trigger: glob\n")
 			if len(rule.Paths.Values) > 0 {
-				sb.WriteString("globs:\n")
-				for _, p := range rule.Paths.Values {
-					fmt.Fprintf(&sb, "  - %s\n", p)
-				}
+				fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths.Values, ", "))
 			}
 		case ast.RuleActivationManualMention:
 			notes = append(notes, renderer.FidelityNote{
