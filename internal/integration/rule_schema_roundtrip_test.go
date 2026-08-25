@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/providers/antigravity"
 	"github.com/saero-ai/xcaffold/providers/claude"
 	"github.com/saero-ai/xcaffold/providers/cursor"
 	"github.com/stretchr/testify/require"
@@ -31,6 +33,35 @@ func TestRuleSchema_RoundTrip_ClaudeToCursor(t *testing.T) {
 	require.True(t, ok, "expected output file %s not found", ruleKey)
 	require.Contains(t, content, "globs:")
 	require.NotContains(t, content, "alwaysApply:")
+}
+
+func TestRuleSchema_RoundTrip_Antigravity(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	xcafPath := filepath.Join(ruleFixtureBase, "input", "path-glob-rule.xcaf")
+	config, err := parser.ParseFile(xcafPath)
+	require.NoError(t, err)
+
+	ar := antigravity.New()
+	out, _, err := renderer.Orchestrate(ar, config, filepath.Dir(xcafPath))
+	require.NoError(t, err)
+
+	ruleKey := "rules/path-glob-rule.md"
+	content, ok := out.Files[ruleKey]
+	require.True(t, ok, "expected output file %s not found", ruleKey)
+	require.Contains(t, content, "trigger: glob")
+	require.Contains(t, content, "globs: src/**, packages/api/**")
+
+	// Reverse import
+	imp := antigravity.NewImporter()
+	importedCfg := &ast.XcaffoldConfig{}
+	err = imp.Extract(ruleKey, []byte(content), importedCfg)
+	require.NoError(t, err)
+
+	rule, ok := importedCfg.Rules["path-glob-rule"]
+	require.True(t, ok, "expected rule 'path-glob-rule' in imported config")
+	require.Equal(t, ast.RuleActivationPathGlob, rule.Activation)
+	require.Equal(t, []string{"src/**", "packages/api/**"}, rule.Paths.Values)
 }
 
 func TestRuleSchema_LegacyAlwaysApply_NormalizedToActivation(t *testing.T) {
