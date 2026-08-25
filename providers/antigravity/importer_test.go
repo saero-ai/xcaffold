@@ -60,6 +60,13 @@ func TestAntigravityClassify_RulePattern(t *testing.T) {
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
+func TestAntigravityClassify_NestedRulePattern(t *testing.T) {
+	imp := antimp.NewImporter()
+	kind, layout := imp.Classify("rules/frontend/animation.md", false)
+	assert.Equal(t, importer.KindRule, kind)
+	assert.Equal(t, importer.FlatFile, layout)
+}
+
 func TestAntigravityClassify_HooksJSON(t *testing.T) {
 	imp := antimp.NewImporter()
 	kind, layout := imp.Classify("hooks.json", false)
@@ -160,6 +167,59 @@ func TestAntigravityExtract_Rule(t *testing.T) {
 	assert.Equal(t, "Safety constraints", rule.Description)
 	assert.Contains(t, rule.Body, "Never delete without confirmation.")
 	assert.Equal(t, "antigravity", rule.SourceProvider)
+}
+
+func TestAntigravityExtract_Rule_WithGlobsString(t *testing.T) {
+	data := []byte("---\ntrigger: glob\ndescription: Flutter animations\nglobs: **/huppen-app/**/*.dart, **/huppen_ui/**/*.dart\n---\n\nUse spring animations.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("rules/frontend/animation.md", data, config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["frontend/animation"]
+	require.True(t, ok, "expected nested rule 'frontend/animation'")
+	assert.Equal(t, "frontend/animation", rule.Name)
+	assert.Equal(t, "Flutter animations", rule.Description)
+	assert.Equal(t, ast.RuleActivationPathGlob, rule.Activation)
+	assert.Equal(t, ast.ClearableList{Values: []string{"**/huppen-app/**/*.dart", "**/huppen_ui/**/*.dart"}}, rule.Paths)
+	assert.Contains(t, rule.Body, "Use spring animations.")
+}
+
+func TestAntigravityExtract_Rule_WithGlobsSequence(t *testing.T) {
+	data := []byte("---\ntrigger: glob\ndescription: Formatting\nglobs:\n  - \"**/*.go\"\n  - \"**/*.ts\"\n---\n\nUse proper formatters.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("rules/formatting.md", data, config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["formatting"]
+	require.True(t, ok, "expected rule 'formatting'")
+	assert.Equal(t, ast.RuleActivationPathGlob, rule.Activation)
+	assert.Equal(t, ast.ClearableList{Values: []string{"**/*.go", "**/*.ts"}}, rule.Paths)
+}
+
+func TestAntigravityExtract_Rule_ModelDecision(t *testing.T) {
+	data := []byte("---\ntrigger: model_decision\ndescription: API design standards\n---\n\nDesign clean APIs.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("rules/api-standards.md", data, config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["api-standards"]
+	require.True(t, ok, "expected rule 'api-standards'")
+	assert.Equal(t, ast.RuleActivationModelDecided, rule.Activation)
+}
+
+func TestAntigravityExtract_Rule_Manual(t *testing.T) {
+	data := []byte("---\ntrigger: manual\ndescription: Explicit mention rule\n---\n\nSpecial procedures.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("rules/special.md", data, config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["special"]
+	require.True(t, ok, "expected rule 'special'")
+	assert.Equal(t, ast.RuleActivationManualMention, rule.Activation)
 }
 
 func TestAntigravityExtract_Workflow(t *testing.T) {
